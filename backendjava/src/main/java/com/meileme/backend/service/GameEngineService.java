@@ -47,8 +47,9 @@ public class GameEngineService {
     private final AtomicInteger completedOrderCount = new AtomicInteger(0);
     private final AtomicInteger expiredOrderCount = new AtomicInteger(0);
     
-    // 是否正在运行
+    // 是否正在运行 / 是否暂停
     private boolean isRunning = false;
+    private boolean isPaused = false;
 
     public GameEngineService(GameWebSocketHandler webSocketHandler, StringRedisTemplate redisTemplate, MerchantRepository merchantRepository) {
         this.webSocketHandler = webSocketHandler;
@@ -107,6 +108,7 @@ public class GameEngineService {
             expiredOrderCount.set(0);
             
             this.isRunning = true;
+            this.isPaused = false;
             
             // 广播系统启动和地图信息
             webSocketHandler.broadcastMessage(cachedMessage);
@@ -118,8 +120,35 @@ public class GameEngineService {
         }
     }
 
+    public void pauseSimulation() {
+        this.isPaused = true;
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.postForObject("http://localhost:8081/api/simulation/pause", null, String.class);
+            System.out.println("已通知 Python 引擎暂停物理模拟");
+        } catch (Exception e) {
+            System.err.println("通知 Python 引擎暂停失败: " + e.getMessage());
+        }
+        webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_PAUSED\"}");
+        System.out.println("模拟已暂停");
+    }
+
+    public void resumeSimulation() {
+        this.isPaused = false;
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.postForObject("http://localhost:8081/api/simulation/resume", null, String.class);
+            System.out.println("已通知 Python 引擎恢复物理模拟");
+        } catch (Exception e) {
+            System.err.println("通知 Python 引擎恢复失败: " + e.getMessage());
+        }
+        webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_RESUMED\"}");
+        System.out.println("模拟已恢复");
+    }
+
     public void stopSimulation() {
         this.isRunning = false;
+        this.isPaused = false;
         try {
             RestTemplate restTemplate = new RestTemplate();
             restTemplate.postForObject("http://localhost:8081/api/simulation/stop", null, String.class);
@@ -146,7 +175,7 @@ public class GameEngineService {
     // 1. 每 1 秒执行一次基于商家综合评分的分布式出单判定
     @Scheduled(fixedRate = 1000)
     public void generateOrder() {
-        if (!isRunning) return;
+        if (!isRunning || isPaused) return;
         List<Merchant> merchants = merchantRepository.findAll();
         if (merchants.isEmpty() || residentialCells.isEmpty()) return;
 
@@ -185,7 +214,7 @@ public class GameEngineService {
     // 2. 每秒执行一次自动派单 & 超时订单清理
     @Scheduled(fixedRate = 1000)
     public void assignOrders() {
-        if (!isRunning) return;
+        if (!isRunning || isPaused) return;
 
         // ★ 检查待处理订单是否超时（超过 1 分钟 / 60,000ms 未被接单则置为失效并移除）
         long now = System.currentTimeMillis();
@@ -263,7 +292,7 @@ public class GameEngineService {
     // 3. 高频同步 (10Hz)：从 Redis 提取 Python 引擎计算好的骑手坐标，并处理到达事件
     @Scheduled(fixedRate = 100)
     public void syncFromPython() {
-        if (!isRunning) return;
+        if (!isRunning || isPaused) return;
         try {
             // 1. 读取骑手物理坐标
             String ridersJson = redisTemplate.opsForValue().get("game:state:riders");

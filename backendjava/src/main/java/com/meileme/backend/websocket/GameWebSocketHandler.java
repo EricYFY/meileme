@@ -61,6 +61,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     int rCount = jsonNode.has("riderCount") ? jsonNode.get("riderCount").asInt() : 10;
                     System.out.println(">>> [来自 Client] 请求启动引擎，商家数: " + mCount + ", 骑手数: " + rCount);
                     gameEngineService.startSimulation(mCount, rCount);
+                } else if ("PAUSE_SIMULATION".equals(cmd)) {
+                    System.out.println(">>> [来自 Client] 请求暂停模拟");
+                    gameEngineService.pauseSimulation();
+                } else if ("RESUME_SIMULATION".equals(cmd)) {
+                    System.out.println(">>> [来自 Client] 请求继续模拟");
+                    gameEngineService.resumeSimulation();
                 } else if ("STOP_SIMULATION".equals(cmd)) {
                     System.out.println(">>> [来自 Client] 请求结束模拟");
                     gameEngineService.stopSimulation();

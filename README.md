@@ -101,13 +101,26 @@ Java 模块基于 Spring Boot 运行在 **8080** 端口，是系统的业务控�
   1. 接收前端传入的 `merchantCount`（商家数）和 `riderCount`（骑手数）。
   2. 调用 Python `POST /api/simulation/start` 动态初始化地图并启动 10Hz 物理引擎。
   3. 清空活跃订单列表、骑手占用锁，并将 `completedOrderCount` 和 `expiredOrderCount` 计数器归零。
-  4. 设置 `isRunning = true`，开启各项定时调度任务并广播 `SIMULATION_STARTED`。
+  4. 重置虚拟时钟为 **2026年07月01日 00:00:00**，设置 `isRunning = true, isPaused = false`，开启各项定时调度任务并广播 `SIMULATION_STARTED`。
+- **`PAUSE_SIMULATION` (暂停)**：
+  1. 设置 `isPaused = true`，阻断订单生成、派单与超时计算。
+  2. 调用 Python `POST /api/simulation/pause`，使物理引擎暂停计算，骑手瞬间定格在马路当前坐标。
+  3. 向所有客户端广播 `SIMULATION_PAUSED`，前端虚拟时钟与订单流定格。
+- **`RESUME_SIMULATION` (继续)**：
+  1. 设置 `isPaused = false`，恢复业务调度。
+  2. 调用 Python `POST /api/simulation/resume`，恢复物理引擎动力学更新。
+  3. 向所有客户端广播 `SIMULATION_RESUMED`，前端时钟继续流逝。
 - **`STOP_SIMULATION` (结束并重置)**：
-  1. 设置 `isRunning = false`，立即阻断所有订单生成与派单调度。
+  1. 设置 `isRunning = false, isPaused = false`，立即阻断所有订单生成与派单调度。
   2. 调用 Python `POST /api/simulation/stop` 停止物理 Tick 线程并清空 Redis 键。
   3. 清空所有内存活跃数据与计数器，向所有客户端广播 `SIMULATION_STOPPED`。
 
-### 2. 订单生命周期与超时失效状态机
+### 2. 游戏虚拟时间系统 (Game Virtual Time)
+- **起始基准时间**：**2026年07月01日 00:00:00**
+- **时间加速倍率**：**120 倍**（现实 **1 秒** = 游戏 **2 分钟**；现实 30 秒 = 游戏 1 小时；现实 12 分钟 = 游戏 1 整天）。
+- **流速控制**：仅在模拟处于“运行中”且“非暂停”状态下推进时间，暂停时时钟绝对定格，重置时归零。
+
+### 3. 订单生命周期与超时失效状态机
 ```mermaid
 flowchart LR
     Start(("● 生成")) --> S0["待接单 (status=0)"]
@@ -119,7 +132,7 @@ flowchart LR
     S3 --> EndNode
 ```
 
-### 3. 商家综合评分数学模型与出单机制
+### 4. 商家综合评分数学模型与出单机制
 系统建立了真实拟真的**商家动态评分与订单引流模型**：
 
 #### (1) 商家评分模型 $(0, 5.0]$
@@ -142,7 +155,7 @@ $$P_i = 0.15 \times \left(\frac{\text{Rating}_i}{5.0}\right)^2$$
 - **多商家效应**：全图商家越多，每秒总订单生成量成正比放大（$N$ 个商家每秒期望出单 $0.15 \times N$ 单）。
 - **高评分马太效应**：满分 5.0 商家平均 6.6 秒出 1 单；3.0 分商家平均 18.5 秒出 1 单，评分直接左右商家订单量。
 
-### 4. 核心调度任务清单
+### 5. 核心调度任务清单
 | 调度任务 | 频率 | 核心规则 |
 | :--- | :---: | :--- |
 | **`generateOrder()`** | 1000ms | 遍历所有商家，根据商家当前评分概率产生订单，从临路住宅池随机选取送达点，更新商家进行中订单数并广播 `ORDER_CREATED` 与 `MERCHANT_UPDATE`。 |

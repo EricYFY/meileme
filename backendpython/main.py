@@ -34,6 +34,22 @@ def start_simulation(req: StartRequest):
     
     return current_map_data
 
+@app.post("/api/simulation/pause")
+def pause_simulation():
+    global current_engine
+    if current_engine:
+        current_engine.pause()
+    print("[Main] 收到暂停请求")
+    return {"status": "paused"}
+
+@app.post("/api/simulation/resume")
+def resume_simulation():
+    global current_engine
+    if current_engine:
+        current_engine.resume()
+    print("[Main] 收到恢复请求")
+    return {"status": "running"}
+
 @app.post("/api/simulation/stop")
 def stop_simulation():
     global current_map_data, current_engine

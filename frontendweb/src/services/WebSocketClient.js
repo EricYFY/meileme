@@ -71,6 +71,12 @@ export default class WebSocketClient {
             case 'SIMULATION_STARTED':
                 if (this.onSimulationStarted) this.onSimulationStarted();
                 break;
+            case 'SIMULATION_PAUSED':
+                if (this.onSimulationPaused) this.onSimulationPaused();
+                break;
+            case 'SIMULATION_RESUMED':
+                if (this.onSimulationResumed) this.onSimulationResumed();
+                break;
             case 'SIMULATION_STOPPED':
                 if (this.onSimulationStopped) this.onSimulationStopped();
                 break;

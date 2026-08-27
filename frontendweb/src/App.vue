@@ -23,8 +23,26 @@
     <!-- 左侧主地图区域 -->
     <div class="map-section glass-panel">
       <div class="header">
-        <h2>外卖调度模拟器 (201x201)</h2>
+        <div class="header-left">
+          <h2>外卖调度模拟器 (201x201)</h2>
+          <!-- 赛博风虚拟时间时钟 (1s=2min) -->
+          <div v-if="isSimulationStarted" class="game-time-badge" :class="{ 'paused': isPaused }">
+            <span class="time-icon">{{ isPaused ? '⏸️' : '🕒' }}</span>
+            <span class="time-label">虚拟时间:</span>
+            <span class="time-val mono">{{ formattedGameTime }}</span>
+          </div>
+        </div>
         <div class="header-actions">
+          <!-- 暂停/继续按钮 -->
+          <button 
+            v-if="isSimulationStarted" 
+            class="btn-pause" 
+            :class="{ 'paused': isPaused }"
+            @click="togglePause" 
+            :title="isPaused ? '继续模拟' : '暂停模拟'"
+          >
+            {{ isPaused ? '▶️ 继续' : '⏸️ 暂停' }}
+          </button>
           <button v-if="isSimulationStarted" class="btn-stop" @click="stopSimulation" title="结束当前模拟并重置">
             ⏹️ 结束模拟
           </button>
@@ -235,6 +253,34 @@ const expiredOrderCount = ref(0);
 const activeTab = ref('merchants');
 const merchants = ref([]);
 
+// ★ 游戏虚拟时间：固定从 2026年07月01日 00:00:00 开始
+const BASE_GAME_TIME = new Date(2026, 6, 1, 0, 0, 0).getTime();
+const gameTimeMs = ref(BASE_GAME_TIME);
+const isPaused = ref(false);
+
+const formattedGameTime = computed(() => {
+  const d = new Date(gameTimeMs.value);
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+});
+
+let timeInterval = null;
+const startTimer = () => {
+  if (timeInterval) clearInterval(timeInterval);
+  timeInterval = setInterval(() => {
+    if (isSimulationStarted.value && !isPaused.value) {
+      // 现实 100ms = 游戏 12000ms (12秒，即 1s 现实 = 120s 游戏)
+      gameTimeMs.value += 12000;
+    }
+  }, 100);
+};
+
 const mapData = ref(null);
 const riders = ref([]);
 const orders = ref({});
@@ -251,6 +297,15 @@ const startSimulation = () => {
   }
 };
 
+const togglePause = () => {
+  if (!isConnected.value || !isSimulationStarted.value) return;
+  if (isPaused.value) {
+    client.send({ command: 'RESUME_SIMULATION' });
+  } else {
+    client.send({ command: 'PAUSE_SIMULATION' });
+  }
+};
+
 const stopSimulation = () => {
   if (confirm('确定要结束当前模拟并重置吗？')) {
     client.send({
@@ -262,11 +317,14 @@ const stopSimulation = () => {
 const client = new WebSocketClient();
 
 onMounted(() => {
+  startTimer();
   client.onStatusChange = (status) => isConnected.value = status;
   
   client.onSimulationStarted = () => {
     isSimulationStarted.value = true;
     isStarting.value = false;
+    isPaused.value = false;
+    gameTimeMs.value = BASE_GAME_TIME;
     orders.value = {};
     riders.value = [];
     merchants.value = [];
@@ -275,9 +333,19 @@ onMounted(() => {
     expiredOrderCount.value = 0;
   };
 
+  client.onSimulationPaused = () => {
+    isPaused.value = true;
+  };
+
+  client.onSimulationResumed = () => {
+    isPaused.value = false;
+  };
+
   client.onSimulationStopped = () => {
     isSimulationStarted.value = false;
     isStarting.value = false;
+    isPaused.value = false;
+    gameTimeMs.value = BASE_GAME_TIME;
     mapData.value = null;
     orders.value = {};
     riders.value = [];
@@ -520,12 +588,74 @@ const getRiderStatusClass = (status) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.game-time-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #34d399;
+  transition: all 0.3s ease;
+}
+
+.game-time-badge.paused {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.time-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.time-val {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+}
+
+.btn-pause {
+  padding: 6px 14px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-pause:hover {
+  background: rgba(245, 158, 11, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-pause.paused {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
 }
 
 .btn-stop {

@@ -9,6 +9,7 @@ class SimulationEngine:
     def __init__(self, map_data, rider_count=10):
         self.map_data = map_data
         self.running = False
+        self.paused = False
         self.rider_count = rider_count
         
         # 初始化道路 A* 寻路器
@@ -47,6 +48,7 @@ class SimulationEngine:
 
     def start(self):
         self.running = True
+        self.paused = False
         
         # ★ 启动前先把初始骑手状态写入 Redis，让 Java 能立刻读到
         if self.redis_client:
@@ -59,8 +61,17 @@ class SimulationEngine:
         self.thread.start()
         print("[Engine] 物理模拟引擎已启动 (10Hz)")
 
+    def pause(self):
+        self.paused = True
+        print("[Engine] 物理模拟引擎已暂停")
+
+    def resume(self):
+        self.paused = False
+        print("[Engine] 物理模拟引擎已继续")
+
     def stop(self):
         self.running = False
+        self.paused = False
         if hasattr(self, 'thread') and self.thread.is_alive():
             self.thread.join(timeout=1.0)
         if self.redis_client:
@@ -89,6 +100,10 @@ class SimulationEngine:
     def _tick_loop(self):
         dt = 0.1 # 100ms
         while self.running:
+            if self.paused:
+                time.sleep(0.1)
+                continue
+                
             start_time = time.time()
             self._update_riders(dt)
             
