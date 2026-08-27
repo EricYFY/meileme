@@ -118,47 +118,97 @@
         </div>
       </div>
 
-      <!-- 订单流 -->
-      <div class="orders-card glass-panel">
-        <h3>实时订单流</h3>
-        <div class="order-list">
-          <TransitionGroup name="list">
-            <div 
-              v-for="order in sortedOrders" 
-              :key="order.id" 
-              class="order-item" 
-              :class="['status-' + order.status, { 'selected': order.id === selectedOrderId }]"
-              @click="selectedOrderId = order.id"
-            >
-              <div class="order-header">
-                <span class="order-id">#{{ order.id.substring(0,8) }}</span>
-                <span class="order-status-badge">{{ getStatusText(order.status) }}</span>
-              </div>
-              <div class="order-detail">
-                <span>取: ({{ Math.round(order.pickupLocation.x) }}, {{ Math.round(order.pickupLocation.y) }})</span>
-                <span>送: ({{ Math.round(order.deliveryLocation.x) }}, {{ Math.round(order.deliveryLocation.y) }})</span>
-              </div>
-            </div>
-          </TransitionGroup>
-          <div v-if="Object.keys(orders).length === 0" class="empty-state">
-            暂无进行中的订单
-          </div>
+      <!-- 下方三个 Tab 页签切换 -->
+      <div class="tabs-container glass-panel">
+        <div class="tabs-header">
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'merchants' }" 
+            @click="activeTab = 'merchants'"
+          >
+            🏢 商家列表 ({{ merchants.length }})
+          </button>
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'orders' }" 
+            @click="activeTab = 'orders'"
+          >
+            📦 订单列表 ({{ Object.keys(orders).length }})
+          </button>
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'riders' }" 
+            @click="activeTab = 'riders'"
+          >
+            🚴 骑手列表 ({{ riders.length }})
+          </button>
         </div>
-      </div>
 
-      <!-- 骑手列表 -->
-      <div class="stats-card glass-panel" style="margin-top: 15px; max-height: 400px; overflow-y: auto;">
-        <h3>骑手列表</h3>
-        <div class="rider-list">
-          <div v-for="rider in riders" :key="rider.id" class="rider-item">
-            <div class="rider-header">
-              <span class="rider-id">{{ rider.id }}</span>
-              <span :class="['status-badge', getRiderStatusClass(rider.status)]">{{ getRiderStatusText(rider.status) }}</span>
+        <div class="tab-body">
+          <!-- 1. 商家列表 -->
+          <div v-show="activeTab === 'merchants'" class="tab-pane">
+            <div class="merchant-list">
+              <div v-for="m in merchants" :key="m.id" class="merchant-item">
+                <div class="merchant-header">
+                  <span class="merchant-name">{{ m.id }}</span>
+                  <span class="merchant-rating">⭐ {{ (m.rating || 5.0).toFixed(1) }}</span>
+                </div>
+                <div class="merchant-details">
+                  <span class="tag tag-ongoing">进行中: {{ m.ongoingOrders || 0 }}</span>
+                  <span class="tag tag-completed">已完成: {{ m.completedOrders || 0 }}</span>
+                  <span class="merchant-coord">({{ Math.round(m.location.x) }}, {{ Math.round(m.location.y) }})</span>
+                </div>
+              </div>
+              <div v-if="merchants.length === 0" class="empty-state">
+                暂无商家数据
+              </div>
             </div>
-            <div class="rider-details">
-              <div>坐标: {{ rider.currentPosition ? Math.round(rider.currentPosition.x) + ',' + Math.round(rider.currentPosition.y) : '未知' }}</div>
-              <div v-if="rider.targetPosition">目标: {{ Math.round(rider.targetPosition.x) }},{{ Math.round(rider.targetPosition.y) }}</div>
-              <div v-if="rider.currentOrderId" class="rider-order text-accent">订单: {{ rider.currentOrderId.substring(0,8) }}</div>
+          </div>
+
+          <!-- 2. 订单列表 -->
+          <div v-show="activeTab === 'orders'" class="tab-pane">
+            <div class="order-list">
+              <TransitionGroup name="list">
+                <div 
+                  v-for="order in sortedOrders" 
+                  :key="order.id" 
+                  class="order-item" 
+                  :class="['status-' + order.status, { 'selected': order.id === selectedOrderId }]"
+                  @click="selectedOrderId = order.id"
+                >
+                  <div class="order-header">
+                    <span class="order-id">#{{ order.id.substring(0,8) }}</span>
+                    <span class="order-status-badge">{{ getStatusText(order.status) }}</span>
+                  </div>
+                  <div class="order-detail">
+                    <span>取: ({{ Math.round(order.pickupLocation.x) }}, {{ Math.round(order.pickupLocation.y) }})</span>
+                    <span>送: ({{ Math.round(order.deliveryLocation.x) }}, {{ Math.round(order.deliveryLocation.y) }})</span>
+                  </div>
+                </div>
+              </TransitionGroup>
+              <div v-if="Object.keys(orders).length === 0" class="empty-state">
+                暂无进行中的订单
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. 骑手列表 -->
+          <div v-show="activeTab === 'riders'" class="tab-pane">
+            <div class="rider-list">
+              <div v-for="rider in riders" :key="rider.id" class="rider-item">
+                <div class="rider-header">
+                  <span class="rider-id">{{ rider.id }}</span>
+                  <span :class="['status-badge', getRiderStatusClass(rider.status)]">{{ getRiderStatusText(rider.status) }}</span>
+                </div>
+                <div class="rider-details">
+                  <div>坐标: {{ rider.currentPosition ? Math.round(rider.currentPosition.x) + ',' + Math.round(rider.currentPosition.y) : '未知' }}</div>
+                  <div v-if="rider.targetPosition">目标: {{ Math.round(rider.targetPosition.x) }}, {{ Math.round(rider.targetPosition.y) }}</div>
+                  <div v-if="rider.currentOrderId" class="rider-order text-accent">订单: #{{ rider.currentOrderId.substring(0,8) }}</div>
+                </div>
+              </div>
+              <div v-if="riders.length === 0" class="empty-state">
+                暂无骑手数据
+              </div>
             </div>
           </div>
         </div>
@@ -181,6 +231,9 @@ const riderCount = ref(10);
 
 const completedOrderCount = ref(0);
 const expiredOrderCount = ref(0);
+
+const activeTab = ref('merchants');
+const merchants = ref([]);
 
 const mapData = ref(null);
 const riders = ref([]);
@@ -216,6 +269,7 @@ onMounted(() => {
     isStarting.value = false;
     orders.value = {};
     riders.value = [];
+    merchants.value = [];
     selectedOrderId.value = null;
     completedOrderCount.value = 0;
     expiredOrderCount.value = 0;
@@ -227,6 +281,7 @@ onMounted(() => {
     mapData.value = null;
     orders.value = {};
     riders.value = [];
+    merchants.value = [];
     selectedOrderId.value = null;
     completedOrderCount.value = 0;
     expiredOrderCount.value = 0;
@@ -236,7 +291,14 @@ onMounted(() => {
     mapData.value = data;
     if (data) {
       isSimulationStarted.value = true;
+      if (data.merchants) {
+        merchants.value = data.merchants;
+      }
     }
+  };
+  
+  client.onMerchantUpdate = (data) => {
+    merchants.value = data;
   };
   
   client.onRiderUpdate = (data) => {
@@ -743,17 +805,140 @@ const getRiderStatusClass = (status) => {
   transform: translateX(30px);
 }
 
-/* 骑手列表 */
-.stats-card[style*="max-height"] {
-  /* 覆盖行内样式，改为 flex 自适应 */
-  max-height: none !important;
+/* Tabs 容器与头部 */
+.tabs-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  margin-top: 0 !important;
+  overflow: hidden;
+  padding: 14px;
 }
 
+.tabs-header {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--panel-border);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.tab-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+}
+
+.tab-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 商家列表样式 */
+.merchant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.merchant-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #f59e0b;
+}
+
+.merchant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.merchant-name {
+  font-weight: 600;
+  color: #fff;
+  font-size: 14px;
+}
+
+.merchant-rating {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.merchant-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tag-ongoing {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.tag-completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.merchant-coord {
+  color: var(--text-secondary);
+  margin-left: auto;
+  font-size: 11px;
+}
+
+/* 骑手列表 */
 .rider-list {
   display: flex;
   flex-direction: column;

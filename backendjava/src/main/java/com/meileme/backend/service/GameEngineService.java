@@ -110,6 +110,7 @@ public class GameEngineService {
             
             // 广播系统启动和地图信息
             webSocketHandler.broadcastMessage(cachedMessage);
+            broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
             webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_STARTED\"}");
             
         } catch (Exception e) {
@@ -142,40 +143,43 @@ public class GameEngineService {
         System.out.println("模拟已结束，状态已全部重置");
     }
 
-    // 1. 每 4 秒生成一个新订单
-    @Scheduled(fixedRate = 4000)
+    // 1. 每 1 秒执行一次基于商家综合评分的分布式出单判定
+    @Scheduled(fixedRate = 1000)
     public void generateOrder() {
         if (!isRunning) return;
         List<Merchant> merchants = merchantRepository.findAll();
-        if (merchants.isEmpty()) return;
+        if (merchants.isEmpty() || residentialCells.isEmpty()) return;
 
-        // 轮盘赌算法根据商家评分选择取餐点
-        double totalScore = merchants.stream().mapToDouble(Merchant::getRating).sum();
-        double randomVal = random.nextDouble() * totalScore;
-        double currentSum = 0;
-        Merchant selectedMerchant = merchants.get(0);
+        boolean anyNewOrder = false;
+
         for (Merchant m : merchants) {
-            currentSum += m.getRating();
-            if (currentSum >= randomVal) {
-                selectedMerchant = m;
-                break;
+            // 基础出单概率 0.15，按 (rating / 5.0)^2 缩放
+            // 5.0 分商家每秒产生概率为 0.15 (平均 6.6 秒一单)
+            // 3.0 分商家每秒产生概率为 0.15 * 0.36 = 0.054 (平均 18.5 秒一单)
+            double ratingRatio = Math.max(0.1, m.getRating()) / 5.0;
+            double orderProb = 0.15 * Math.pow(ratingRatio, 2);
+
+            if (random.nextDouble() < orderProb) {
+                // 产生一单
+                Coordinate pickup = m.getLocation();
+                int[] cell = residentialCells.get(random.nextInt(residentialCells.size()));
+                Coordinate delivery = new Coordinate(cell[0], cell[1]);
+
+                Order order = new Order(m.getId(), pickup, delivery);
+                activeOrders.add(order);
+
+                // 更新商家的进行中订单数
+                m.setOngoingOrders(m.getOngoingOrders() + 1);
+                merchantRepository.save(m);
+
+                broadcastState("ORDER_CREATED", order);
+                anyNewOrder = true;
             }
         }
 
-        Coordinate pickup = selectedMerchant.getLocation();
-        // 送餐点：从住宅区格子中随机选取
-        Coordinate delivery;
-        if (!residentialCells.isEmpty()) {
-            int[] cell = residentialCells.get(random.nextInt(residentialCells.size()));
-            delivery = new Coordinate(cell[0], cell[1]);
-        } else {
-            delivery = new Coordinate(random.nextInt(201) - 100, random.nextInt(201) - 100);
+        if (anyNewOrder) {
+            broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
         }
-        
-        Order order = new Order(pickup, delivery);
-        activeOrders.add(order);
-        
-        broadcastState("ORDER_CREATED", order);
     }
 
     // 2. 每秒执行一次自动派单 & 超时订单清理
@@ -186,17 +190,31 @@ public class GameEngineService {
         // ★ 检查待处理订单是否超时（超过 1 分钟 / 60,000ms 未被接单则置为失效并移除）
         long now = System.currentTimeMillis();
         Iterator<Order> iter = activeOrders.iterator();
+        boolean merchantUpdated = false;
         while (iter.hasNext()) {
             Order o = iter.next();
             if (o.getStatus() == 0 && (now - o.getCreateTime() > 60000)) {
                 iter.remove();
                 int expCount = expiredOrderCount.incrementAndGet();
+                
+                if (o.getMerchantId() != null) {
+                    merchantRepository.findById(o.getMerchantId()).ifPresent(m -> {
+                        m.setOngoingOrders(Math.max(0, m.getOngoingOrders() - 1));
+                        merchantRepository.save(m);
+                    });
+                    merchantUpdated = true;
+                }
+
                 Map<String, Object> expPayload = new HashMap<>();
                 expPayload.put("id", o.getId());
                 expPayload.put("expiredCount", expCount);
                 broadcastState("ORDER_EXPIRED", expPayload);
                 System.out.println(">>> 订单 " + o.getId().substring(0, 8) + " 超过1分钟未接单，已标记为失效移除 (累计失效: " + expCount + ")");
             }
+        }
+
+        if (merchantUpdated) {
+            broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
         }
 
         List<Order> unassignedOrders = activeOrders.stream().filter(o -> o.getStatus() == 0).collect(Collectors.toList());
@@ -313,7 +331,50 @@ public class GameEngineService {
     }
 
     private void updateMerchantRating(Order order) {
-        // ... (此处留作扩展：根据时间计算评价，并存入数据库)
+        if (order.getMerchantId() == null) return;
+        Merchant merchant = merchantRepository.findById(order.getMerchantId()).orElse(null);
+        if (merchant == null) return;
+
+        // 1. 配送时效分 S_delivery: 根据耗时 T (秒)
+        long durationMs = System.currentTimeMillis() - order.getCreateTime();
+        double durationSec = durationMs / 1000.0;
+        double sDelivery;
+        if (durationSec <= 15.0) {
+            sDelivery = 5.0;
+        } else if (durationSec <= 30.0) {
+            sDelivery = 5.0 - ((durationSec - 15.0) / 15.0) * 1.0; // 4.0 ~ 5.0
+        } else if (durationSec <= 60.0) {
+            sDelivery = 4.0 - ((durationSec - 30.0) / 30.0) * 2.0; // 2.0 ~ 4.0
+        } else {
+            sDelivery = 1.0;
+        }
+
+        // 2. 顾客对餐品质量的随机打分 S_quality: 90% 概率在 [3.5, 5.0]，10% 概率在 [1.0, 3.0]
+        double sQuality;
+        if (random.nextDouble() < 0.9) {
+            sQuality = 3.5 + random.nextDouble() * 1.5;
+        } else {
+            sQuality = 1.0 + random.nextDouble() * 2.0;
+        }
+
+        // 3. 单次订单综合得分 S_order = 0.4 * sDelivery + 0.6 * sQuality
+        double sOrder = 0.4 * sDelivery + 0.6 * sQuality;
+
+        // 4. 指数平滑更新商家综合评分 (EMA)
+        double oldRating = merchant.getRating();
+        double newRating = oldRating * 0.85 + sOrder * 0.15;
+        newRating = Math.max(0.1, Math.min(5.0, newRating));
+        float roundedRating = (float) (Math.round(newRating * 10.0) / 10.0);
+
+        merchant.setRating(roundedRating);
+        merchant.setCompletedOrders(merchant.getCompletedOrders() + 1);
+        merchant.setOngoingOrders(Math.max(0, merchant.getOngoingOrders() - 1));
+        merchantRepository.save(merchant);
+
+        System.out.println(String.format(">>> [评分更新] 商家 %s: 耗时 %.1fs -> 配送分 %.1f, 质量分 %.1f, 本单综合 %.1f, 商家评分 %.1f -> %.1f",
+                merchant.getId(), durationSec, sDelivery, sQuality, sOrder, oldRating, roundedRating));
+
+        broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
     }
 
     private void broadcastState(String type, Object data) {

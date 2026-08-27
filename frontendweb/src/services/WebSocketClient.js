@@ -65,6 +65,9 @@ export default class WebSocketClient {
             case 'RIDER_UPDATE':
                 if (this.onRiderUpdate) this.onRiderUpdate(msg.data);
                 break;
+            case 'MERCHANT_UPDATE':
+                if (this.onMerchantUpdate) this.onMerchantUpdate(msg.data);
+                break;
             case 'SIMULATION_STARTED':
                 if (this.onSimulationStarted) this.onSimulationStarted();
                 break;
