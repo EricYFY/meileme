@@ -1,0 +1,71 @@
+# ==========================================
+# Java / Spring Boot (backendjava)
+# ==========================================
+backendjava/target/
+backendjava/*.jar
+backendjava/*.war
+backendjava/*.ear
+backendjava/.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ IDEA (Java IDE)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ==========================================
+# Python (backendpython)
+# ==========================================
+backendpython/__pycache__/
+backendpython/*.py[cod]
+backendpython/*$py.class
+backendpython/venv/
+backendpython/env/
+backendpython/.venv/
+backendpython/.pytest_cache/
+backendpython/.coverage
+backendpython/.env
+
+# ==========================================
+# Node.js / Vue Frontend (frontendweb)
+# ==========================================
+frontendweb/node_modules/
+frontendweb/dist/
+frontendweb/dist-ssr/
+frontendweb/npm-debug.log*
+frontendweb/yarn-debug.log*
+frontendweb/yarn-error.log*
+frontendweb/.env.local
+frontendweb/.env.development.local
+frontendweb/.env.test.local
+frontendweb/.env.production.local
+
+# ==========================================
+# Unity Client (future/existing Unity project)
+# ==========================================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+*.apk
+*.aab
+*.unitypackage
+*.app
+sysinfo.txt
+*.crash
+
+# ==========================================
+# OS & Environment
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
