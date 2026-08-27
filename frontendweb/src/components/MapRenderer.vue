@@ -64,7 +64,7 @@ onBeforeUnmount(() => {
 });
 
 watch(() => props.mapData, (newMap) => {
-  if (engine && newMap) engine.setMap(newMap);
+  if (engine) engine.setMap(newMap);
 });
 
 watch(() => props.riders, (newRiders) => {

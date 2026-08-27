@@ -12,15 +12,21 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.MediaType;
 
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class GameEngineService {
@@ -36,6 +42,13 @@ public class GameEngineService {
     
     // ★ Java 本地维护的"已占用"骑手集合，防止因 Redis 读取延迟导致同一骑手被重复派单
     private final Set<String> busyRiderIds = new HashSet<>();
+    
+    // 统计计数器
+    private final AtomicInteger completedOrderCount = new AtomicInteger(0);
+    private final AtomicInteger expiredOrderCount = new AtomicInteger(0);
+    
+    // 是否正在运行
+    private boolean isRunning = false;
 
     public GameEngineService(GameWebSocketHandler webSocketHandler, StringRedisTemplate redisTemplate, MerchantRepository merchantRepository) {
         this.webSocketHandler = webSocketHandler;
@@ -47,12 +60,19 @@ public class GameEngineService {
     // 缓存住宅区坐标列表，用于随机生成订单送达点
     private List<int[]> residentialCells = new ArrayList<>();
 
-    @PostConstruct
-    public void initMapAndMerchants() {
+    public void startSimulation(int merchantCount, int riderCount) {
         try {
-            // 通过 HTTP 从 Python 服务获取地图和商家初始化数据
+            // 通过 HTTP POST 从 Python 服务启动并获取地图和商家数据
             RestTemplate restTemplate = new RestTemplate();
-            String mapJson = restTemplate.getForObject("http://localhost:8081/api/map/init", String.class);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            Map<String, Integer> requestBody = new HashMap<>();
+            requestBody.put("merchantCount", merchantCount);
+            requestBody.put("riderCount", riderCount);
+            
+            HttpEntity<Map<String, Integer>> request = new HttpEntity<>(requestBody, headers);
+            String mapJson = restTemplate.postForObject("http://localhost:8081/api/simulation/start", request, String.class);
             Map<String, Object> mapData = objectMapper.readValue(mapJson, new TypeReference<Map<String, Object>>() {});
             
             // 组装并缓存地图数据，供前端按需拉取
@@ -79,14 +99,53 @@ public class GameEngineService {
             }
             
             System.out.println("成功从 Python 引擎获取地图并初始化了 " + merchantsData.size() + " 个商家，" + residentialCells.size() + " 个住宅区格子。");
+            
+            // 清空旧数据与计数器
+            activeOrders.clear();
+            busyRiderIds.clear();
+            completedOrderCount.set(0);
+            expiredOrderCount.set(0);
+            
+            this.isRunning = true;
+            
+            // 广播系统启动和地图信息
+            webSocketHandler.broadcastMessage(cachedMessage);
+            webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_STARTED\"}");
+            
         } catch (Exception e) {
-            System.err.println("未能连接到 Python 引擎初始化地图: " + e.getMessage());
+            System.err.println("未能连接到 Python 引擎启动模拟: " + e.getMessage());
         }
+    }
+
+    public void stopSimulation() {
+        this.isRunning = false;
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.postForObject("http://localhost:8081/api/simulation/stop", null, String.class);
+            System.out.println("已通知 Python 引擎停止模拟");
+        } catch (Exception e) {
+            System.err.println("通知 Python 引擎停止模拟失败: " + e.getMessage());
+        }
+
+        // 清空业务状态与计数器
+        activeOrders.clear();
+        currentRidersState.clear();
+        busyRiderIds.clear();
+        residentialCells.clear();
+        merchantRepository.clear();
+        completedOrderCount.set(0);
+        expiredOrderCount.set(0);
+        webSocketHandler.setCachedMapMessage(null);
+
+        // 广播模拟结束事件
+        webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_STOPPED\"}");
+        System.out.println("模拟已结束，状态已全部重置");
     }
 
     // 1. 每 4 秒生成一个新订单
     @Scheduled(fixedRate = 4000)
     public void generateOrder() {
+        if (!isRunning) return;
         List<Merchant> merchants = merchantRepository.findAll();
         if (merchants.isEmpty()) return;
 
@@ -119,9 +178,27 @@ public class GameEngineService {
         broadcastState("ORDER_CREATED", order);
     }
 
-    // 2. 每秒执行一次自动派单
+    // 2. 每秒执行一次自动派单 & 超时订单清理
     @Scheduled(fixedRate = 1000)
     public void assignOrders() {
+        if (!isRunning) return;
+
+        // ★ 检查待处理订单是否超时（超过 1 分钟 / 60,000ms 未被接单则置为失效并移除）
+        long now = System.currentTimeMillis();
+        Iterator<Order> iter = activeOrders.iterator();
+        while (iter.hasNext()) {
+            Order o = iter.next();
+            if (o.getStatus() == 0 && (now - o.getCreateTime() > 60000)) {
+                iter.remove();
+                int expCount = expiredOrderCount.incrementAndGet();
+                Map<String, Object> expPayload = new HashMap<>();
+                expPayload.put("id", o.getId());
+                expPayload.put("expiredCount", expCount);
+                broadcastState("ORDER_EXPIRED", expPayload);
+                System.out.println(">>> 订单 " + o.getId().substring(0, 8) + " 超过1分钟未接单，已标记为失效移除 (累计失效: " + expCount + ")");
+            }
+        }
+
         List<Order> unassignedOrders = activeOrders.stream().filter(o -> o.getStatus() == 0).collect(Collectors.toList());
         if (unassignedOrders.isEmpty() || currentRidersState.isEmpty()) return;
 
@@ -168,6 +245,7 @@ public class GameEngineService {
     // 3. 高频同步 (10Hz)：从 Redis 提取 Python 引擎计算好的骑手坐标，并处理到达事件
     @Scheduled(fixedRate = 100)
     public void syncFromPython() {
+        if (!isRunning) return;
         try {
             // 1. 读取骑手物理坐标
             String ridersJson = redisTemplate.opsForValue().get("game:state:riders");
@@ -215,14 +293,19 @@ public class GameEngineService {
                 
                 updateMerchantRating(currentOrder);
                 activeOrders.remove(currentOrder);
-                broadcastState("ORDER_COMPLETED", currentOrder);
+                
+                int compCount = completedOrderCount.incrementAndGet();
+                Map<String, Object> compPayload = new HashMap<>();
+                compPayload.put("id", currentOrder.getId());
+                compPayload.put("completedCount", compCount);
+                broadcastState("ORDER_COMPLETED", compPayload);
 
                 // 解放骑手
                 busyRiderIds.remove(riderId);
                 redisTemplate.opsForHash().put("game:rider:status", riderId, "0");
                 redisTemplate.opsForHash().put("game:rider:orders", riderId, "null");
                 redisTemplate.opsForHash().put("game:rider:targets", riderId, "null");
-                System.out.println(">>> 骑手 " + riderId + " 已送达，订单 " + orderId + " 完成，释放骑手");
+                System.out.println(">>> 骑手 " + riderId + " 已送达，订单 " + orderId + " 完成，释放骑手 (累计完成: " + compCount + ")");
             }
         } catch (Exception e) {
             e.printStackTrace();

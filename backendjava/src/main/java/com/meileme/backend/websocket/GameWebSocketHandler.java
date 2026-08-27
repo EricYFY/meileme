@@ -35,20 +35,35 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         System.out.println("Unity Client disconnected: " + session.getId());
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.meileme.backend.service.GameEngineService gameEngineService;
+
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        System.out.println(">>> [来自 Unity] 收到指令: " + payload);
+        System.out.println(">>> [来自 Client] 收到指令: " + payload);
         
         try {
             com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(payload);
-            if (jsonNode.has("command") && "GET_MAP".equals(jsonNode.get("command").asText())) {
-                if (cachedMapMessage != null) {
-                    session.sendMessage(new TextMessage(cachedMapMessage));
-                    System.out.println("<<< [发给 Unity] 返回地图数据 (MAP_DATA) 给客户端: " + session.getId());
-                } else {
-                    session.sendMessage(new TextMessage("{\"type\":\"ERROR\",\"message\":\"Map not loaded yet\"}"));
-                    System.out.println("<<< [发给 Unity] 报错：地图尚未加载");
+            if (jsonNode.has("command")) {
+                String cmd = jsonNode.get("command").asText();
+                if ("GET_MAP".equals(cmd)) {
+                    if (cachedMapMessage != null) {
+                        session.sendMessage(new TextMessage(cachedMapMessage));
+                        System.out.println("<<< [发给 Client] 返回地图数据 (MAP_DATA) 给客户端: " + session.getId());
+                    } else {
+                        session.sendMessage(new TextMessage("{\"type\":\"ERROR\",\"message\":\"Map not loaded yet\"}"));
+                        System.out.println("<<< [发给 Client] 报错：地图尚未加载");
+                    }
+                } else if ("START_SIMULATION".equals(cmd)) {
+                    int mCount = jsonNode.has("merchantCount") ? jsonNode.get("merchantCount").asInt() : 5;
+                    int rCount = jsonNode.has("riderCount") ? jsonNode.get("riderCount").asInt() : 10;
+                    System.out.println(">>> [来自 Client] 请求启动引擎，商家数: " + mCount + ", 骑手数: " + rCount);
+                    gameEngineService.startSimulation(mCount, rCount);
+                } else if ("STOP_SIMULATION".equals(cmd)) {
+                    System.out.println(">>> [来自 Client] 请求结束模拟");
+                    gameEngineService.stopSimulation();
                 }
             }
         } catch (Exception e) {

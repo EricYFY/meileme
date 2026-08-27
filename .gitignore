@@ -69,3 +69,19 @@ sysinfo.txt
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# ==========================================
+# Redis
+# ==========================================
+# 忽略 Redis 持久化数据文件
+dump.rdb
+appendonly.aof
+appendonly.aof.*
+*.rdb
+*.aof
+nodes.conf
+# 忽略 redis 文件夹本身及其安装包
+redis/
+redis-*/
+redis*.tar.gz
+redis*.zip

@@ -18,11 +18,12 @@ TILE_COM_LOW = 7     # 低密度商业区
 
 
 class MapGenerator:
-    def __init__(self):
+    def __init__(self, merchant_count=5):
         self.grid = np.full((SIZE, SIZE), TILE_RES_LOW, dtype=np.int8)
         self.merchants = []
         # 记录所有住宅区格子坐标，用于后续订单生成
         self.residential_cells = []
+        self.merchant_count = merchant_count
 
     def _coord_to_idx(self, v):
         """将逻辑坐标 (-100~100) 转为数组下标 (0~200)"""
@@ -77,37 +78,26 @@ class MapGenerator:
                 row = min(SIZE - 1, idx + offset)
                 self.grid[row, :] = TILE_ROAD_BIG
                 self.grid[:, row] = TILE_ROAD_BIG
-
-        # 2c. 主干道 (3格宽)：x=0 和 y=0
+                
+        # 2c. 主干道 (3格宽)：中心十字
         center = self._coord_to_idx(0)
-        for offset in range(-1, 2):  # -1, 0, 1 → 3格宽
-            row = center + offset
-            self.grid[row, :] = TILE_ROAD_MAIN  # x=0 横穿
-            self.grid[:, row] = TILE_ROAD_MAIN  # y=0 纵穿
+        # 3格宽：-1, 0, 1
+        for offset in [-1, 0, 1]:
+            c_idx = center + offset
+            if 0 <= c_idx < SIZE:
+                self.grid[c_idx, :] = TILE_ROAD_MAIN
+                self.grid[:, c_idx] = TILE_ROAD_MAIN
 
-        # ========== 第3步：划分建筑街区类型 ==========
-        # 沿主干道/大路旁的区块标记为商业区，其余为住宅区
-        # 简单规则：距离 x=0 或 y=0 最近的一圈街区为高密度商业区
-        #          距离大路最近的街区为低密度商业区
-        #          其余为住宅区（已经默认填好了）
-
-        # 围绕主干道 (x=0, y=0) 交叉口的 4 个街区设为高密度商业区
-        commercial_blocks = [
-            # 主干道十字路口附近的 4 个大方块
+        # ========== 第3步：商业区与高密度住宅 ==========
+        low_com_blocks = [
             (2, 2, 19, 19),
             (-19, 2, -2, 19),
             (2, -19, 19, -2),
             (-19, -19, -2, -2),
-        ]
-        for (x0, y0, x1, y1) in commercial_blocks:
-            self._fill_rect(x0, y0, x1, y1, TILE_COM_HIGH)
-
-        # 沿主干道稍远处的区块设为低密度商业区
-        low_com_blocks = [
-            (2, 22, 19, 39),
-            (-19, 22, -2, 39),
-            (2, -39, 19, -22),
-            (-19, -39, -2, -22),
+            (22, 22, 39, 39),
+            (-39, 22, -22, 39),
+            (22, -39, 39, -22),
+            (-39, -39, -22, -22),
             (22, 2, 39, 19),
             (-39, 2, -22, 19),
             (22, -19, 39, -2),
@@ -116,7 +106,6 @@ class MapGenerator:
         for (x0, y0, x1, y1) in low_com_blocks:
             self._fill_rect(x0, y0, x1, y1, TILE_COM_LOW)
 
-        # 随机将一些远离中心的街区标记为高密度住宅区
         high_res_blocks = [
             (42, 42, 59, 59),
             (-59, 42, -42, 59),
@@ -130,31 +119,49 @@ class MapGenerator:
         for (x0, y0, x1, y1) in high_res_blocks:
             self._fill_rect(x0, y0, x1, y1, TILE_RES_HIGH)
 
-        # ========== 第4步：在路边放置 5 个商家 ==========
-        # 商家一定紧挨着路，放在商业区或路边第一格
-        merchant_positions = [
-            (1, 10),     # 主干道旁
-            (-15, -1),   # 主干道旁
-            (25, 1),     # 大路旁
-            (-1, -30),   # 主干道旁
-            (41, 41),    # 大路交叉口旁
-        ]
-        self.merchants = []
-        for idx, (mx, my) in enumerate(merchant_positions):
+        # ========== 第4步：在临近马路的商业区放置商家 ==========
+        # 筛选出与道路直接相邻(4-邻域)的商业区格子
+        road_tiles = {TILE_ROAD_MAIN, TILE_ROAD_BIG, TILE_ROAD_SMALL}
+        roadside_com_cells = []
+        for i in range(SIZE):
+            for j in range(SIZE):
+                if self.grid[i, j] in (TILE_COM_LOW, TILE_COM_HIGH):
+                    # 判断上下左右是否有道路
+                    has_adjacent_road = False
+                    for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        ni, nj = i + di, j + dj
+                        if 0 <= ni < SIZE and 0 <= nj < SIZE and self.grid[ni, nj] in road_tiles:
+                            has_adjacent_road = True
+                            break
+                    if has_adjacent_road:
+                        roadside_com_cells.append((i, j))
+        
+        # 随机挑选指定数量的临路商业点作为商家
+        selected_cells = random.sample(roadside_com_cells, min(self.merchant_count, len(roadside_com_cells)))
+        
+        for idx, (cx, cy) in enumerate(selected_cells):
             self.merchants.append({
                 "id": f"merchant-{idx + 1}",
-                "x": mx,
-                "y": my
+                "x": cx + GRID_MIN,
+                "y": cy + GRID_MIN
             })
 
-        # ========== 第5步：收集住宅区格子（用于随机生成订单送达点） ==========
+        # ========== 第5步：收集所有临路的住宅区格子 ==========
+        # 只有与马路直接相邻的住宅格子才能作为有效送餐点，确保骑手可达
         self.residential_cells = []
         for i in range(SIZE):
             for j in range(SIZE):
                 if self.grid[i, j] in [TILE_RES_HIGH, TILE_RES_LOW]:
-                    self.residential_cells.append((i + GRID_MIN, j + GRID_MIN))
+                    has_adjacent_road = False
+                    for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        ni, nj = i + di, j + dj
+                        if 0 <= ni < SIZE and 0 <= nj < SIZE and self.grid[ni, nj] in road_tiles:
+                            has_adjacent_road = True
+                            break
+                    if has_adjacent_road:
+                        self.residential_cells.append((i + GRID_MIN, j + GRID_MIN))
 
-        print(f"[Map] 生成完毕. 地图大小: {SIZE}x{SIZE}, 商家数量: {len(self.merchants)}, 住宅区格子: {len(self.residential_cells)}")
+        print(f"[Map] 生成完毕. 地图大小: {SIZE}x{SIZE}, 临路商家: {len(self.merchants)}, 临路送餐点格子: {len(self.residential_cells)}")
 
     def get_map_data(self):
         return {

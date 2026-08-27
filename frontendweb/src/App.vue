@@ -1,12 +1,37 @@
 <template>
   <div class="dashboard">
+    <!-- 启动配置弹窗 -->
+    <div v-if="!isSimulationStarted" class="start-modal-overlay">
+      <div class="start-modal glass-panel">
+        <h2>🚀 外卖调度系统启动前序</h2>
+        <p class="modal-desc">系统已连接，请配置初始参数以启动模拟引擎。</p>
+        
+        <div class="form-group">
+          <label>初始商家数量 (1-50)</label>
+          <input type="number" v-model.number="merchantCount" min="1" max="50" />
+        </div>
+        <div class="form-group">
+          <label>初始骑手数量 (1-100)</label>
+          <input type="number" v-model.number="riderCount" min="1" max="100" />
+        </div>
+        
+        <button class="btn-start" @click="startSimulation" :disabled="!isConnected || isStarting">
+          {{ !isConnected ? '等待服务器连接...' : (isStarting ? '启动中...' : '启动引擎') }}
+        </button>
+      </div>
+    </div>
     <!-- 左侧主地图区域 -->
     <div class="map-section glass-panel">
       <div class="header">
         <h2>外卖调度模拟器 (201x201)</h2>
-        <div class="status-indicator">
-          <span class="dot" :class="{ 'connected': isConnected }"></span>
-          {{ isConnected ? '服务器已连接' : '服务器断开' }}
+        <div class="header-actions">
+          <button v-if="isSimulationStarted" class="btn-stop" @click="stopSimulation" title="结束当前模拟并重置">
+            ⏹️ 结束模拟
+          </button>
+          <div class="status-indicator">
+            <span class="dot" :class="{ 'connected': isConnected }"></span>
+            {{ isConnected ? '服务器已连接' : '服务器断开' }}
+          </div>
         </div>
       </div>
       <div class="map-wrapper">
@@ -49,6 +74,14 @@
           <div class="stat-item">
             <span class="label">配送中订单</span>
             <span class="value text-accent">{{ deliveringOrdersCount }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">已送达订单</span>
+            <span class="value text-completed">{{ completedOrderCount }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">已失效订单</span>
+            <span class="value text-expired">{{ expiredOrderCount }}</span>
           </div>
         </div>
       </div>
@@ -141,18 +174,69 @@ import MapRenderer from './components/MapRenderer.vue';
 import WebSocketClient from './services/WebSocketClient.js';
 
 const isConnected = ref(false);
+const isSimulationStarted = ref(false);
+const isStarting = ref(false);
+const merchantCount = ref(5);
+const riderCount = ref(10);
+
+const completedOrderCount = ref(0);
+const expiredOrderCount = ref(0);
+
 const mapData = ref(null);
 const riders = ref([]);
 const orders = ref({});
 const selectedOrderId = ref(null);
+
+const startSimulation = () => {
+  if (isConnected.value && !isStarting.value) {
+    isStarting.value = true;
+    client.send({
+      command: 'START_SIMULATION',
+      merchantCount: merchantCount.value,
+      riderCount: riderCount.value
+    });
+  }
+};
+
+const stopSimulation = () => {
+  if (confirm('确定要结束当前模拟并重置吗？')) {
+    client.send({
+      command: 'STOP_SIMULATION'
+    });
+  }
+};
 
 const client = new WebSocketClient();
 
 onMounted(() => {
   client.onStatusChange = (status) => isConnected.value = status;
   
+  client.onSimulationStarted = () => {
+    isSimulationStarted.value = true;
+    isStarting.value = false;
+    orders.value = {};
+    riders.value = [];
+    selectedOrderId.value = null;
+    completedOrderCount.value = 0;
+    expiredOrderCount.value = 0;
+  };
+
+  client.onSimulationStopped = () => {
+    isSimulationStarted.value = false;
+    isStarting.value = false;
+    mapData.value = null;
+    orders.value = {};
+    riders.value = [];
+    selectedOrderId.value = null;
+    completedOrderCount.value = 0;
+    expiredOrderCount.value = 0;
+  };
+
   client.onMapData = (data) => {
     mapData.value = data;
+    if (data) {
+      isSimulationStarted.value = true;
+    }
   };
   
   client.onRiderUpdate = (data) => {
@@ -172,8 +256,26 @@ onMounted(() => {
         orders.value[data.id].status = data.status;
       }
     } else if (type === 'ORDER_COMPLETED') {
-      if (orders.value[data.id]) {
-        orders.value[data.id].status = 3;
+      if (data.completedCount !== undefined) {
+        completedOrderCount.value = data.completedCount;
+      } else {
+        completedOrderCount.value++;
+      }
+      // ★ 订单完成送达后，彻底从前端活跃订单字典中删除，释放内存与 DOM 节点
+      delete orders.value[data.id];
+      if (selectedOrderId.value === data.id) {
+        selectedOrderId.value = null;
+      }
+    } else if (type === 'ORDER_EXPIRED') {
+      if (data.expiredCount !== undefined) {
+        expiredOrderCount.value = data.expiredCount;
+      } else {
+        expiredOrderCount.value++;
+      }
+      // ★ 订单超时失效后，彻底从前端活跃订单字典中删除
+      delete orders.value[data.id];
+      if (selectedOrderId.value === data.id) {
+        selectedOrderId.value = null;
       }
     }
   };
@@ -262,9 +364,86 @@ const getRiderStatusClass = (status) => {
 <style scoped>
 .dashboard {
   display: flex;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  overflow: hidden; /* 防止出现外层滚动条 */
+}
+
+/* 启动弹窗 */
+.start-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 14, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.start-modal {
+  padding: 40px;
+  border-radius: 16px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.start-modal h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--primary-color);
+  text-align: center;
+}
+.modal-desc {
+  text-align: center;
+  color: #aaa;
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.form-group input {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  font-size: 1rem;
+}
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+.btn-start {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-start:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.4);
+}
+.btn-start:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .map-section {
@@ -279,6 +458,34 @@ const getRiderStatusClass = (status) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-stop {
+  padding: 6px 14px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-stop:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #ef4444;
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .header h2 {
@@ -316,15 +523,18 @@ const getRiderStatusClass = (status) => {
 }
 
 .control-panel {
-  flex: 1;
+  width: 400px;
+  padding: 15px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-width: 320px;
+  gap: 15px;
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .stats-card, .orders-card, .detail-card {
-  padding: 20px;
+  padding: 15px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
 }
@@ -339,27 +549,28 @@ const getRiderStatusClass = (status) => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 
 .stat-item {
   display: flex;
   flex-direction: column;
   background: rgba(0,0,0,0.2);
-  padding: 12px;
+  padding: 10px 6px;
   border-radius: 8px;
   text-align: center;
 }
 
 .stat-item .label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   margin-bottom: 4px;
+  white-space: nowrap;
 }
 
 .stat-item .value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -367,6 +578,8 @@ const getRiderStatusClass = (status) => {
 .text-warning { color: var(--warning); }
 .text-success { color: var(--success); }
 .text-danger { color: var(--danger); }
+.text-completed { color: #10b981; }
+.text-expired { color: #64748b; }
 
 /* 订单详情卡片 */
 .detail-card {
@@ -531,10 +744,23 @@ const getRiderStatusClass = (status) => {
 }
 
 /* 骑手列表 */
+.stats-card[style*="max-height"] {
+  /* 覆盖行内样式，改为 flex 自适应 */
+  max-height: none !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 0 !important;
+}
+
 .rider-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 5px;
 }
 .rider-item {
   background: rgba(255, 255, 255, 0.05);

@@ -47,6 +47,14 @@ export default class WebSocketClient {
         }
     }
 
+    send(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        } else {
+            console.warn("[WS] 未连接，无法发送", data);
+        }
+    }
+
     handleMessage(msg) {
         if (!msg || !msg.type) return;
         
@@ -57,10 +65,17 @@ export default class WebSocketClient {
             case 'RIDER_UPDATE':
                 if (this.onRiderUpdate) this.onRiderUpdate(msg.data);
                 break;
+            case 'SIMULATION_STARTED':
+                if (this.onSimulationStarted) this.onSimulationStarted();
+                break;
+            case 'SIMULATION_STOPPED':
+                if (this.onSimulationStopped) this.onSimulationStopped();
+                break;
             case 'ORDER_CREATED':
             case 'RIDER_ASSIGNED':
             case 'ORDER_STATUS_CHANGED':
             case 'ORDER_COMPLETED':
+            case 'ORDER_EXPIRED':
                 if (this.onOrderEvent) this.onOrderEvent(msg.type, msg.data);
                 break;
         }

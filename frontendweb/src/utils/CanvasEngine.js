@@ -120,9 +120,20 @@ export default class CanvasEngine {
 
     setMap(mapData) {
         this.mapData = mapData;
+        if (!mapData) {
+            this.clear();
+            return;
+        }
         const totalSize = (mapData.max - mapData.min + 1) * this.tileSize;
         this.offsetX = (this.canvas.width - totalSize * this.scale) / 2;
         this.offsetY = (this.canvas.height - totalSize * this.scale) / 2;
+    }
+
+    clear() {
+        this.mapData = null;
+        this.riders.clear();
+        this.orders.clear();
+        this.selectedOrderId = null;
     }
 
     updateRiders(ridersList) {
