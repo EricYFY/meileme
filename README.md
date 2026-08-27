@@ -10,37 +10,40 @@
 
 ```mermaid
 flowchart TB
-    subgraph Frontend [前端控制与监控 (Vue 3)]
-        UI[App.vue Dashboard]
-        Canvas[CanvasEngine 实时画布]
+    subgraph Frontend["前端控制与监控 (Vue 3)"]
+        UI["App.vue 控制台"]
+        Canvas["CanvasEngine 实时画布"]
     end
 
-    subgraph JavaGateway [Java 业务调度网关 (Spring Boot :8080)]
-        WS[GameWebSocketHandler]
-        Scheduler[GameEngineService 调度中心]
-        OrderPool[(activeOrders 活跃订单池)]
-        Counters[完成/失效原子计数器]
+    subgraph JavaGateway["Java 业务调度网关 (Spring Boot :8080)"]
+        WS["GameWebSocketHandler"]
+        Scheduler["GameEngineService 调度中心"]
+        OrderPool["activeOrders 活跃订单池"]
+        Counters["完成/失效原子计数器"]
     end
 
-    subgraph RedisBus [Redis 高速消息总线 (:6379)]
-        StateKey[game:state:riders]
-        TargetHash[game:rider:targets]
-        StatusHash[game:rider:status]
-        EventQueue[game:events:reach_target]
+    subgraph RedisBus["Redis 高速消息总线 (:6379)"]
+        StateKey["game:state:riders"]
+        TargetHash["game:rider:targets"]
+        StatusHash["game:rider:status"]
+        EventQueue["game:events:reach_target"]
     end
 
-    subgraph PythonEngine [Python 物理与寻路引擎 (FastAPI :8081)]
-        API[FastAPI Lifecycle API]
-        AStar[AStarRouter 道路网络寻路]
-        MapGen[MapGenerator 地图生成]
-        TickLoop[10Hz 物理动力学循环]
+    subgraph PythonEngine["Python 物理与寻路引擎 (FastAPI :8081)"]
+        API["FastAPI Lifecycle API"]
+        AStar["AStarRouter 道路网络寻路"]
+        MapGen["MapGenerator 地图生成"]
+        TickLoop["10Hz 物理动力学循环"]
     end
 
-    UI <-->|WebSocket| WS
+    UI --> WS
+    WS --> UI
     WS --> Scheduler
-    Scheduler -->|HTTP REST| API
-    Scheduler <-->|读写状态与事件| RedisBus
-    TickLoop <-->|读写坐标与事件| RedisBus
+    Scheduler --> API
+    Scheduler --> RedisBus
+    RedisBus --> Scheduler
+    TickLoop --> RedisBus
+    RedisBus --> TickLoop
     AStar --> TickLoop
 ```
 
@@ -74,14 +77,14 @@ Python 模块运行在 **8081** 端口，提供基于 FastAPI 的生命周期接
 - **状态空间约束**：骑手只允许在马路格子（`tile in (1, 2, 3)`）上移动，禁止越界穿越建筑物。
 - **代价函数与启发式**：
   $$cost(u, v) = \frac{1.0}{speed(v)}$$
-  $$h(n) = \frac{\text{ManhattanDistance}(n, target)}{\text{MAX\_SPEED}(9.0)}$$
+  $$h(n) = \frac{\text{ManhattanDistance}(n, target)}{\text{MaxSpeed}(9.0)}$$
   寻路器自动偏好通行速度更快的高等级道路（主干道 > 大路 > 小路）。
 - **拐点压缩（Waypoints）**：自动将长直道中间点压缩为关键转弯点，输出精简路点序列。
 
 ### 2. 物理运动与动态变速 (`engine.py`)
 - 物理引擎以 **10Hz (100ms/tick)** 周期运行。
 - 每个 tick 骑手根据当前所在格子的道路类型**动态调整瞬时速度**：
-  $$rider.speed = ROAD\_SPEEDS[current\_tile]$$
+  $$\text{speed} = \text{RoadSpeeds}[\text{currentTile}]$$
 - 沿航点序列逐段前进：
   - 若一步位移跨越拐点，自动转向并消耗下一个拐点。
   - 到达最终目标（距离 $< 0.05$）时，清空当前目标并向 Redis 的 `game:events:reach_target` 队列推送到达事件。
@@ -106,17 +109,14 @@ Java 模块基于 Spring Boot 运行在 **8080** 端口，是系统的业务控�
 
 ### 2. 订单生命周期与超时失效状态机
 ```mermaid
-stateDiagram-v2
-    [*] --> 待接单 : 1. 每4秒生成订单 (轮盘赌选商家, 临路选住宅)
-    
-    待接单 --> 前往取餐 : 2. 每秒派单 (最近空闲骑手 + 加并发锁)
-    待接单 --> 已失效 : ⚠️ 超时 60 秒未被接单 (移出内存, expiredOrderCount++)
-    
-    前往取餐 --> 配送中 : 3. 骑手到达取餐点 (下发送达点坐标)
-    配送中 --> 已送达 : 4. 骑手到达送达点 (释放骑手, 移出内存, completedOrderCount++)
-    
-    已失效 --> [*]
-    已送达 --> [*]
+flowchart LR
+    Start(("● 生成")) --> S0["待接单 (status=0)"]
+    S0 -->|"派单 (加锁)"| S1["前往取餐 (status=1)"]
+    S0 -->|"超时 60s 未接单"| SExp["已失效 (expiredCount++)"]
+    S1 -->|"到达商家"| S2["配送中 (status=2)"]
+    S2 -->|"送达用户"| S3["已送达 (completedCount++)"]
+    SExp --> EndNode(("● 结束"))
+    S3 --> EndNode
 ```
 
 ### 3. 核心调度任务清单
