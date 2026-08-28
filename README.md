@@ -235,16 +235,82 @@ $$P_i = 0.15 \times \left(\frac{\text{Rating}_i}{5.0}\right)^2$$
 - **多商家效应**：全图商家越多，每秒总订单生成量成正比放大（$N$ 个商家每秒期望出单 $0.15 \times N$ 单）。
 - **高评分马太效应**：满分 5.0 商家平均 6.6 秒出 1 单；3.0 分商家平均 18.5 秒出 1 单，评分直接左右商家订单量。
 
-### 5. 核心调度任务清单
-| 调度任务 | 频率 | 核心规则 |
-| :--- | :---: | :--- |
-| **`generateOrder()`** | 1000ms | 遍历所有商家，根据商家当前评分概率产生订单，从临路住宅池随机选取送达点，更新商家进行中订单数并广播 `ORDER_CREATED` 与 `MERCHANT_UPDATE`。 |
-| **`assignOrders()`** | 1000ms | **双重逻辑**：<br>1. **超时失效**：清理待接单超过 60 秒的订单，减少商家进行中单量，递增 `expiredOrderCount` 并广播 `ORDER_EXPIRED` 与 `MERCHANT_UPDATE`；<br>2. **就近派单**：为未接单订单寻找最近空闲骑手，加 `busyRiderIds` 并发锁，向 Redis 写入目标点，广播 `RIDER_ASSIGNED`。 |
-| **`syncFromPython()`** | 100ms | 1. 从 Redis 读取骑手坐标广播 `RIDER_UPDATE`；<br>2. 从 `game:events:reach_target` 消费到达事件并流转订单状态；<br>3. 订单送达时触发 `updateMerchantRating` 更新评分并广播 `ORDER_COMPLETED` 与 `MERCHANT_UPDATE`。 |
+### 5. 商业经济与财务结算体系 (Financial & Revenue System)
+系统建立了完整的平台、骑手与商家的三方商业财务结算闭环：
+
+```mermaid
+flowchart TD
+    subgraph 平台总账 [💰 平台财务总账]
+        Rev["平台总收入 (商家佣金 + 订单抽成 15%)"]
+        Exp["平台总支出 (骑手底薪 + 配送提成)"]
+        Fin["平台总罚款 (失效超时赔付 ¥20/单)"]
+        Net["净利润 = 总收入 - 总支出 - 总罚款"]
+    end
+
+    subgraph 骑手收入 [🚴 骑手薪酬体系]
+        RBase["每日底薪: ¥100.00/天 (00:00发放)"]
+        RBonus["单笔提成: ¥3.00 ~ ¥8.00 (依时效奖励)"]
+        RTot["总工资 = 底薪 + 提成"]
+    end
+
+    subgraph 商家收支 [🏢 商家财务体系]
+        MComm["每日入驻佣金: -¥50.00/天 (00:00扣除)"]
+        MRev["单笔订单净收入: 85% 菜品总额"]
+        MNet["总净收益 = 订单收入 - 佣金"]
+    end
+
+    Rev -.-> MComm
+    Rev -.-> MRev
+    Exp -.-> RBase
+    Exp -.-> RBonus
+```
+
+#### (1) 每日 00:00 跨天日结结算 (Daily Settlement)
+- **流速与周期**：系统以 **2026年07月01日 00:00:00** 为基准时间，现实 **1 秒 = 游戏 2 分钟**（现实 12 分钟 = 游戏 1 天）。
+- **权威时钟同步**：后端统一推进绝对虚拟时间戳 `gameVirtualTimeMs`，当天数偏移量跨越新的自然日（`virtualDay` 递增）时，触发跨天日结：
+  - **骑手固定底薪**：平台向每位骑手发放 $\text{BaseSalary} += ¥100.00$，平台支出增加 $100 \times N_{\text{riders}}$；
+  - **商家入驻佣金**：平台向每家入驻商家收取 $\text{Commission} += ¥50.00$，平台收入增加 $50 \times N_{\text{merchants}}$。
+- **暂停保活机制**：当模拟暂停时，虚拟时间绝对定格，天数与财务日结绝不跳变，恢复后继续无缝对齐。
+
+#### (2) 骑手单笔时效提成算法
+设订单送达实际耗时为 $T_{\text{cost}}$ 秒，标杆时效为 $30.0$ 秒：
+$$\text{RiderBonus} = \max\left(3.0, \; 5.0 + 3.0 \times \max\left(0, \; \frac{30.0 - T_{\text{cost}}}{30.0}\right)\right)$$
+- 送达越快提成越高（最高 ¥8.00，最低保底 ¥3.00）；
+- 骑手总工资：$\text{TotalSalary} = \text{BaseSalary} + \text{Bonus}$。
+
+#### (3) 商家订单收入与平台抽成算法
+结合菜品质量评分 $S_{quality}$ 与配送速度评分 $S_{delivery}$ 核算单笔菜品总额（约 ¥24.00 ~ ¥36.00）：
+$$\text{OrderValue} = 30.0 \times \left(0.6 + 0.4 \times \frac{S_{quality} + S_{delivery}}{10.0}\right)$$
+- **平台技术抽成 (15%)**：$\text{PlatformTake} = \text{OrderValue} \times 0.15$
+- **商家订单净得 (85%)**：$\text{MerchantIncome} = \text{OrderValue} \times 0.85$
+- **商家总净收益**：$\text{TotalIncome} = \text{OrderRevenue} - \text{Commission}$。
+
+#### (5) 动态财务费率实时热更新配置 (Dynamic Rate Config)
+用户可以在游戏运行过程中随时在页面右上角点击 **【⚙️ 费率配置】**，微调以下核心费率参数并点击 **【💾 保存并立刻生效】**：
+- **平台每单抽成比例 (`platformTakeRate`)**：支持配置 `0% ~ 100%`（默认 `15%`）；
+- **骑手配送提成下限 (`riderBonusMin`)**：支持配置 `0 ~ 20` 元（默认 `¥3.00`）；
+- **骑手配送提成上限 (`riderBonusMax`)**：支持配置 `0 ~ 20` 元（默认 `¥8.00`）；
+- **即时生效公式**：
+  $$\text{speedRatio} = \max\left(0.0, \; \min\left(1.0, \; \frac{30.0 - T_{\text{cost}}}{30.0}\right)\right)$$
+  $$\text{RiderBonus} = \text{riderBonusMin} + (\text{riderBonusMax} - \text{riderBonusMin}) \times \text{speedRatio}$$
+  $$\text{PlatformTake} = \text{OrderValue} \times \text{platformTakeRate}$$
+  $$\text{MerchantIncome} = \text{OrderValue} \times (1.0 - \text{platformTakeRate})$$
+- **WebSocket 调价契约**：
+  ```json
+  {
+    "command": "UPDATE_FINANCIAL_CONFIG",
+    "platformTakeRate": 0.20,
+    "riderBonusMin": 4.0,
+    "riderBonusMax": 10.0
+  }
+  ```
+
+#### (6) 平台收支汇总与净利润
+$$\text{NetProfit} = \text{TotalRevenue} - \text{TotalExpenses} - \text{TotalFines}$$
 
 ---
 
-## 📡 五、 Redis 数据契约与交互字典
+## 📡 六、 Redis 数据契约与交互字典
 
 | Redis Key | 数据结构 | 生产者 | 消费者 | 作用与格式 |
 | :--- | :---: | :---: | :---: | :--- |

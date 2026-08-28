@@ -3,30 +3,25 @@ package com.meileme.backend.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meileme.backend.model.Coordinate;
+import com.meileme.backend.model.Merchant;
 import com.meileme.backend.model.Order;
 import com.meileme.backend.model.Rider;
-import com.meileme.backend.model.Merchant;
 import com.meileme.backend.repository.MerchantRepository;
 import com.meileme.backend.websocket.GameWebSocketHandler;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.MediaType;
 
-import jakarta.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Random;
-import java.util.stream.Collectors;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Service
 public class GameEngineService {
@@ -35,18 +30,39 @@ public class GameEngineService {
     private final StringRedisTemplate redisTemplate;
     private final MerchantRepository merchantRepository;
     private final ObjectMapper objectMapper;
-    
-    private final List<Order> activeOrders = new ArrayList<>();
-    private List<Rider> currentRidersState = new ArrayList<>();
     private final Random random = new Random();
+
+    // 内存中的活跃订单列表 (已送达的订单不再常驻内存)
+    private final List<Order> activeOrders = new CopyOnWriteArrayList<>();
     
-    // ★ Java 本地维护的"已占用"骑手集合，防止因 Redis 读取延迟导致同一骑手被重复派单
-    private final Set<String> busyRiderIds = new HashSet<>();
-    
-    // 统计计数器
+    // 当前所有骑手的最新物理状态缓存
+    private List<Rider> currentRidersState = new CopyOnWriteArrayList<>();
+
+    // 骑手财务账本映射 (riderId -> Rider财务数据)
+    private final Map<String, Rider> riderFinancialMap = new ConcurrentHashMap<>();
+
+    // 记录正在执行任务或已被预指派的骑手ID集合，防止高频调度下重复派单
+    private final Set<String> busyRiderIds = ConcurrentHashMap.newKeySet();
+
+    // 订单统计计数器
     private final AtomicInteger completedOrderCount = new AtomicInteger(0);
     private final AtomicInteger expiredOrderCount = new AtomicInteger(0);
-    
+
+    // === 平台财务总账本 ===
+    private final AtomicReference<Double> totalRevenue = new AtomicReference<>(0.0);   // 平台总收入 (商家佣金 + 订单抽成)
+    private final AtomicReference<Double> totalExpenses = new AtomicReference<>(0.0);  // 平台总支出 (骑手底薪 + 提成)
+    private final AtomicReference<Double> totalFines = new AtomicReference<>(0.0);     // 平台总罚款 (失效订单赔偿)
+
+    // === 动态财务费率配置 (支持热更新即时生效) ===
+    private volatile double platformTakeRate = 0.15; // 平台抽成比例 (0.0 ~ 1.0，即 0% ~ 100%)
+    private volatile double riderBonusMin = 3.0;     // 骑手提成最小值 (0.0 ~ 20.0)
+    private volatile double riderBonusMax = 8.0;     // 骑手提成最大值 (0.0 ~ 20.0)
+
+    // 虚拟时间与跨天日结追踪 (2026-07-01 00:00:00 开始，现实 1 秒 = 游戏 2 分钟)
+    public static final long BASE_VIRTUAL_TIME_MS = 1782835200000L;
+    private volatile long gameVirtualTimeMs = BASE_VIRTUAL_TIME_MS;
+    private volatile int currentVirtualDay = 1;
+
     // 是否正在运行 / 是否暂停
     private boolean isRunning = false;
     private boolean isPaused = false;
@@ -94,6 +110,10 @@ public class GameEngineService {
                 float y = ((Number) mData.get("y")).floatValue();
                 Merchant merchant = new Merchant(new Coordinate(x, y));
                 merchant.setId((String) mData.get("id"));
+                // 初始第一天收取商家入驻佣金 ¥50.00
+                merchant.setCommission(50.0);
+                merchant.setOrderRevenue(0.0);
+                merchant.setTotalIncome(-50.0);
                 merchantRepository.save(merchant);
             }
             
@@ -113,14 +133,41 @@ public class GameEngineService {
             busyRiderIds.clear();
             completedOrderCount.set(0);
             expiredOrderCount.set(0);
-            
+            riderFinancialMap.clear();
+
+            // ★ 清空 Redis 中的骑手控制状态 Hash，杜绝脏数据污染
+            try {
+                redisTemplate.delete(Arrays.asList("game:rider:status", "game:rider:targets", "game:rider:orders", "game:events:reach_target"));
+            } catch (Exception e) {}
+
+            // 初始化骑手财务数据（发放第一天底薪 ¥100.00）
+            for (int i = 1; i <= riderCount; i++) {
+                String rId = String.format("rider-%03d", i);
+                Rider r = new Rider();
+                r.setId(rId);
+                r.setBaseSalary(100.0);
+                r.setBonus(0.0);
+                r.setTotalSalary(100.0);
+                riderFinancialMap.put(rId, r);
+            }
+
+            // 初始化平台财务总账
+            // 总收入 = 商家佣金 (¥50 * 商家数)
+            // 总支出 = 骑手底薪 (¥100 * 骑手数)
+            totalRevenue.set(50.0 * merchantsData.size());
+            totalExpenses.set(100.0 * riderCount);
+            totalFines.set(0.0);
+
+            this.currentVirtualDay = 1;
+            this.gameVirtualTimeMs = BASE_VIRTUAL_TIME_MS;
             this.isRunning = true;
             this.isPaused = false;
             
             // 广播系统启动和地图信息
             webSocketHandler.broadcastMessage(cachedMessage);
-            broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
             webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_STARTED\"}");
+            broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
+            broadcastFinancialSummary();
             
         } catch (Exception e) {
             System.err.println("未能连接到 Python 引擎启动模拟: " + e.getMessage());
@@ -145,119 +192,166 @@ public class GameEngineService {
         try {
             RestTemplate restTemplate = new RestTemplate();
             restTemplate.postForObject("http://localhost:8081/api/simulation/resume", null, String.class);
-            System.out.println("已通知 Python 引擎恢复物理模拟");
+            System.out.println("已通知 Python 引擎继续物理模拟");
         } catch (Exception e) {
-            System.err.println("通知 Python 引擎恢复失败: " + e.getMessage());
+            System.err.println("通知 Python 引擎继续失败: " + e.getMessage());
         }
         webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_RESUMED\"}");
-        System.out.println("模拟已恢复");
+        System.out.println("模拟已继续");
     }
 
     public void stopSimulation() {
         this.isRunning = false;
         this.isPaused = false;
+        activeOrders.clear();
+        busyRiderIds.clear();
+        completedOrderCount.set(0);
+        expiredOrderCount.set(0);
+        this.currentVirtualDay = 1;
+        this.gameVirtualTimeMs = BASE_VIRTUAL_TIME_MS;
+        totalRevenue.set(0.0);
+        totalExpenses.set(0.0);
+        totalFines.set(0.0);
+
         try {
             RestTemplate restTemplate = new RestTemplate();
             restTemplate.postForObject("http://localhost:8081/api/simulation/stop", null, String.class);
-            System.out.println("已通知 Python 引擎停止模拟");
+            System.out.println("已通知 Python 引擎停止物理模拟并清理状态");
         } catch (Exception e) {
-            System.err.println("通知 Python 引擎停止模拟失败: " + e.getMessage());
+            System.err.println("通知 Python 引擎停止失败: " + e.getMessage());
         }
-
-        // 清空业务状态与计数器
-        activeOrders.clear();
-        currentRidersState.clear();
-        busyRiderIds.clear();
-        residentialCells.clear();
-        merchantRepository.clear();
-        completedOrderCount.set(0);
-        expiredOrderCount.set(0);
-        webSocketHandler.setCachedMapMessage(null);
-
-        // 广播模拟结束事件
         webSocketHandler.broadcastMessage("{\"type\":\"SIMULATION_STOPPED\"}");
-        System.out.println("模拟已结束，状态已全部重置");
+        System.out.println("模拟已结束并重置");
     }
 
-    // 1. 每 1 秒执行一次基于商家综合评分的分布式出单判定
+    // 1. 低频定时器 (1s)：推进虚拟时间、跨天日结结算、订单生成、失效检查与派单
     @Scheduled(fixedRate = 1000)
-    public void generateOrder() {
+    public void scheduledLoop() {
         if (!isRunning || isPaused) return;
-        List<Merchant> merchants = merchantRepository.findAll();
-        if (merchants.isEmpty() || residentialCells.isEmpty()) return;
 
-        boolean anyNewOrder = false;
+        // 现实 1 秒 = 游戏 120 秒 (2分钟)
+        gameVirtualTimeMs += 120 * 1000L;
 
-        for (Merchant m : merchants) {
-            // 基础出单概率 0.15，按 (rating / 5.0)^2 缩放
-            // 5.0 分商家每秒产生概率为 0.15 (平均 6.6 秒一单)
-            // 3.0 分商家每秒产生概率为 0.15 * 0.36 = 0.054 (平均 18.5 秒一单)
-            double ratingRatio = Math.max(0.1, m.getRating()) / 5.0;
-            double orderProb = 0.15 * Math.pow(ratingRatio, 2);
+        // 1. 跨天日结检测 (基于权威虚拟时间偏移量计算天数)
+        checkDailySettlement();
 
-            if (random.nextDouble() < orderProb) {
-                // 产生一单
-                Coordinate pickup = m.getLocation();
-                int[] cell = residentialCells.get(random.nextInt(residentialCells.size()));
-                Coordinate delivery = new Coordinate(cell[0], cell[1]);
+        // 2. 检查超时未接单的失效订单
+        checkOrderExpiration();
 
-                Order order = new Order(m.getId(), pickup, delivery);
-                activeOrders.add(order);
+        // 3. 动态扫描商家并生成新订单
+        generateOrdersFromMerchants();
 
-                // 更新商家的进行中订单数
-                m.setOngoingOrders(m.getOngoingOrders() + 1);
+        // 4. 派单调度
+        dispatchOrdersToRiders();
+
+        // 5. 周期性广播财务大盘
+        broadcastFinancialSummary();
+    }
+
+    private void checkDailySettlement() {
+        long elapsedVirtualMs = gameVirtualTimeMs - BASE_VIRTUAL_TIME_MS;
+        int virtualDay = (int) (elapsedVirtualMs / (24 * 3600 * 1000L)) + 1;
+
+        if (virtualDay > currentVirtualDay) {
+            int daysPassed = virtualDay - currentVirtualDay;
+            currentVirtualDay = virtualDay;
+            System.out.println("=== 🌙 跨天日结结算 (虚拟第 " + currentVirtualDay + " 天 00:00:00) ===");
+
+            // 1. 发放骑手每日底薪 ¥100.00 / 天
+            double totalRiderBaseSalaryAdded = 0.0;
+            for (Rider r : riderFinancialMap.values()) {
+                double addSalary = 100.0 * daysPassed;
+                r.setBaseSalary(r.getBaseSalary() + addSalary);
+                r.setTotalSalary(r.getBaseSalary() + r.getBonus());
+                totalRiderBaseSalaryAdded += addSalary;
+            }
+            final double finalRiderSalaryAdded = totalRiderBaseSalaryAdded;
+            totalExpenses.updateAndGet(e -> e + finalRiderSalaryAdded);
+
+            // 2. 扣除商家每日入驻佣金 ¥50.00 / 天
+            double totalMerchantCommissionAdded = 0.0;
+            for (Merchant m : merchantRepository.findAll()) {
+                double addComm = 50.0 * daysPassed;
+                m.setCommission(m.getCommission() + addComm);
+                m.setTotalIncome(m.getOrderRevenue() - m.getCommission());
                 merchantRepository.save(m);
+                totalMerchantCommissionAdded += addComm;
+            }
+            final double finalMerchantCommAdded = totalMerchantCommissionAdded;
+            totalRevenue.updateAndGet(r -> r + finalMerchantCommAdded);
 
-                broadcastState("ORDER_CREATED", order);
-                anyNewOrder = true;
+            // 广播最新状态
+            broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
+            broadcastFinancialSummary();
+        }
+    }
+
+    private void checkOrderExpiration() {
+        long now = System.currentTimeMillis();
+        List<Order> expiredList = new ArrayList<>();
+        
+        for (Order order : activeOrders) {
+            if (order.getStatus() == 0 && (now - order.getCreateTime()) > 60000) {
+                order.setStatus(4); // 4: EXPIRED 已失效
+                expiredList.add(order);
             }
         }
+        
+        if (!expiredList.isEmpty()) {
+            activeOrders.removeAll(expiredList);
+            int expCount = expiredOrderCount.addAndGet(expiredList.size());
+            
+            // 平台超时赔付罚款 (每单 ¥20.00)
+            double finesAdded = 20.0 * expiredList.size();
+            totalFines.updateAndGet(f -> f + finesAdded);
 
-        if (anyNewOrder) {
-            broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
+            for (Order expiredOrder : expiredList) {
+                Map<String, Object> expPayload = new HashMap<>();
+                expPayload.put("id", expiredOrder.getId());
+                expPayload.put("expiredCount", expCount);
+                broadcastState("ORDER_EXPIRED", expPayload);
+                System.out.println(">>> 订单超时失效：" + expiredOrder.getId().substring(0, 8) + " (累计失效: " + expCount + "，罚款 +¥20.0)");
+            }
+
+            broadcastFinancialSummary();
         }
     }
 
-    // 2. 每秒执行一次自动派单 & 超时订单清理
-    @Scheduled(fixedRate = 1000)
-    public void assignOrders() {
-        if (!isRunning || isPaused) return;
+    private void generateOrdersFromMerchants() {
+        if (residentialCells.isEmpty()) return;
 
-        // ★ 检查待处理订单是否超时（超过 1 分钟 / 60,000ms 未被接单则置为失效并移除）
-        long now = System.currentTimeMillis();
-        Iterator<Order> iter = activeOrders.iterator();
         boolean merchantUpdated = false;
-        while (iter.hasNext()) {
-            Order o = iter.next();
-            if (o.getStatus() == 0 && (now - o.getCreateTime() > 60000)) {
-                iter.remove();
-                int expCount = expiredOrderCount.incrementAndGet();
+        for (Merchant m : merchantRepository.findAll()) {
+            float rating = m.getRating();
+            double prob = 0.15 * Math.pow(rating / 5.0, 2);
+            
+            if (random.nextDouble() < prob) {
+                int[] cell = residentialCells.get(random.nextInt(residentialCells.size()));
+                Coordinate pickupLoc = new Coordinate(m.getLocation().getX(), m.getLocation().getY());
+                Coordinate deliveryLoc = new Coordinate(cell[0], cell[1]);
                 
-                if (o.getMerchantId() != null) {
-                    merchantRepository.findById(o.getMerchantId()).ifPresent(m -> {
-                        m.setOngoingOrders(Math.max(0, m.getOngoingOrders() - 1));
-                        merchantRepository.save(m);
-                    });
-                    merchantUpdated = true;
-                }
+                Order order = new Order(pickupLoc, deliveryLoc);
+                order.setMerchantId(m.getId());
+                activeOrders.add(order);
+                
+                m.setOngoingOrders(m.getOngoingOrders() + 1);
+                merchantRepository.save(m);
+                merchantUpdated = true;
 
-                Map<String, Object> expPayload = new HashMap<>();
-                expPayload.put("id", o.getId());
-                expPayload.put("expiredCount", expCount);
-                broadcastState("ORDER_EXPIRED", expPayload);
-                System.out.println(">>> 订单 " + o.getId().substring(0, 8) + " 超过1分钟未接单，已标记为失效移除 (累计失效: " + expCount + ")");
+                broadcastState("ORDER_CREATED", order);
             }
         }
 
         if (merchantUpdated) {
             broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
         }
+    }
 
+    private void dispatchOrdersToRiders() {
         List<Order> unassignedOrders = activeOrders.stream().filter(o -> o.getStatus() == 0).collect(Collectors.toList());
         if (unassignedOrders.isEmpty() || currentRidersState.isEmpty()) return;
 
         for (Order order : unassignedOrders) {
-            // 找出最近的空闲骑手（必须不在 busyRiderIds 中）
             Rider bestRider = null;
             float minDistance = Float.MAX_VALUE;
 
@@ -275,8 +369,6 @@ public class GameEngineService {
 
             if (bestRider != null) {
                 order.setStatus(1);
-                
-                // ★ 立刻锁定这个骑手，防止在下一次 syncFromPython 覆盖前被重复派单
                 busyRiderIds.add(bestRider.getId());
                 
                 bestRider.setStatus(1);
@@ -291,20 +383,28 @@ public class GameEngineService {
                 }
 
                 broadcastState("RIDER_ASSIGNED", bestRider);
-                System.out.println(">>> 派单：骑手 " + bestRider.getId() + " → 订单 " + order.getId().substring(0, 8));
             }
         }
     }
 
-    // 3. 高频同步 (10Hz)：从 Redis 提取 Python 引擎计算好的骑手坐标，并处理到达事件
+    // 2. 高频同步 (10Hz)：从 Redis 提取 Python 引擎计算好的骑手坐标，并处理到达事件
     @Scheduled(fixedRate = 100)
     public void syncFromPython() {
         if (!isRunning || isPaused) return;
         try {
-            // 1. 读取骑手物理坐标
+            // 1. 读取骑手物理坐标并合并财务数据
             String ridersJson = redisTemplate.opsForValue().get("game:state:riders");
             if (ridersJson != null) {
-                currentRidersState = objectMapper.readValue(ridersJson, new TypeReference<List<Rider>>() {});
+                List<Rider> freshRiders = objectMapper.readValue(ridersJson, new TypeReference<List<Rider>>() {});
+                for (Rider r : freshRiders) {
+                    Rider fin = riderFinancialMap.get(r.getId());
+                    if (fin != null) {
+                        r.setBaseSalary(fin.getBaseSalary());
+                        r.setBonus(fin.getBonus());
+                        r.setTotalSalary(fin.getTotalSalary());
+                    }
+                }
+                currentRidersState = freshRiders;
                 broadcastState("RIDER_UPDATE", currentRidersState);
             }
 
@@ -322,9 +422,7 @@ public class GameEngineService {
             }
             
         } catch (Exception e) {
-            // 打印错误以便排查 JSON 序列化等问题
             System.err.println("同步 Python 状态发生异常: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -338,14 +436,15 @@ public class GameEngineService {
                 redisTemplate.opsForHash().put("game:rider:status", riderId, "2");
                 redisTemplate.opsForHash().put("game:rider:targets", riderId, objectMapper.writeValueAsString(currentOrder.getDeliveryLocation()));
                 
-                // 广播订单状态变化给前端
                 broadcastState("ORDER_STATUS_CHANGED", currentOrder);
-                System.out.println(">>> 骑手 " + riderId + " 已取餐，订单 " + orderId + " 进入配送中");
+                System.out.println(">>> 骑手 " + riderId + " 已取餐，订单 " + orderId.substring(0, 8) + " 进入配送中");
                 
             } else if (status == 2) { // 骑手到达送餐点 → 订单完成
                 currentOrder.setStatus(3);
                 
-                updateMerchantRating(currentOrder);
+                // 执行商家评分更新与财务收益结算
+                settleOrderFinancialsAndRating(currentOrder, riderId);
+                
                 activeOrders.remove(currentOrder);
                 
                 int compCount = completedOrderCount.incrementAndGet();
@@ -354,63 +453,116 @@ public class GameEngineService {
                 compPayload.put("completedCount", compCount);
                 broadcastState("ORDER_COMPLETED", compPayload);
 
-                // 解放骑手
+                // 释放骑手
                 busyRiderIds.remove(riderId);
                 redisTemplate.opsForHash().put("game:rider:status", riderId, "0");
                 redisTemplate.opsForHash().put("game:rider:orders", riderId, "null");
                 redisTemplate.opsForHash().put("game:rider:targets", riderId, "null");
-                System.out.println(">>> 骑手 " + riderId + " 已送达，订单 " + orderId + " 完成，释放骑手 (累计完成: " + compCount + ")");
+                System.out.println(">>> 骑手 " + riderId + " 已送达，订单 " + orderId.substring(0, 8) + " 完成 (累计完成: " + compCount + ")");
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void updateMerchantRating(Order order) {
-        if (order.getMerchantId() == null) return;
-        Merchant merchant = merchantRepository.findById(order.getMerchantId()).orElse(null);
-        if (merchant == null) return;
-
-        // 1. 配送时效分 S_delivery: 根据耗时 T (秒)
+    private void settleOrderFinancialsAndRating(Order order, String riderId) {
         long durationMs = System.currentTimeMillis() - order.getCreateTime();
         double durationSec = durationMs / 1000.0;
+
+        // 1. 配送时效分 S_delivery: 根据耗时 T (秒)
         double sDelivery;
         if (durationSec <= 15.0) {
             sDelivery = 5.0;
         } else if (durationSec <= 30.0) {
-            sDelivery = 5.0 - ((durationSec - 15.0) / 15.0) * 1.0; // 4.0 ~ 5.0
+            sDelivery = 5.0 - ((durationSec - 15.0) / 15.0) * 1.0;
         } else if (durationSec <= 60.0) {
-            sDelivery = 4.0 - ((durationSec - 30.0) / 30.0) * 2.0; // 2.0 ~ 4.0
+            sDelivery = 4.0 - ((durationSec - 30.0) / 30.0) * 2.0;
         } else {
             sDelivery = 1.0;
         }
 
-        // 2. 顾客对餐品质量的随机打分 S_quality: 90% 概率在 [3.5, 5.0]，10% 概率在 [1.0, 3.0]
-        double sQuality;
-        if (random.nextDouble() < 0.9) {
-            sQuality = 3.5 + random.nextDouble() * 1.5;
-        } else {
-            sQuality = 1.0 + random.nextDouble() * 2.0;
-        }
+        // 2. 顾客对餐品质量的随机打分 S_quality
+        double sQuality = (random.nextDouble() < 0.9) ? (3.5 + random.nextDouble() * 1.5) : (1.0 + random.nextDouble() * 2.0);
 
         // 3. 单次订单综合得分 S_order = 0.4 * sDelivery + 0.6 * sQuality
         double sOrder = 0.4 * sDelivery + 0.6 * sQuality;
 
-        // 4. 指数平滑更新商家综合评分 (EMA)
-        double oldRating = merchant.getRating();
-        double newRating = oldRating * 0.85 + sOrder * 0.15;
-        newRating = Math.max(0.1, Math.min(5.0, newRating));
-        float roundedRating = (float) (Math.round(newRating * 10.0) / 10.0);
+        // 4. === 骑手单笔提成结算 (基于动态可配置区间 [riderBonusMin, riderBonusMax]) ===
+        double speedRatio = Math.max(0.0, Math.min(1.0, (30.0 - durationSec) / 30.0));
+        double rawBonus = riderBonusMin + (riderBonusMax - riderBonusMin) * speedRatio;
+        final double riderBonus = Math.round(rawBonus * 100.0) / 100.0;
 
-        merchant.setRating(roundedRating);
-        merchant.setCompletedOrders(merchant.getCompletedOrders() + 1);
-        merchant.setOngoingOrders(Math.max(0, merchant.getOngoingOrders() - 1));
-        merchantRepository.save(merchant);
+        Rider rFin = riderFinancialMap.get(riderId);
+        if (rFin != null) {
+            rFin.setBonus(Math.round((rFin.getBonus() + riderBonus) * 100.0) / 100.0);
+            rFin.setTotalSalary(Math.round((rFin.getBaseSalary() + rFin.getBonus()) * 100.0) / 100.0);
+        }
+        totalExpenses.updateAndGet(e -> Math.round((e + riderBonus) * 100.0) / 100.0);
 
-        System.out.println(String.format(">>> [评分更新] 商家 %s: 耗时 %.1fs -> 配送分 %.1f, 质量分 %.1f, 本单综合 %.1f, 商家评分 %.1f -> %.1f",
-                merchant.getId(), durationSec, sDelivery, sQuality, sOrder, oldRating, roundedRating));
+        // 5. === 商家与平台单笔订单收入结算 (基于动态可配置抽成比例 platformTakeRate) ===
+        // 菜品总额 OrderValue 约 ¥24.00 ~ ¥36.00
+        double orderValue = 30.0 * (0.6 + 0.4 * (sQuality + sDelivery) / 10.0);
+        final double platformTake = Math.round((orderValue * platformTakeRate) * 100.0) / 100.0; // 动态平台抽成
+        final double merchantIncome = Math.round((orderValue * (1.0 - platformTakeRate)) * 100.0) / 100.0; // 商家净得
 
+        totalRevenue.updateAndGet(r -> Math.round((r + platformTake) * 100.0) / 100.0);
+
+        // 6. 更新商家评分与订单收入
+        if (order.getMerchantId() != null) {
+            Merchant merchant = merchantRepository.findById(order.getMerchantId()).orElse(null);
+            if (merchant != null) {
+                double oldRating = merchant.getRating();
+                double newRating = oldRating * 0.85 + sOrder * 0.15;
+                newRating = Math.max(0.1, Math.min(5.0, newRating));
+                float roundedRating = (float) (Math.round(newRating * 10.0) / 10.0);
+
+                merchant.setRating(roundedRating);
+                merchant.setCompletedOrders(merchant.getCompletedOrders() + 1);
+                merchant.setOngoingOrders(Math.max(0, merchant.getOngoingOrders() - 1));
+                merchant.setOrderRevenue(Math.round((merchant.getOrderRevenue() + merchantIncome) * 100.0) / 100.0);
+                merchant.setTotalIncome(Math.round((merchant.getOrderRevenue() - merchant.getCommission()) * 100.0) / 100.0);
+                merchantRepository.save(merchant);
+            }
+        }
+
+        // 广播财务总账与商家、骑手最新数据
         broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
+        broadcastFinancialSummary();
+    }
+
+    public void updateFinancialConfig(double takeRate, double bonusMin, double bonusMax) {
+        this.platformTakeRate = Math.max(0.0, Math.min(1.0, takeRate));
+        double minB = Math.max(0.0, Math.min(20.0, bonusMin));
+        double maxB = Math.max(0.0, Math.min(20.0, bonusMax));
+        if (minB > maxB) {
+            double temp = minB;
+            minB = maxB;
+            maxB = temp;
+        }
+        this.riderBonusMin = minB;
+        this.riderBonusMax = maxB;
+        System.out.println(String.format(">>> [财务配置热更新] 抽成比例: %.1f%%, 骑手提成区间: [¥%.1f, ¥%.1f]", this.platformTakeRate * 100, this.riderBonusMin, this.riderBonusMax));
+        broadcastFinancialSummary();
+    }
+
+    private void broadcastFinancialSummary() {
+        double rev = Math.round(totalRevenue.get() * 100.0) / 100.0;
+        double exp = Math.round(totalExpenses.get() * 100.0) / 100.0;
+        double fin = Math.round(totalFines.get() * 100.0) / 100.0;
+        double net = Math.round((rev - exp - fin) * 100.0) / 100.0;
+
+        Map<String, Object> financialData = new HashMap<>();
+        financialData.put("totalRevenue", rev);
+        financialData.put("totalExpenses", exp);
+        financialData.put("totalFines", fin);
+        financialData.put("netProfit", net);
+        financialData.put("virtualDay", currentVirtualDay);
+        financialData.put("gameVirtualTimeMs", gameVirtualTimeMs);
+        financialData.put("platformTakeRate", platformTakeRate);
+        financialData.put("riderBonusMin", riderBonusMin);
+        financialData.put("riderBonusMax", riderBonusMax);
+
+        broadcastState("FINANCIAL_UPDATE", financialData);
     }
 
     private void broadcastState(String type, Object data) {

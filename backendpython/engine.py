@@ -75,11 +75,17 @@ class SimulationEngine:
         self.running = True
         self.paused = False
         
-        # 启动前先把初始骑手状态写入 Redis，让 Java 能立刻读到
+        # ★ 启动前彻底清空旧的 Redis 残留键，防止跨次启动的状态污染与死锁
         if self.redis_client:
+            try:
+                keys_to_clean = ["game:state:riders", "game:rider:status", "game:rider:orders", "game:rider:targets", "game:events:reach_target"]
+                self.redis_client.delete(*keys_to_clean)
+            except Exception as e:
+                print(f"[Engine] 启动清空 Redis 异常: {e}")
+
             riders_list = self._get_riders_export()
             self.redis_client.set("game:state:riders", json.dumps(riders_list))
-            print(f"[Engine] 已写入 {self.rider_count} 个骑手的初始状态到 Redis")
+            print(f"[Engine] 已重置 Redis 并写入 {self.rider_count} 个骑手的初始状态")
         
         self.thread = threading.Thread(target=self._tick_loop)
         self.thread.daemon = True
@@ -199,6 +205,9 @@ class SimulationEngine:
                         rider["plannedTarget"] = target_pos
                         rider["path"] = path
                         merchant_crowd[chosen_idx] += 1
+                    else:
+                        # 骑手已经在该商圈路口，进入 2~4 秒驻留
+                        rider["idleWaitUntil"] = now + random.uniform(2.0, 4.0)
 
     def _update_riders(self, dt):
         # 1. 从 Redis 读取 Java 下发的控制指令 (例如目标点变更)
@@ -214,7 +223,7 @@ class SimulationEngine:
                         new_status = int(status_updates[r_id])
                         if new_status != rider["status"]:
                             rider["status"] = new_status
-                            # 如果状态变为非空闲(如被派单 Status 1)，立即打断空闲巡游
+                            # 如果状态变为非空闲(如被派单 Status 1/2)，立即打断空闲巡游
                             if new_status != 0 and rider["isCruising"]:
                                 rider["isCruising"] = False
                                 rider["path"] = []
@@ -222,25 +231,32 @@ class SimulationEngine:
                     
                     if r_id in orders:
                         new_order = orders[r_id] if orders[r_id] != "null" else None
-                        rider["currentOrderId"] = new_order
-                        if new_order is not None and rider["isCruising"]:
-                            rider["isCruising"] = False
-                            rider["path"] = []
-                            rider["plannedTarget"] = None
+                        if new_order != rider["currentOrderId"]:
+                            rider["currentOrderId"] = new_order
+                            if new_order is not None and rider["isCruising"]:
+                                rider["isCruising"] = False
+                                rider["path"] = []
+                                rider["plannedTarget"] = None
 
                     # 更新目标坐标
                     if r_id in targets:
                         target_str = targets[r_id]
                         if target_str and target_str != "null":
                             target = json.loads(target_str)
-                            # 如果是来自 Java 的真实订单目标，打断巡游
-                            if rider["isCruising"]:
-                                rider["isCruising"] = False
-                                rider["path"] = []
-                                rider["plannedTarget"] = None
-                            rider["targetPosition"] = target
+                            # 只有真正下发了新的有效业务目标点时才更新并打断巡游
+                            if (rider["targetPosition"] is None or 
+                                abs(rider["targetPosition"]["x"] - target["x"]) > 0.1 or 
+                                abs(rider["targetPosition"]["y"] - target["y"]) > 0.1):
+                                if rider["isCruising"]:
+                                    rider["isCruising"] = False
+                                    rider["path"] = []
+                                    rider["plannedTarget"] = None
+                                rider["targetPosition"] = target
                         else:
-                            rider["targetPosition"] = None
+                            # 目标为 null 表示骑手当前无业务目标
+                            if rider["targetPosition"] is not None:
+                                rider["targetPosition"] = None
+                                rider["plannedTarget"] = None
                             
             except Exception as e:
                 pass # 忽略 Redis 偶发读取错误

@@ -71,6 +71,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 } else if ("STOP_SIMULATION".equals(cmd)) {
                     System.out.println(">>> [来自 Client] 请求结束模拟");
                     gameEngineService.stopSimulation();
+                } else if ("UPDATE_FINANCIAL_CONFIG".equals(cmd)) {
+                    double takeRate = jsonNode.has("platformTakeRate") ? jsonNode.get("platformTakeRate").asDouble() : 0.15;
+                    double bonusMin = jsonNode.has("riderBonusMin") ? jsonNode.get("riderBonusMin").asDouble() : 3.0;
+                    double bonusMax = jsonNode.has("riderBonusMax") ? jsonNode.get("riderBonusMax").asDouble() : 8.0;
+                    System.out.println(String.format(">>> [来自 Client] 更新财务费率参数: 抽成比例=%.2f, 提成区间=[%.1f, %.1f]", takeRate, bonusMin, bonusMax));
+                    gameEngineService.updateFinancialConfig(takeRate, bonusMin, bonusMax);
                 }
             }
         } catch (Exception e) {

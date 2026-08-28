@@ -16,10 +16,18 @@ public class Rider {
     private int status;                 // 0: 空闲, 1: 前往取餐, 2: 配送中
     private String currentOrderId;      // 正在处理的订单ID
     
+    // === 财务薪酬字段 ===
+    private double baseSalary = 0.0;    // 累计底薪
+    private double bonus = 0.0;         // 累计订单提成
+    private double totalSalary = 0.0;   // 累计总工资 (底薪 + 提成)
+    
     public Rider(Coordinate start) {
         this.id = UUID.randomUUID().toString();
         this.currentPosition = start;
         this.speed = 2.0f; 
         this.status = 0;
+        this.baseSalary = 0.0;
+        this.bonus = 0.0;
+        this.totalSalary = 0.0;
     }
 }

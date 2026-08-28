@@ -93,21 +93,116 @@
 
     <!-- 右侧控制面板 -->
     <div class="control-panel">
-      <!-- 骑手统计 -->
+      <!-- 平台财务总账看板 -->
+      <div class="stats-card glass-panel financial-panel">
+        <div class="panel-header-row">
+          <h3>💰 平台财务总账 (第 {{ virtualDay }} 天)</h3>
+          <button class="btn-config-toggle" :class="{ active: showRateConfig }" @click="showRateConfig = !showRateConfig">
+            ⚙️ {{ showRateConfig ? '收起配置' : '费率配置' }}
+          </button>
+        </div>
+
+        <!-- 费率参数设置折叠面板 -->
+        <div v-if="showRateConfig" class="rate-config-drawer">
+          <div class="config-title">⚙️ 实时财务费率参数配置 (即时生效)</div>
+          <div class="config-form-grid">
+            <div class="config-field">
+              <label>平台抽成比例 (%)</label>
+              <div class="input-unit-wrap">
+                <input 
+                  type="number" 
+                  v-model.number="configTakeRatePercent" 
+                  min="0" 
+                  max="100" 
+                  step="1"
+                />
+                <span class="unit">%</span>
+              </div>
+              <span class="field-hint">范围: 0% ~ 100%</span>
+            </div>
+
+            <div class="config-field">
+              <label>骑手提成下限 (¥)</label>
+              <div class="input-unit-wrap">
+                <input 
+                  type="number" 
+                  v-model.number="configBonusMin" 
+                  min="0" 
+                  max="20" 
+                  step="0.5"
+                />
+                <span class="unit">元</span>
+              </div>
+              <span class="field-hint">范围: 0 ~ 20 元</span>
+            </div>
+
+            <div class="config-field">
+              <label>骑手提成上限 (¥)</label>
+              <div class="input-unit-wrap">
+                <input 
+                  type="number" 
+                  v-model.number="configBonusMax" 
+                  min="0" 
+                  max="20" 
+                  step="0.5"
+                />
+                <span class="unit">元</span>
+              </div>
+              <span class="field-hint">范围: 0 ~ 20 元</span>
+            </div>
+          </div>
+
+          <div class="config-action-row">
+            <button class="btn-save-config" @click="submitFinancialConfig">
+              💾 保存并立刻生效
+            </button>
+            <span v-if="saveRateSuccess" class="save-success-tip">✅ 费率已即时生效！</span>
+          </div>
+        </div>
+
+        <div class="stats-grid financial-grid">
+          <div class="stat-item fin-item">
+            <span class="label">💰 平台总收入</span>
+            <span class="value text-revenue">¥{{ totalRevenue.toFixed(2) }}</span>
+            <span class="sub-label">(抽成 {{ Math.round((currentTakeRate || 0.15) * 100) }}%)</span>
+          </div>
+          <div class="stat-item fin-item">
+            <span class="label">💸 平台总支出</span>
+            <span class="value text-expense">¥{{ totalExpenses.toFixed(2) }}</span>
+            <span class="sub-label">(提成 [¥{{ (currentBonusMin || 3.0).toFixed(1) }}, ¥{{ (currentBonusMax || 8.0).toFixed(1) }}])</span>
+          </div>
+          <div class="stat-item fin-item">
+            <span class="label">⚠️ 平台总罚款</span>
+            <span class="value text-fines">¥{{ totalFines.toFixed(2) }}</span>
+            <span class="sub-label">(失效超时赔付)</span>
+          </div>
+          <div class="stat-item fin-item">
+            <span class="label">📊 平台净利润</span>
+            <span class="value" :class="netProfit >= 0 ? 'text-profit-pos' : 'text-profit-neg'">
+              {{ netProfit >= 0 ? '+' : '' }}¥{{ netProfit.toFixed(2) }}
+            </span>
+            <span class="sub-label">(收支汇总)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 实时调度状态 -->
       <div class="stats-card glass-panel">
-        <h3>实时状态 (10Hz)</h3>
-        <div class="stats-grid">
+        <div class="panel-header-row">
+          <h3>⚡ 实时调度状态 (10Hz)</h3>
+        </div>
+        <div class="realtime-stats-grid">
           <div class="stat-item">
             <span class="label">空闲骑手</span>
             <span class="value text-success">{{ idleRidersCount }}</span>
           </div>
           <div class="stat-item">
             <span class="label">取餐中骑手</span>
-            <span class="value text-warning">{{ pickingRidersCount }}</span>
+            <span class="value text-picking">{{ pickingRidersCount }}</span>
           </div>
           <div class="stat-item">
             <span class="label">送餐中骑手</span>
-            <span class="value text-accent">{{ deliveringRidersCount }}</span>
+            <span class="value text-delivering">{{ deliveringRidersCount }}</span>
           </div>
           <div class="stat-item">
             <span class="label">待处理订单</span>
@@ -150,7 +245,7 @@
             </span>
           </div>
           <div class="detail-row">
-            <span class="detail-label">🟡 取餐点</span>
+            <span class="detail-label">🟠 取餐点</span>
             <span class="detail-value">({{ Math.round(selectedOrder.pickupLocation.x) }}, {{ Math.round(selectedOrder.pickupLocation.y) }})</span>
           </div>
           <div class="detail-row">
@@ -158,7 +253,7 @@
             <span class="detail-value">({{ Math.round(selectedOrder.deliveryLocation.x) }}, {{ Math.round(selectedOrder.deliveryLocation.y) }})</span>
           </div>
           <div v-if="assignedRider" class="detail-row">
-            <span class="detail-label">⚪ 骑手</span>
+            <span class="detail-label">⚪ 负责骑手</span>
             <span class="detail-value">{{ assignedRider.id }} @ ({{ Math.round(assignedRider.currentPosition.x) }}, {{ Math.round(assignedRider.currentPosition.y) }})</span>
           </div>
         </div>
@@ -191,13 +286,20 @@
         </div>
 
         <div class="tab-body">
-          <!-- 1. 商家列表 -->
+          <!-- 1. 商家列表 (含佣金、订单收入与总净收益) -->
           <div v-show="activeTab === 'merchants'" class="tab-pane">
             <div class="merchant-list">
               <div v-for="m in merchants" :key="m.id" class="merchant-item">
                 <div class="merchant-header">
                   <span class="merchant-name">{{ m.id }}</span>
                   <span class="merchant-rating">⭐ {{ (m.rating || 5.0).toFixed(1) }}</span>
+                </div>
+                <div class="merchant-financial-row">
+                  <span class="fin-tag tag-comm">佣金: -¥{{ (m.commission || 0).toFixed(1) }}</span>
+                  <span class="fin-tag tag-order-rev">订单: +¥{{ (m.orderRevenue || 0).toFixed(1) }}</span>
+                  <span class="fin-tag tag-income" :class="(m.totalIncome || 0) >= 0 ? 'text-green' : 'text-red'">
+                    总收益: ¥{{ (m.totalIncome || 0).toFixed(1) }}
+                  </span>
                 </div>
                 <div class="merchant-details">
                   <span class="tag tag-ongoing">进行中: {{ m.ongoingOrders || 0 }}</span>
@@ -238,13 +340,18 @@
             </div>
           </div>
 
-          <!-- 3. 骑手列表 -->
+          <!-- 3. 骑手列表 (含底薪、提成与总工资) -->
           <div v-show="activeTab === 'riders'" class="tab-pane">
             <div class="rider-list">
               <div v-for="rider in riders" :key="rider.id" class="rider-item">
                 <div class="rider-header">
                   <span class="rider-id">{{ rider.id }}</span>
                   <span :class="['status-badge', getRiderStatusClass(rider.status)]">{{ getRiderStatusText(rider.status) }}</span>
+                </div>
+                <div class="rider-salary-row">
+                  <span class="salary-tag">底薪: ¥{{ (rider.baseSalary || 0).toFixed(1) }}</span>
+                  <span class="salary-tag tag-bonus">提成: +¥{{ (rider.bonus || 0).toFixed(1) }}</span>
+                  <span class="salary-tag tag-total">总工资: ¥{{ (rider.totalSalary || 0).toFixed(1) }}</span>
                 </div>
                 <div class="rider-details">
                   <div>坐标: {{ rider.currentPosition ? Math.round(rider.currentPosition.x) + ',' + Math.round(rider.currentPosition.y) : '未知' }}</div>
@@ -282,6 +389,56 @@ const riderCount = ref(10);
 
 const completedOrderCount = ref(0);
 const expiredOrderCount = ref(0);
+
+// === 平台财务数据 ===
+const totalRevenue = ref(0.0);
+const totalExpenses = ref(0.0);
+const totalFines = ref(0.0);
+const netProfit = ref(0.0);
+const virtualDay = ref(1);
+
+// 动态费率配置参数 (用户可在页面随时微调并即时生效)
+const showRateConfig = ref(false);
+const configTakeRatePercent = ref(15); // 0% ~ 100%
+const configBonusMin = ref(3.0);       // 0 ~ 20 元
+const configBonusMax = ref(8.0);       // 0 ~ 20 元
+const currentTakeRate = ref(0.15);
+const currentBonusMin = ref(3.0);
+const currentBonusMax = ref(8.0);
+const saveRateSuccess = ref(false);
+
+const submitFinancialConfig = () => {
+  let ratePercent = Math.max(0, Math.min(100, Number(configTakeRatePercent.value) || 0));
+  let minB = Math.max(0, Math.min(20, Number(configBonusMin.value) || 0));
+  let maxB = Math.max(0, Math.min(20, Number(configBonusMax.value) || 0));
+
+  if (minB > maxB) {
+    const temp = minB;
+    minB = maxB;
+    maxB = temp;
+    configBonusMin.value = minB;
+    configBonusMax.value = maxB;
+  }
+
+  configTakeRatePercent.value = ratePercent;
+  const takeRate = ratePercent / 100.0;
+
+  client.send({
+    command: 'UPDATE_FINANCIAL_CONFIG',
+    platformTakeRate: takeRate,
+    riderBonusMin: minB,
+    riderBonusMax: maxB
+  });
+
+  currentTakeRate.value = takeRate;
+  currentBonusMin.value = minB;
+  currentBonusMax.value = maxB;
+
+  saveRateSuccess.value = true;
+  setTimeout(() => {
+    saveRateSuccess.value = false;
+  }, 3000);
+};
 
 const activeTab = ref('merchants');
 const merchants = ref([]);
@@ -377,6 +534,14 @@ onMounted(() => {
     selectedOrderId.value = null;
     completedOrderCount.value = 0;
     expiredOrderCount.value = 0;
+    // 第 1 天初始日结结算秒级呈现 (佣金 ¥50 * 商家数, 底薪 ¥100 * 骑手数)
+    const initRev = 50.0 * merchantCount.value;
+    const initExp = 100.0 * riderCount.value;
+    totalRevenue.value = initRev;
+    totalExpenses.value = initExp;
+    totalFines.value = 0.0;
+    netProfit.value = initRev - initExp;
+    virtualDay.value = 1;
   };
 
   client.onSimulationPaused = () => {
@@ -399,6 +564,45 @@ onMounted(() => {
     selectedOrderId.value = null;
     completedOrderCount.value = 0;
     expiredOrderCount.value = 0;
+    totalRevenue.value = 0.0;
+    totalExpenses.value = 0.0;
+    totalFines.value = 0.0;
+    netProfit.value = 0.0;
+    virtualDay.value = 1;
+  };
+
+  client.onFinancialUpdate = (data) => {
+    if (data) {
+      totalRevenue.value = data.totalRevenue || 0.0;
+      totalExpenses.value = data.totalExpenses || 0.0;
+      totalFines.value = data.totalFines || 0.0;
+      netProfit.value = data.netProfit || 0.0;
+      if (data.virtualDay) {
+        virtualDay.value = data.virtualDay;
+      }
+      if (data.gameVirtualTimeMs) {
+        // 与权威后端时钟绝对对齐
+        gameTimeMs.value = data.gameVirtualTimeMs;
+      }
+      if (data.platformTakeRate !== undefined) {
+        currentTakeRate.value = data.platformTakeRate;
+        if (!showRateConfig.value) {
+          configTakeRatePercent.value = Math.round(data.platformTakeRate * 100);
+        }
+      }
+      if (data.riderBonusMin !== undefined) {
+        currentBonusMin.value = data.riderBonusMin;
+        if (!showRateConfig.value) {
+          configBonusMin.value = data.riderBonusMin;
+        }
+      }
+      if (data.riderBonusMax !== undefined) {
+        currentBonusMax.value = data.riderBonusMax;
+        if (!showRateConfig.value) {
+          configBonusMax.value = data.riderBonusMax;
+        }
+      }
+    }
   };
 
   client.onMapData = (data) => {
@@ -824,25 +1028,195 @@ const getRiderStatusClass = (status) => {
   flex-direction: column;
 }
 
-.stats-card h3, .orders-card h3 {
-  font-size: 16px;
-  margin-bottom: 15px;
-  color: #fff;
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--panel-border);
-  padding-bottom: 10px;
+  padding-bottom: 8px;
 }
 
-.stats-grid {
+.panel-header-row h3 {
+  margin: 0 !important;
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+}
+
+.btn-config-toggle {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-config-toggle:hover, .btn-config-toggle.active {
+  background: rgba(59, 130, 246, 0.35);
+  border-color: #60a5fa;
+  color: #fff;
+}
+
+/* 费率配置抽屉面板 */
+.rate-config-drawer {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+.config-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #93c5fd;
+  margin-bottom: 8px;
+}
+
+.config-form-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-field label {
+  font-size: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.input-unit-wrap {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.input-unit-wrap input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: monospace;
+  outline: none;
+}
+
+.input-unit-wrap .unit {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-left: 2px;
+}
+
+.field-hint {
+  font-size: 9px;
+  color: #64748b;
+}
+
+.config-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
+
+.btn-save-config {
+  padding: 6px 12px;
+  background: #2563eb;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save-config:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.save-success-tip {
+  font-size: 11px;
+  color: #34d399;
+  font-weight: 600;
+}
+
+.financial-panel {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.control-panel {
+  width: 440px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.financial-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.realtime-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.fin-item {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.fin-item .value {
+  font-size: 17px !important;
+  font-family: monospace;
+  font-weight: 700;
+  margin: 2px 0;
+}
+
+.sub-label {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.text-revenue { color: #22c55e; }
+.text-expense { color: #f59e0b; }
+.text-fines { color: #ef4444; }
+.text-profit-pos { color: #10b981; font-weight: 800; }
+.text-profit-neg { color: #f87171; font-weight: 800; }
 
 .stat-item {
   display: flex;
   flex-direction: column;
   background: rgba(0,0,0,0.2);
-  padding: 10px 6px;
+  padding: 8px 4px;
   border-radius: 8px;
   text-align: center;
 }
@@ -850,12 +1224,12 @@ const getRiderStatusClass = (status) => {
 .stat-item .label {
   font-size: 11px;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: nowrap;
 }
 
 .stat-item .value {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
 }
 
@@ -863,8 +1237,64 @@ const getRiderStatusClass = (status) => {
 .text-warning { color: var(--warning); }
 .text-success { color: var(--success); }
 .text-danger { color: var(--danger); }
+.text-picking { color: #38bdf8; }
+.text-delivering { color: #1d4ed8; }
 .text-completed { color: #10b981; }
 .text-expired { color: #64748b; }
+
+/* 商家与骑手财务标签 */
+.merchant-financial-row, .rider-salary-row {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0;
+  flex-wrap: wrap;
+}
+
+.fin-tag, .salary-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.tag-comm {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.tag-order-rev {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.tag-income {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.salary-tag {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+}
+
+.tag-bonus {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.tag-total {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-weight: 700;
+}
+
+.text-green { color: #34d399; }
+.text-red { color: #f87171; }
 
 /* 订单详情卡片 */
 .detail-card {

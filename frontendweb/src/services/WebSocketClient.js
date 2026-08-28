@@ -80,6 +80,9 @@ export default class WebSocketClient {
             case 'SIMULATION_STOPPED':
                 if (this.onSimulationStopped) this.onSimulationStopped();
                 break;
+            case 'FINANCIAL_UPDATE':
+                if (this.onFinancialUpdate) this.onFinancialUpdate(msg.data);
+                break;
             case 'ORDER_CREATED':
             case 'RIDER_ASSIGNED':
             case 'ORDER_STATUS_CHANGED':
