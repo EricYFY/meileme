@@ -1,67 +1,95 @@
 <template>
-  <div class="dashboard">
-    <!-- 启动配置弹窗 -->
-    <div v-if="!isSimulationStarted" class="start-modal-overlay">
-      <div class="start-modal glass-panel">
-        <h2>🚀 外卖调度系统启动前序</h2>
-        <p class="modal-desc">系统已连接，请配置初始参数以启动模拟引擎。</p>
-        
-        <div class="form-group">
-          <label>初始商家数量 (1-50)</label>
-          <input type="number" v-model.number="merchantCount" min="1" max="50" />
-        </div>
-        <div class="form-group">
-          <label>初始骑手数量 (1-100)</label>
-          <input type="number" v-model.number="riderCount" min="1" max="100" />
-        </div>
-        
-        <button class="btn-start" @click="startSimulation" :disabled="!isConnected || isStarting">
-          {{ !isConnected ? '等待服务器连接...' : (isStarting ? '启动中...' : '启动引擎') }}
-        </button>
-      </div>
-    </div>
-    <!-- 左侧主地图区域 -->
-    <div class="map-section glass-panel">
-      <div class="header">
-        <div class="header-left">
-          <h2>外卖调度模拟器 (201x201)</h2>
-          <!-- 赛博风虚拟时间时钟 (1s=2min) -->
-          <div v-if="isSimulationStarted" class="game-time-badge" :class="{ 'paused': isPaused }">
-            <span class="time-icon">{{ isPaused ? '⏸️' : '🕒' }}</span>
-            <span class="time-label">虚拟时间:</span>
-            <span class="time-val mono">{{ formattedGameTime }}</span>
+  <div class="dashboard-wrapper">
+    <!-- 地图编辑器视图 -->
+    <MapEditor 
+      v-if="currentView === 'editor'" 
+      @close="currentView = 'simulation'" 
+      @mapSaved="fetchSavedMaps" 
+    />
+
+    <!-- 模拟监控主控制台视图 -->
+    <div v-else class="dashboard">
+      <!-- 启动配置弹窗 -->
+      <div v-if="!isSimulationStarted" class="start-modal-overlay">
+        <div class="start-modal glass-panel">
+          <h2>🚀 外卖调度系统启动前序</h2>
+          <p class="modal-desc">系统已连接，请选择运行地图与初始参数。</p>
+          
+          <div class="form-group">
+            <label>运行地图选择</label>
+            <select v-model="selectedMapId" class="map-dropdown">
+              <option value="random">🎲 随机生成全新地图</option>
+              <option v-for="m in savedMaps" :key="m.id" :value="m.id">
+                🗺️ {{ m.name }} ({{ m.roadCount }} 道路格)
+              </option>
+            </select>
           </div>
-        </div>
-        <div class="header-actions">
-          <!-- 暂停/继续按钮 -->
-          <button 
-            v-if="isSimulationStarted" 
-            class="btn-pause" 
-            :class="{ 'paused': isPaused }"
-            @click="togglePause" 
-            :title="isPaused ? '继续模拟' : '暂停模拟'"
-          >
-            {{ isPaused ? '▶️ 继续' : '⏸️ 暂停' }}
-          </button>
-          <button v-if="isSimulationStarted" class="btn-stop" @click="stopSimulation" title="结束当前模拟并重置">
-            ⏹️ 结束模拟
-          </button>
-          <div class="status-indicator">
-            <span class="dot" :class="{ 'connected': isConnected }"></span>
-            {{ isConnected ? '服务器已连接' : '服务器断开' }}
+
+          <div class="form-group">
+            <label>初始商家数量 (1-50)</label>
+            <input type="number" v-model.number="merchantCount" min="1" max="50" />
+          </div>
+          <div class="form-group">
+            <label>初始骑手数量 (1-100)</label>
+            <input type="number" v-model.number="riderCount" min="1" max="100" />
+          </div>
+          
+          <div class="modal-actions">
+            <button class="btn-start" @click="startSimulation" :disabled="!isConnected || isStarting">
+              {{ !isConnected ? '等待服务器连接...' : (isStarting ? '启动中...' : '启动引擎') }}
+            </button>
+            <button class="btn-open-editor" @click="currentView = 'editor'">
+              🎨 绘制/编辑自定义地图
+            </button>
           </div>
         </div>
       </div>
-      <div class="map-wrapper">
-        <MapRenderer 
-          :mapData="mapData" 
-          :riders="riders" 
-          :orders="orders"
-          :selectedOrderId="selectedOrderId"
-          @orderSelected="onMapOrderSelected"
-        />
+      <!-- 左侧主地图区域 -->
+      <div class="map-section glass-panel">
+        <div class="header">
+          <div class="header-left">
+            <h2>外卖调度模拟器 (201x201)</h2>
+            <!-- 赛博风虚拟时间时钟 (1s=2min) -->
+            <div v-if="isSimulationStarted" class="game-time-badge" :class="{ 'paused': isPaused }">
+              <span class="time-icon">{{ isPaused ? '⏸️' : '🕒' }}</span>
+              <span class="time-label">虚拟时间:</span>
+              <span class="time-val mono">{{ formattedGameTime }}</span>
+            </div>
+          </div>
+          <div class="header-actions">
+            <!-- 地图编辑器入口 -->
+            <button v-if="!isSimulationStarted" class="btn-editor-entry" @click="currentView = 'editor'" title="打开地图编辑器">
+              🎨 地图编辑器
+            </button>
+            <!-- 暂停/继续按钮 -->
+            <button 
+              v-if="isSimulationStarted" 
+              class="btn-pause" 
+              :class="{ 'paused': isPaused }"
+              @click="togglePause" 
+              :title="isPaused ? '继续模拟' : '暂停模拟'"
+            >
+              {{ isPaused ? '▶️ 继续' : '⏸️ 暂停' }}
+            </button>
+            <button v-if="isSimulationStarted" class="btn-stop" @click="stopSimulation" title="结束当前模拟并重置">
+              ⏹️ 结束模拟
+            </button>
+            <div class="status-indicator">
+              <span class="dot" :class="{ 'connected': isConnected }"></span>
+              {{ isConnected ? '服务器已连接' : '服务器断开' }}
+            </div>
+          </div>
+        </div>
+        <div class="map-wrapper">
+          <MapRenderer 
+            :mapData="mapData" 
+            :riders="riders" 
+            :orders="orders"
+            :selectedOrderId="selectedOrderId"
+            @orderSelected="onMapOrderSelected"
+          />
+        </div>
       </div>
-    </div>
 
     <!-- 右侧控制面板 -->
     <div class="control-panel">
@@ -231,15 +259,20 @@
           </div>
         </div>
       </div>
-
     </div>
   </div>
+</div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import MapRenderer from './components/MapRenderer.vue';
+import MapEditor from './components/MapEditor.vue';
 import WebSocketClient from './services/WebSocketClient.js';
+
+const currentView = ref('simulation'); // 'simulation' | 'editor'
+const savedMaps = ref([]);
+const selectedMapId = ref('random');
 
 const isConnected = ref(false);
 const isSimulationStarted = ref(false);
@@ -286,13 +319,25 @@ const riders = ref([]);
 const orders = ref({});
 const selectedOrderId = ref(null);
 
+const fetchSavedMaps = async () => {
+  try {
+    const res = await fetch('http://localhost:8081/api/maps');
+    if (res.ok) {
+      savedMaps.value = await res.json();
+    }
+  } catch (e) {
+    console.error('拉取地图列表失败:', e);
+  }
+};
+
 const startSimulation = () => {
   if (isConnected.value && !isStarting.value) {
     isStarting.value = true;
     client.send({
       command: 'START_SIMULATION',
       merchantCount: merchantCount.value,
-      riderCount: riderCount.value
+      riderCount: riderCount.value,
+      mapId: selectedMapId.value
     });
   }
 };
@@ -318,6 +363,7 @@ const client = new WebSocketClient();
 
 onMounted(() => {
   startTimer();
+  fetchSavedMaps();
   client.onStatusChange = (status) => isConnected.value = status;
   
   client.onSimulationStarted = () => {
@@ -483,19 +529,25 @@ const getRiderStatusText = (status) => {
 
 const getRiderStatusClass = (status) => {
   switch(status) {
-    case 0: return 'text-success';
-    case 1: return 'text-warning';
-    case 2: return 'text-accent';
+    case 0: return 'rider-status-idle';       // 空闲: 绿色
+    case 1: return 'rider-status-picking';    // 接单中/取餐: 浅蓝色
+    case 2: return 'rider-status-delivering'; // 配送中: 深蓝色
     default: return '';
   }
 };
 </script>
 
 <style scoped>
-.dashboard {
-  display: flex;
+.dashboard-wrapper {
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
+}
+
+.dashboard {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
   background-color: var(--bg-color);
   color: var(--text-color);
   overflow: hidden; /* 防止出现外层滚动条 */
@@ -513,12 +565,12 @@ const getRiderStatusClass = (status) => {
   justify-content: center;
 }
 .start-modal {
-  padding: 40px;
+  padding: 35px;
   border-radius: 16px;
-  width: 400px;
+  width: 420px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .start-modal h2 {
@@ -530,32 +582,41 @@ const getRiderStatusClass = (status) => {
 .modal-desc {
   text-align: center;
   color: #aaa;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
   font-size: 0.9rem;
 }
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .form-group label {
   font-size: 0.9rem;
   font-weight: 500;
 }
-.form-group input {
+.form-group input, .map-dropdown {
   padding: 10px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.3);
   color: #fff;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
-.form-group input:focus {
+.form-group input:focus, .map-dropdown:focus {
   outline: none;
   border-color: var(--primary-color);
 }
+.map-dropdown option {
+  background: #0f172a;
+  color: #fff;
+}
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
 .btn-start {
-  margin-top: 10px;
   padding: 12px;
   border-radius: 8px;
   background: var(--primary-color);
@@ -574,6 +635,38 @@ const getRiderStatusClass = (status) => {
   background: #555;
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.btn-open-editor {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  color: #93c5fd;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-open-editor:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #60a5fa;
+}
+
+.btn-editor-entry {
+  padding: 6px 14px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-editor-entry:hover {
+  background: rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
 }
 
 .map-section {
@@ -900,16 +993,20 @@ const getRiderStatusClass = (status) => {
   background: rgba(255,255,255,0.1);
 }
 
-.status-0 { border-left: 3px solid var(--danger); }
-.status-0 .order-status-badge { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+.status-0 { border-left: 3px solid #ef4444; }
+.status-0 .order-status-badge { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
-.status-1 { border-left: 3px solid var(--warning); }
-.status-1 .order-status-badge { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+.status-1 { border-left: 3px solid #38bdf8; }
+.status-1 .order-status-badge { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; }
 
-.status-2 { border-left: 3px solid var(--accent-color); }
-.status-2 .order-status-badge { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+.status-2 { border-left: 3px solid #1d4ed8; }
+.status-2 .order-status-badge { background: rgba(29, 78, 216, 0.25); color: #93c5fd; }
 
 .status-3 { border-left: 3px solid var(--success); opacity: 0.5; }
+
+.rider-status-idle { color: #22c55e !important; font-weight: 600; }
+.rider-status-picking { color: #38bdf8 !important; font-weight: 600; }
+.rider-status-delivering { color: #60a5fa !important; font-weight: 600; }
 
 .order-detail {
   display: flex;
@@ -1009,7 +1106,7 @@ const getRiderStatusClass = (status) => {
   background: rgba(255, 255, 255, 0.05);
   padding: 12px;
   border-radius: 8px;
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid #f97316;
 }
 
 .merchant-header {
@@ -1028,11 +1125,11 @@ const getRiderStatusClass = (status) => {
 .merchant-rating {
   font-size: 13px;
   font-weight: 700;
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.15);
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.15);
   padding: 2px 8px;
   border-radius: 12px;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 
 .merchant-details {

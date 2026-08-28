@@ -183,14 +183,14 @@ export default class CanvasEngine {
 
     _getColor(tileType) {
         switch(tileType) {
-            case 0: return '#111827';
-            case 1: return '#3b82f6'; // 主干道 (亮蓝)
-            case 2: return '#2563eb'; // 大路 (蓝)
-            case 3: return '#1e40af'; // 小路 (深蓝)
-            case 4: return '#4b5563'; // 高密度住宅
-            case 5: return '#374151'; // 低密度住宅
-            case 6: return '#7c3aed'; // 高密度商业 (紫)
-            case 7: return '#6d28d9'; // 低密度商业
+            case 0: return '#0f172a';
+            case 1: return '#ffffff'; // 主干道 (白色)
+            case 2: return '#94a3b8'; // 大路 (灰色)
+            case 3: return '#475569'; // 小路 (深灰色)
+            case 4: return '#15803d'; // 高密度住宅 (深绿)
+            case 5: return '#86efac'; // 低密度住宅 (浅绿)
+            case 6: return '#6b21a8'; // 高密度商业 (深紫)
+            case 7: return '#c084fc'; // 低密度商业 (浅紫)
             default: return '#000000';
         }
     }
@@ -204,7 +204,7 @@ export default class CanvasEngine {
             r.current.y += (r.target.y - r.current.y) * 0.3;
         });
 
-        // 2. 清空
+        // 2. 清空背景
         this.ctx.fillStyle = '#0f172a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -227,14 +227,14 @@ export default class CanvasEngine {
                 }
             }
 
-            // 商家标记 (金黄色圆点)
+            // 商家标记 (橘色圆点)
             this.mapData.merchants.forEach(m => {
                 const px = (m.x - this.mapData.min) * this.tileSize;
                 const py = (m.y - this.mapData.min) * this.tileSize;
                 
-                this.ctx.fillStyle = '#f59e0b';
-                this.ctx.shadowBlur = 8;
-                this.ctx.shadowColor = '#f59e0b';
+                this.ctx.fillStyle = '#f97316';
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = '#f97316';
                 this.ctx.beginPath();
                 this.ctx.arc(px + this.tileSize/2, py + this.tileSize/2, this.tileSize * 0.5, 0, Math.PI * 2);
                 this.ctx.fill();
@@ -252,34 +252,34 @@ export default class CanvasEngine {
                 const deliveryPx = (order.deliveryLocation.x - min) * this.tileSize + this.tileSize/2;
                 const deliveryPy = (order.deliveryLocation.y - min) * this.tileSize + this.tileSize/2;
                 
-                // 取餐点高亮圈 (大黄圈)
-                this.ctx.strokeStyle = '#fbbf24';
+                // 取餐点高亮圈 (橘色圈)
+                this.ctx.strokeStyle = '#f97316';
                 this.ctx.lineWidth = 3;
                 this.ctx.shadowBlur = 20;
-                this.ctx.shadowColor = '#fbbf24';
+                this.ctx.shadowColor = '#f97316';
                 this.ctx.beginPath();
                 this.ctx.arc(pickupPx, pickupPy, this.tileSize * 1.5, 0, Math.PI * 2);
                 this.ctx.stroke();
                 
                 // 取餐点标签
-                this.ctx.fillStyle = '#fbbf24';
+                this.ctx.fillStyle = '#f97316';
                 this.ctx.font = `bold ${this.tileSize * 0.7}px Inter, sans-serif`;
                 this.ctx.fillText('取餐', pickupPx - this.tileSize * 0.7, pickupPy - this.tileSize * 1.8);
                 
-                // 送餐点高亮圈 (大绿圈)
-                this.ctx.strokeStyle = '#34d399';
-                this.ctx.shadowColor = '#34d399';
+                // 送餐点高亮圈 (深绿圈)
+                this.ctx.strokeStyle = '#15803d';
+                this.ctx.shadowColor = '#15803d';
                 this.ctx.beginPath();
                 this.ctx.arc(deliveryPx, deliveryPy, this.tileSize * 1.5, 0, Math.PI * 2);
                 this.ctx.stroke();
                 
                 // 送餐点标签
-                this.ctx.fillStyle = '#34d399';
+                this.ctx.fillStyle = '#15803d';
                 this.ctx.fillText('送达', deliveryPx - this.tileSize * 0.7, deliveryPy - this.tileSize * 1.8);
                 
                 // 连线 (虚线)
                 this.ctx.setLineDash([8, 4]);
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
                 this.ctx.lineWidth = 2;
                 this.ctx.shadowBlur = 0;
                 this.ctx.beginPath();
@@ -294,11 +294,11 @@ export default class CanvasEngine {
                         const riderPx = (r.current.x - min) * this.tileSize + this.tileSize/2;
                         const riderPy = (r.current.y - min) * this.tileSize + this.tileSize/2;
                         
-                        // 骑手高亮圈 (大白圈)
-                        this.ctx.strokeStyle = '#ffffff';
+                        // 骑手高亮圈
+                        this.ctx.strokeStyle = r.status === 1 ? '#38bdf8' : '#1d4ed8';
                         this.ctx.lineWidth = 3;
                         this.ctx.shadowBlur = 25;
-                        this.ctx.shadowColor = '#ffffff';
+                        this.ctx.shadowColor = this.ctx.strokeStyle;
                         this.ctx.beginPath();
                         this.ctx.arc(riderPx, riderPy, this.tileSize * 1.8, 0, Math.PI * 2);
                         this.ctx.stroke();
@@ -330,13 +330,13 @@ export default class CanvasEngine {
         if (this.mapData) {
             const min = this.mapData.min;
             this.orders.forEach((order, id) => {
-                // 取餐点标记
+                // 取餐点标记 (新订单: 红色；取餐中: 浅蓝色)
                 if (order.status <= 1) {
                     const px = (order.pickupLocation.x - min) * this.tileSize;
                     const py = (order.pickupLocation.y - min) * this.tileSize;
                     
                     const isSelected = id === this.selectedOrderId;
-                    this.ctx.fillStyle = order.status === 0 ? '#ef4444' : '#f97316';
+                    this.ctx.fillStyle = order.status === 0 ? '#ef4444' : '#38bdf8';
                     
                     if (isSelected) {
                         this.ctx.shadowBlur = 20;
@@ -354,30 +354,30 @@ export default class CanvasEngine {
                     this.ctx.shadowBlur = 0;
                 }
                 
-                // 送餐点标记 (小绿点，只有在配送中时显示)
+                // 送餐点标记 (配送中: 深蓝色)
                 if (order.status === 2) {
                     const dx = (order.deliveryLocation.x - min) * this.tileSize;
                     const dy = (order.deliveryLocation.y - min) * this.tileSize;
                     
-                    this.ctx.fillStyle = '#34d399';
+                    this.ctx.fillStyle = '#1d4ed8';
                     this.ctx.shadowBlur = 6;
-                    this.ctx.shadowColor = '#34d399';
-                    this.ctx.fillRect(dx + 5, dy + 5, this.tileSize - 10, this.tileSize - 10);
+                    this.ctx.shadowColor = '#1d4ed8';
+                    this.ctx.fillRect(dx + 4, dy + 4, this.tileSize - 8, this.tileSize - 8);
                     this.ctx.shadowBlur = 0;
                 }
             });
         }
 
-        // 6. 绘制骑手
+        // 6. 绘制骑手 (空闲: 绿色，接单中: 浅蓝，配送中: 深蓝)
         if (this.mapData) {
             const min = this.mapData.min;
             this.riders.forEach(r => {
                 const px = (r.current.x - min) * this.tileSize + this.tileSize/2;
                 const py = (r.current.y - min) * this.tileSize + this.tileSize/2;
                 
-                let color = '#22c55e'; // 空闲 (绿)
-                if (r.status === 1) color = '#f97316'; // 取餐中 (橙)
-                if (r.status === 2) color = '#0ea5e9'; // 送餐中 (蓝)
+                let color = '#22c55e'; // 空闲 (绿色)
+                if (r.status === 1) color = '#38bdf8'; // 接单中/取餐中 (浅蓝色)
+                if (r.status === 2) color = '#1d4ed8'; // 配送中 (深蓝色)
 
                 this.ctx.fillStyle = color;
                 this.ctx.shadowBlur = 15;

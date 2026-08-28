@@ -59,8 +59,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 } else if ("START_SIMULATION".equals(cmd)) {
                     int mCount = jsonNode.has("merchantCount") ? jsonNode.get("merchantCount").asInt() : 5;
                     int rCount = jsonNode.has("riderCount") ? jsonNode.get("riderCount").asInt() : 10;
-                    System.out.println(">>> [来自 Client] 请求启动引擎，商家数: " + mCount + ", 骑手数: " + rCount);
-                    gameEngineService.startSimulation(mCount, rCount);
+                    String mapId = jsonNode.has("mapId") ? jsonNode.get("mapId").asText() : null;
+                    System.out.println(">>> [来自 Client] 请求启动引擎，商家数: " + mCount + ", 骑手数: " + rCount + ", 地图ID: " + mapId);
+                    gameEngineService.startSimulation(mCount, rCount, mapId);
                 } else if ("PAUSE_SIMULATION".equals(cmd)) {
                     System.out.println(">>> [来自 Client] 请求暂停模拟");
                     gameEngineService.pauseSimulation();

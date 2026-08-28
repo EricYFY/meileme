@@ -4,18 +4,20 @@
     
     <!-- 图例 -->
     <div class="legend glass-panel">
-      <h4>图例</h4>
-      <div class="legend-item"><span class="box bg-blue-main"></span>主干道 (3格宽)</div>
-      <div class="legend-item"><span class="box bg-blue-big"></span>大路 (2格宽)</div>
-      <div class="legend-item"><span class="box bg-blue-small"></span>小路 (1格宽)</div>
-      <div class="legend-item"><span class="circle bg-merchant"></span>商家</div>
-      <div class="legend-item"><span class="box bg-com"></span>商业区</div>
-      <div class="legend-item"><span class="box bg-res"></span>住宅区</div>
+      <h4>🎨 色彩图例</h4>
+      <div class="legend-item"><span class="box bg-road-main"></span>主干道 (白色)</div>
+      <div class="legend-item"><span class="box bg-road-big"></span>大路 (灰色)</div>
+      <div class="legend-item"><span class="box bg-road-small"></span>小路 (深灰色)</div>
+      <div class="legend-item"><span class="circle bg-merchant"></span>商家 (橘色)</div>
+      <div class="legend-item"><span class="box bg-com-high"></span>高密商业区 (深紫)</div>
+      <div class="legend-item"><span class="box bg-com-low"></span>低密商业区 (浅紫)</div>
+      <div class="legend-item"><span class="box bg-res-high"></span>高密住宅区 (深绿)</div>
+      <div class="legend-item"><span class="box bg-res-low"></span>低密住宅区 (浅绿)</div>
       <div class="divider"></div>
-      <div class="legend-item"><span class="circle bg-rider-idle"></span>骑手 (空闲)</div>
-      <div class="legend-item"><span class="circle bg-rider-pickup"></span>骑手 (取餐中)</div>
-      <div class="legend-item"><span class="circle bg-rider-delivery"></span>骑手 (送餐中)</div>
-      <div class="legend-item"><span class="box bg-order"></span>新订单</div>
+      <div class="legend-item"><span class="circle bg-rider-idle"></span>骑手: 空闲 (绿色)</div>
+      <div class="legend-item"><span class="circle bg-rider-pickup"></span>骑手: 接单中 (浅蓝)</div>
+      <div class="legend-item"><span class="circle bg-rider-delivery"></span>骑手: 配送中 (深蓝)</div>
+      <div class="legend-item"><span class="box bg-order-new"></span>新订单 (红色)</div>
       <div class="divider"></div>
       <div class="legend-item hint">💡 点击订单查看详情</div>
       <div class="legend-item hint">🖱️ 滚轮缩放 / 拖拽平移</div>
@@ -136,14 +138,16 @@ canvas {
 .circle { width: 12px; height: 12px; border-radius: 50%; }
 .divider { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0; }
 
-.bg-blue-main { background: #3b82f6; }
-.bg-blue-big { background: #2563eb; }
-.bg-blue-small { background: #1e40af; }
-.bg-merchant { background: #f59e0b; box-shadow: 0 0 5px #f59e0b; }
-.bg-com { background: #7c3aed; }
-.bg-res { background: #4b5563; }
-.bg-rider-idle { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
-.bg-rider-pickup { background: #f97316; box-shadow: 0 0 5px #f97316; }
-.bg-rider-delivery { background: #0ea5e9; box-shadow: 0 0 5px #0ea5e9; }
-.bg-order { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+.bg-road-main { background: #ffffff; border: 1px solid #cbd5e1; }
+.bg-road-big { background: #94a3b8; }
+.bg-road-small { background: #475569; }
+.bg-merchant { background: #f97316; box-shadow: 0 0 6px #f97316; }
+.bg-com-high { background: #6b21a8; }
+.bg-com-low { background: #c084fc; }
+.bg-res-high { background: #15803d; }
+.bg-res-low { background: #86efac; border: 1px solid #22c55e; }
+.bg-rider-idle { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.bg-rider-pickup { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+.bg-rider-delivery { background: #1d4ed8; box-shadow: 0 0 6px #1d4ed8; }
+.bg-order-new { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
 </style>

@@ -31,17 +31,31 @@ class SimulationEngine:
             print(f"[Engine] Redis 连接失败: {e}. 请确保 Redis 已启动。")
             self.redis_client = None
 
-        # 初始骑手状态 (出生在主干道十字中心 0,0)
+        # 收集所有合法的马路格子作为可选出生点 (随机分散出生)
+        road_cells = list(self.router.road_set)
+        if not road_cells:
+            spawn_i, spawn_j = self.router.find_nearest_road_idx(
+                self.router._coord_to_idx(0, 0)[0],
+                self.router._coord_to_idx(0, 0)[1]
+            )
+            road_cells = [(spawn_i, spawn_j)]
+
+        # 初始骑手状态 (随机分散出生在马路上)
+        import random
         self.riders = {}
         for i in range(1, self.rider_count + 1):
             rider_id = f"rider-{i:03d}"
+            spawn_i, spawn_j = random.choice(road_cells)
+            spawn_x, spawn_y = self.router._idx_to_coord(spawn_i, spawn_j)
+            spawn_speed = self.router.get_road_speed_by_coord(spawn_x, spawn_y)
+            
             self.riders[rider_id] = {
                 "id": rider_id,
-                "currentPosition": {"x": 0.0, "y": 0.0},
+                "currentPosition": {"x": spawn_x, "y": spawn_y},
                 "targetPosition": None,
                 "plannedTarget": None, # 记录当前已规划路径的目标
                 "path": [],            # 关键拐点路径序列
-                "speed": 9.0,          # 初始主干道速度
+                "speed": spawn_speed,  # 初始道路速度
                 "status": 0,
                 "currentOrderId": None
             }

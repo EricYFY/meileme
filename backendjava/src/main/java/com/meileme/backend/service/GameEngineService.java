@@ -62,17 +62,24 @@ public class GameEngineService {
     private List<int[]> residentialCells = new ArrayList<>();
 
     public void startSimulation(int merchantCount, int riderCount) {
+        startSimulation(merchantCount, riderCount, null);
+    }
+
+    public void startSimulation(int merchantCount, int riderCount, String mapId) {
         try {
             // 通过 HTTP POST 从 Python 服务启动并获取地图和商家数据
             RestTemplate restTemplate = new RestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             
-            Map<String, Integer> requestBody = new HashMap<>();
+            Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("merchantCount", merchantCount);
             requestBody.put("riderCount", riderCount);
+            if (mapId != null && !mapId.isEmpty()) {
+                requestBody.put("mapId", mapId);
+            }
             
-            HttpEntity<Map<String, Integer>> request = new HttpEntity<>(requestBody, headers);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
             String mapJson = restTemplate.postForObject("http://localhost:8081/api/simulation/start", request, String.class);
             Map<String, Object> mapData = objectMapper.readValue(mapJson, new TypeReference<Map<String, Object>>() {});
             

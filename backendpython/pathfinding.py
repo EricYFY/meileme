@@ -1,9 +1,9 @@
 import heapq
 import math
 
-TILE_ROAD_MAIN = 1   # 主干道
-TILE_ROAD_BIG = 2    # 大路
-TILE_ROAD_SMALL = 3  # 小路
+TILE_ROAD_MAIN = 1   # 主干道 (9.0 格/秒)
+TILE_ROAD_BIG = 2    # 大路 (6.5 格/秒)
+TILE_ROAD_SMALL = 3  # 小路 (4.0 格/秒)
 
 ROAD_SPEEDS = {
     TILE_ROAD_MAIN: 9.0,   # 主干道速度最高
@@ -12,6 +12,7 @@ ROAD_SPEEDS = {
 }
 
 MAX_SPEED = 9.0
+SQRT2 = math.sqrt(2.0)
 
 class AStarRouter:
     def __init__(self, grid, grid_min=-100):
@@ -49,7 +50,7 @@ class AStarRouter:
         return 4.0
 
     def find_nearest_road_idx(self, i, j):
-        """如果在非道路上，在周围进行广度搜索寻找最近的道路格子"""
+        """如果在非道路上，在 8-邻域扩展寻找最近的道路格子"""
         if (i, j) in self.road_set:
             return i, j
         
@@ -58,22 +59,24 @@ class AStarRouter:
         queue = [(i, j)]
         while queue:
             ci, cj = queue.pop(0)
-            for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                ni, nj = ci + di, cj + dj
-                if 0 <= ni < self.size and 0 <= nj < self.size and (ni, nj) not in visited:
-                    if (ni, nj) in self.road_set:
-                        return ni, nj
-                    visited.add((ni, nj))
-                    # 搜索半径限制
-                    if abs(ni - i) + abs(nj - j) <= 15:
-                        queue.append((ni, nj))
+            for di in [-1, 0, 1]:
+                for dj in [-1, 0, 1]:
+                    if di == 0 and dj == 0: continue
+                    ni, nj = ci + di, cj + dj
+                    if 0 <= ni < self.size and 0 <= nj < self.size and (ni, nj) not in visited:
+                        if (ni, nj) in self.road_set:
+                            return ni, nj
+                        visited.add((ni, nj))
+                        if abs(ni - i) + abs(nj - j) <= 20:
+                            queue.append((ni, nj))
         return i, j
 
     def find_path(self, start_pos, target_pos):
         """
         start_pos: {"x": float, "y": float}
         target_pos: {"x": float, "y": float}
-        返回路径点列表: [{"x": float, "y": float}, ...]
+        返回路径拐点序列: [{"x": float, "y": float}, ...]
+        支持 8 方向（横向、纵向、斜向对角线）移动
         """
         si, sj = self._coord_to_idx(start_pos["x"], start_pos["y"])
         ti, tj = self._coord_to_idx(target_pos["x"], target_pos["y"])
@@ -85,17 +88,32 @@ class AStarRouter:
             tx, ty = self._idx_to_coord(ti, tj)
             return [{"x": tx, "y": ty}]
 
-        # A* 算法
-        # 优先队列元素: (f_score, cost, (i, j))
+        # 8 个移动方向与对应的欧几里得位移距离
+        # (di, dj, dist)
+        directions = [
+            (-1,  0, 1.0),
+            ( 1,  0, 1.0),
+            ( 0, -1, 1.0),
+            ( 0,  1, 1.0),
+            (-1, -1, SQRT2),
+            (-1,  1, SQRT2),
+            ( 1, -1, SQRT2),
+            ( 1,  1, SQRT2)
+        ]
+
+        # Octile 八方向启发式距离
+        def heuristic(ci, cj):
+            dx = abs(ci - ti)
+            dy = abs(cj - tj)
+            octile_dist = (SQRT2 - 1.0) * min(dx, dy) + max(dx, dy)
+            return octile_dist / MAX_SPEED
+
+        # 优先队列: (f_score, cost, (i, j))
         open_set = []
-        heapq.heappush(open_set, (0.0, 0.0, (si, sj)))
+        heapq.heappush(open_set, (heuristic(si, sj), 0.0, (si, sj)))
         
         came_from = {}
         g_score = {(si, sj): 0.0}
-
-        def heuristic(ci, cj):
-            # 曼哈顿距离 / 最大速度 作为启发式函数
-            return (abs(ci - ti) + abs(cj - tj)) / MAX_SPEED
 
         while open_set:
             _, current_g, current = heapq.heappop(open_set)
@@ -110,13 +128,12 @@ class AStarRouter:
                 path_indices.reverse()
                 return self._simplify_path_indices(path_indices)
 
-            # 4 方向扩展 (上下左右)
-            for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            for di, dj, dist in directions:
                 ni, nj = ci + di, cj + dj
                 if (ni, nj) in self.road_set:
                     tile_type = self.grid[ni][nj]
                     speed = ROAD_SPEEDS.get(tile_type, 4.0)
-                    step_cost = 1.0 / speed # 通行时间开销
+                    step_cost = dist / speed # 斜向需要 sqrt(2) 距离的耗时
                     tentative_g = current_g + step_cost
 
                     if (ni, nj) not in g_score or tentative_g < g_score[(ni, nj)]:
@@ -131,7 +148,7 @@ class AStarRouter:
 
     def _simplify_path_indices(self, path_indices):
         """
-        压缩同一直线上的中间点，提取关键拐点，优化移动插值
+        压缩同一直线（横/竖/对角斜线）上的中间点，提取关键拐点
         """
         if len(path_indices) <= 2:
             return [{"x": self._idx_to_coord(i, j)[0], "y": self._idx_to_coord(i, j)[1]} for i, j in path_indices]
@@ -146,10 +163,10 @@ class AStarRouter:
             dir1 = (curr_i - prev_i, curr_j - prev_j)
             dir2 = (next_i - curr_i, next_j - curr_j)
 
-            # 方向改变或道路类型改变时保留拐点
             tile_curr = self.grid[curr_i][curr_j]
             tile_next = self.grid[next_i][next_j]
 
+            # 移动方向发生改变（例如直行转斜行、转弯）或道路等级改变时，保留关键路标点
             if dir1 != dir2 or tile_curr != tile_next:
                 simplified.append((curr_i, curr_j))
 
