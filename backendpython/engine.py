@@ -287,7 +287,7 @@ class SimulationEngine:
                 curr_x = rider["currentPosition"]["x"]
                 curr_y = rider["currentPosition"]["y"]
                 
-                # 根据当前所在道路类型动态调整速度 (主干道 9.0, 大路 6.5, 小路 4.0)
+                # 根据当前所在道路类型动态调整速度 (主干道 12.0, 大路 6.0, 小路 3.0)
                 # 若为空闲巡游，以正常道路速度巡航移动
                 rider["speed"] = self.router.get_road_speed_by_coord(curr_x, curr_y)
                 

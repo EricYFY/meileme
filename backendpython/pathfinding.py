@@ -1,17 +1,17 @@
 import heapq
 import math
 
-TILE_ROAD_MAIN = 1   # 主干道 (9.0 格/秒)
-TILE_ROAD_BIG = 2    # 大路 (6.5 格/秒)
-TILE_ROAD_SMALL = 3  # 小路 (4.0 格/秒)
+TILE_ROAD_MAIN = 1   # 主干道 (12.0 格/秒)
+TILE_ROAD_BIG = 2    # 大路 (6.0 格/秒)
+TILE_ROAD_SMALL = 3  # 小路 (3.0 格/秒)
 
 ROAD_SPEEDS = {
-    TILE_ROAD_MAIN: 9.0,   # 主干道速度最高
-    TILE_ROAD_BIG: 6.5,    # 大路速度次之
-    TILE_ROAD_SMALL: 4.0   # 小路速度最低
+    TILE_ROAD_MAIN: 12.0,   # 主干道速度最高
+    TILE_ROAD_BIG: 6.0,     # 大路速度次之
+    TILE_ROAD_SMALL: 3.0    # 小路速度最低
 }
 
-MAX_SPEED = 9.0
+MAX_SPEED = 12.0
 SQRT2 = math.sqrt(2.0)
 
 class AStarRouter:
@@ -46,8 +46,8 @@ class AStarRouter:
         i, j = self._coord_to_idx(x, y)
         if 0 <= i < self.size and 0 <= j < self.size:
             tile = self.grid[i][j]
-            return ROAD_SPEEDS.get(tile, 4.0)
-        return 4.0
+            return ROAD_SPEEDS.get(tile, 3.0)
+        return 3.0
 
     def find_nearest_road_idx(self, i, j):
         """如果在非道路上，在 8-邻域扩展寻找最近的道路格子"""
@@ -132,7 +132,7 @@ class AStarRouter:
                 ni, nj = ci + di, cj + dj
                 if (ni, nj) in self.road_set:
                     tile_type = self.grid[ni][nj]
-                    speed = ROAD_SPEEDS.get(tile_type, 4.0)
+                    speed = ROAD_SPEEDS.get(tile_type, 3.0)
                     step_cost = dist / speed # 斜向需要 sqrt(2) 距离的耗时
                     tentative_g = current_g + step_cost
 

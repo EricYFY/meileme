@@ -26,13 +26,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         sessions.add(session);
-        System.out.println("Unity Client connected: " + session.getId());
+        System.out.println("Client connected: " + session.getId());
+
+        // ★ 若后端引擎正在运行，立即向新连接的客户端推送全量运行状态与地图！
+        if (gameEngineService != null && gameEngineService.isRunning()) {
+            if (cachedMapMessage != null) {
+                try {
+                    session.sendMessage(new TextMessage(cachedMapMessage));
+                    System.out.println("<<< [自动同步] 向新连接客户端发送 MAP_DATA: " + session.getId());
+                } catch (Exception e) {}
+            }
+            gameEngineService.syncStateToSession(session);
+        }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessions.remove(session);
-        System.out.println("Unity Client disconnected: " + session.getId());
+        System.out.println("Client disconnected: " + session.getId());
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -56,6 +67,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                         session.sendMessage(new TextMessage("{\"type\":\"ERROR\",\"message\":\"Map not loaded yet\"}"));
                         System.out.println("<<< [发给 Client] 报错：地图尚未加载");
                     }
+                } else if ("CHECK_STATUS".equals(cmd) || "GET_STATUS".equals(cmd)) {
+                    if (gameEngineService != null && gameEngineService.isRunning()) {
+                        if (cachedMapMessage != null) {
+                            session.sendMessage(new TextMessage(cachedMapMessage));
+                        }
+                        gameEngineService.syncStateToSession(session);
+                    } else {
+                        session.sendMessage(new TextMessage("{\"type\":\"SIMULATION_STOPPED\"}"));
+                    }
                 } else if ("START_SIMULATION".equals(cmd)) {
                     int mCount = jsonNode.has("merchantCount") ? jsonNode.get("merchantCount").asInt() : 5;
                     int rCount = jsonNode.has("riderCount") ? jsonNode.get("riderCount").asInt() : 10;
@@ -72,11 +92,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     System.out.println(">>> [来自 Client] 请求结束模拟");
                     gameEngineService.stopSimulation();
                 } else if ("UPDATE_FINANCIAL_CONFIG".equals(cmd)) {
-                    double takeRate = jsonNode.has("platformTakeRate") ? jsonNode.get("platformTakeRate").asDouble() : 0.15;
+                    double takeRate = jsonNode.has("platformTakeRate") ? jsonNode.get("platformTakeRate").asDouble() : 0.25;
                     double bonusMin = jsonNode.has("riderBonusMin") ? jsonNode.get("riderBonusMin").asDouble() : 3.0;
                     double bonusMax = jsonNode.has("riderBonusMax") ? jsonNode.get("riderBonusMax").asDouble() : 8.0;
                     System.out.println(String.format(">>> [来自 Client] 更新财务费率参数: 抽成比例=%.2f, 提成区间=[%.1f, %.1f]", takeRate, bonusMin, bonusMax));
                     gameEngineService.updateFinancialConfig(takeRate, bonusMin, bonusMax);
+                } else if ("UPDATE_MERCHANT_CONFIG".equals(cmd)) {
+                    String mId = jsonNode.has("merchantId") ? jsonNode.get("merchantId").asText() : "";
+                    double minPrice = jsonNode.has("minOrderPrice") ? jsonNode.get("minOrderPrice").asDouble() : 15.0;
+                    double maxPrice = jsonNode.has("maxOrderPrice") ? jsonNode.get("maxOrderPrice").asDouble() : 35.0;
+                    double matRate = jsonNode.has("materialCostRate") ? jsonNode.get("materialCostRate").asDouble() : 0.50;
+                    double rent = jsonNode.has("rentCost") ? jsonNode.get("rentCost").asDouble() : 100.0;
+                    double labor = jsonNode.has("laborCost") ? jsonNode.get("laborCost").asDouble() : 150.0;
+                    double adSpend = jsonNode.has("adSpend") ? jsonNode.get("adSpend").asDouble() : 20.0;
+                    double franchise = jsonNode.has("dailyFranchiseFee") ? jsonNode.get("dailyFranchiseFee").asDouble() : 50.0;
+                    
+                    System.out.println(String.format(">>> [来自 Client] 更新商家经营参数: ID=%s, 客单价=[%.1f, %.1f], 耗材=%.1f%%, 租金=%.1f, 人工=%.1f, 广告=%.1f",
+                            mId, minPrice, maxPrice, matRate * 100, rent, labor, adSpend));
+                    gameEngineService.updateMerchantConfig(mId, minPrice, maxPrice, matRate, rent, labor, adSpend, franchise);
                 }
             }
         } catch (Exception e) {

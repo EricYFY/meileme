@@ -8,6 +8,7 @@ export default class WebSocketClient {
         this.onMapData = null;
         this.onRiderUpdate = null;
         this.onOrderEvent = null; // 合并订单状态变化的事件
+        this.onOrdersSync = null; // 批量同步活跃订单
         this.onStatusChange = null;
     }
 
@@ -19,8 +20,9 @@ export default class WebSocketClient {
             console.log("[WS] 连接成功！");
             this.isConnected = true;
             if (this.onStatusChange) this.onStatusChange(true);
-            // 建立连接后立刻请求地图
+            // 建立连接后立刻请求地图并检查后端运行状态
             this.requestMap();
+            this.send({ command: 'CHECK_STATUS' });
         };
 
         this.ws.onclose = () => {
@@ -82,6 +84,9 @@ export default class WebSocketClient {
                 break;
             case 'FINANCIAL_UPDATE':
                 if (this.onFinancialUpdate) this.onFinancialUpdate(msg.data);
+                break;
+            case 'ORDERS_SYNC':
+                if (this.onOrdersSync) this.onOrdersSync(msg.data);
                 break;
             case 'ORDER_CREATED':
             case 'RIDER_ASSIGNED':
