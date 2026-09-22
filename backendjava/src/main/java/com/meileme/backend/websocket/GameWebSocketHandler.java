@@ -91,6 +91,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 } else if ("STOP_SIMULATION".equals(cmd)) {
                     System.out.println(">>> [来自 Client] 请求结束模拟");
                     gameEngineService.stopSimulation();
+                } else if ("SET_SIMULATION_SPEED".equals(cmd)) {
+                    double speed = jsonNode.has("speed") ? jsonNode.get("speed").asDouble() : 1.0;
+                    System.out.println(">>> [来自 Client] 切换全局倍速: " + speed + "x");
+                    gameEngineService.setSimulationSpeed(speed);
                 } else if ("UPDATE_FINANCIAL_CONFIG".equals(cmd)) {
                     double takeRate = jsonNode.has("platformTakeRate") ? jsonNode.get("platformTakeRate").asDouble() : 0.25;
                     double bonusMin = jsonNode.has("riderBonusMin") ? jsonNode.get("riderBonusMin").asDouble() : 3.0;

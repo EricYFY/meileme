@@ -10,6 +10,8 @@ export default class WebSocketClient {
         this.onOrderEvent = null; // 合并订单状态变化的事件
         this.onOrdersSync = null; // 批量同步活跃订单
         this.onStatusChange = null;
+        this.onBankruptcy = null; // 破产结算事件
+        this.onSpeedChanged = null; // 全局倍速变更
     }
 
     connect() {
@@ -79,11 +81,17 @@ export default class WebSocketClient {
             case 'SIMULATION_RESUMED':
                 if (this.onSimulationResumed) this.onSimulationResumed();
                 break;
+            case 'SIMULATION_SPEED_CHANGED':
+                if (this.onSpeedChanged) this.onSpeedChanged(msg.speed);
+                break;
             case 'SIMULATION_STOPPED':
                 if (this.onSimulationStopped) this.onSimulationStopped();
                 break;
             case 'FINANCIAL_UPDATE':
                 if (this.onFinancialUpdate) this.onFinancialUpdate(msg.data);
+                break;
+            case 'BANKRUPTCY':
+                if (this.onBankruptcy) this.onBankruptcy(msg.data);
                 break;
             case 'ORDERS_SYNC':
                 if (this.onOrdersSync) this.onOrdersSync(msg.data);

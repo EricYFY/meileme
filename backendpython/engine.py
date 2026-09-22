@@ -129,12 +129,20 @@ class SimulationEngine:
         return export_list
 
     def _tick_loop(self):
-        dt = 0.1 # 100ms
         while self.running:
             if self.paused:
                 time.sleep(0.1)
                 continue
-                
+
+            # 全局倍速: 从 Redis 读取 Java 下发的倍速, 缩放物理步长 dt (0.1s * speed)
+            dt = 0.1
+            if self.redis_client:
+                try:
+                    spd = float(self.redis_client.get("game:simulation:speed") or "1.0")
+                    dt = 0.1 * spd
+                except Exception:
+                    dt = 0.1
+
             start_time = time.time()
             self._update_riders(dt)
             

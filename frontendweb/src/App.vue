@@ -45,6 +45,21 @@
         </div>
       </div>
 
+      <!-- 破产结算画面 -->
+      <div v-if="isBankrupt" class="bankrupt-overlay">
+        <div class="bankrupt-panel glass-panel">
+          <h2>💥 公司破产</h2>
+          <p class="bankrupt-sub">公司现金账户为负，资不抵债，本局结束。</p>
+          <div class="bankrupt-stats">
+            <div class="bs-row"><span class="bs-label">📅 存活天数</span><span class="bs-value">{{ bankruptSurvivalDays }} 天</span></div>
+            <div class="bs-row"><span class="bs-label">🏆 最佳评级</span><span class="bs-value">{{ bankruptBestRating.toFixed(2) }} / 5.0</span></div>
+            <div class="bs-row"><span class="bs-label">💰 期末现金</span><span class="bs-value text-red">¥{{ bankruptCash.toFixed(2) }}</span></div>
+            <div class="bs-row"><span class="bs-label">⚠️ 破产原因</span><span class="bs-value">{{ bankruptReason }}</span></div>
+          </div>
+          <button class="btn-start" @click="restartAfterBankruptcy">🔄 一键重开</button>
+        </div>
+      </div>
+
       <!-- 单个商家经营参数配置模态窗 -->
       <div v-if="showMerchantModal" class="merchant-modal-overlay">
         <div class="merchant-modal glass-panel" @click.stop>
@@ -109,6 +124,16 @@
         <div class="header">
           <div class="header-left">
             <h2>外卖调度模拟器 (201x201 / 20.1km*20.1km)</h2>
+            <!-- 公司现金栏 (常驻顶部) -->
+            <div v-if="isSimulationStarted" class="cash-bar" :class="cashBarClass">
+              <span class="cash-label">💰 公司现金</span>
+              <span class="cash-value mono">¥{{ cash.toFixed(2) }}</span>
+              <span v-if="cash < 200 && cash >= 0" class="cash-warn-tag">⚠️ 资金紧张</span>
+              <span v-if="cash < 0" class="cash-danger-tag">🔴 资不抵债</span>
+              <transition name="cash-float">
+                <span v-if="cashFlash" class="cash-float-text" :class="cashFlash.type">{{ cashFlash.text }}</span>
+              </transition>
+            </div>
             <!-- 赛博风虚拟时间时钟 (1s=2min) -->
             <div v-if="isSimulationStarted" class="game-time-badge" :class="{ 'paused': isPaused }">
               <span class="time-icon">{{ isPaused ? '⏸️' : '🕒' }}</span>
@@ -132,6 +157,18 @@
             >
               {{ isPaused ? '▶️ 继续' : '⏸️ 暂停' }}
             </button>
+            <!-- 全局倍速切换 (0.5x / 1x / 2x / 4x) -->
+            <div v-if="isSimulationStarted" class="speed-control" title="切换全局倍速">
+              <button
+                v-for="s in speedOptions"
+                :key="s"
+                class="btn-speed"
+                :class="{ 'active': speed === s }"
+                @click="setSpeed(s)"
+              >
+                {{ s }}x
+              </button>
+            </div>
             <button v-if="isSimulationStarted" class="btn-stop" @click="stopSimulation" title="结束当前模拟并重置">
               ⏹️ 结束模拟
             </button>
@@ -507,6 +544,22 @@ const totalFines = ref(0.0);
 const netProfit = ref(0.0);
 const virtualDay = ref(1);
 
+// === 公司现金账户与破产 ===
+const cash = ref(800.0);
+const bestRating = ref(0.0);
+const isBankrupt = ref(false);
+const bankruptSurvivalDays = ref(0);
+const bankruptBestRating = ref(0.0);
+const bankruptCash = ref(0.0);
+const bankruptReason = ref('');
+const cashFlash = ref(null);
+
+const cashBarClass = computed(() => {
+    if (cash.value < 0) return 'cash-danger';
+    if (cash.value < 200) return 'cash-warning';
+    return 'cash-normal';
+});
+
 // 动态费率配置参数 (用户可在页面随时微调并即时生效)
 const showRateConfig = ref(false);
 const configTakeRatePercent = ref(25); // 0% ~ 100% (默认 25%)
@@ -624,6 +677,9 @@ const sortedMerchants = computed(() => {
 const BASE_GAME_TIME = new Date(2026, 6, 1, 0, 0, 0).getTime();
 const gameTimeMs = ref(BASE_GAME_TIME);
 const isPaused = ref(false);
+// 全局倍速 (0.5 / 1 / 2 / 4)
+const speedOptions = [0.5, 1, 2, 4];
+const speed = ref(1.0);
 
 const formattedGameTime = computed(() => {
   const d = new Date(gameTimeMs.value);
@@ -696,6 +752,12 @@ const togglePause = () => {
   }
 };
 
+const setSpeed = (s) => {
+  if (!isConnected.value || !isSimulationStarted.value) return;
+  speed.value = s;
+  client.send({ command: 'SET_SIMULATION_SPEED', speed: s });
+};
+
 const stopSimulation = () => {
   if (confirm('确定要结束当前模拟并重置吗？')) {
     client.send({
@@ -706,6 +768,24 @@ const stopSimulation = () => {
 
 const client = new WebSocketClient();
 
+let cashFloatTimer = null;
+const showCashFloat = (text, type) => {
+  cashFlash.value = { text, type };
+  if (cashFloatTimer) clearTimeout(cashFloatTimer);
+  cashFloatTimer = setTimeout(() => { cashFlash.value = null; }, 1600);
+};
+
+const restartAfterBankruptcy = () => {
+  isBankrupt.value = false;
+  isStarting.value = true;
+  client.send({
+    command: 'START_SIMULATION',
+    merchantCount: merchantCount.value,
+    riderCount: riderCount.value,
+    mapId: selectedMapId.value
+  });
+};
+
 onMounted(() => {
   startTimer();
   fetchSavedMaps();
@@ -715,6 +795,7 @@ onMounted(() => {
     isSimulationStarted.value = true;
     isStarting.value = false;
     isPaused.value = false;
+    speed.value = 1.0;
     gameTimeMs.value = BASE_GAME_TIME;
     orders.value = {};
     riders.value = [];
@@ -725,21 +806,27 @@ onMounted(() => {
     unassignedExpiredCount.value = 0;
     mealTimeoutExpiredCount.value = 0;
     const initRev = 50.0 * merchantCount.value;
-    const initExp = 100.0 * riderCount.value;
+    const initExp = 0; // 骑手日薪次日 00:00 才结算，开局无支出
     totalRevenue.value = initRev;
     totalExpenses.value = initExp;
     totalFines.value = 0.0;
     netProfit.value = initRev - initExp;
     virtualDay.value = 1;
+    cash.value = 800.0 + initRev; // 开局 ¥800 + 第 1 天加盟费收入
+    bestRating.value = 0.0;
+    isBankrupt.value = false;
+    cashFlash.value = null;
   };
 
   client.onSimulationPaused = () => isPaused.value = true;
   client.onSimulationResumed = () => isPaused.value = false;
+  client.onSpeedChanged = (s) => speed.value = s;
 
   client.onSimulationStopped = () => {
     isSimulationStarted.value = false;
     isStarting.value = false;
     isPaused.value = false;
+    speed.value = 1.0;
     gameTimeMs.value = BASE_GAME_TIME;
     mapData.value = null;
     orders.value = {};
@@ -755,6 +842,10 @@ onMounted(() => {
     totalFines.value = 0.0;
     netProfit.value = 0.0;
     virtualDay.value = 1;
+    cash.value = 800.0;
+    bestRating.value = 0.0;
+    isBankrupt.value = false;
+    cashFlash.value = null;
   };
 
   client.onFinancialUpdate = (data) => {
@@ -783,6 +874,27 @@ onMounted(() => {
         currentBonusMax.value = data.riderBonusMax;
         if (!showRateConfig.value) configBonusMax.value = data.riderBonusMax;
       }
+      if (data.cash !== undefined) {
+        const prev = cash.value;
+        const next = Number(data.cash) || 0;
+        cash.value = next;
+        const delta = Math.round((next - prev) * 100) / 100;
+        if (delta > 0.005) showCashFloat('+' + delta.toFixed(2), 'up');
+        else if (delta < -0.005) showCashFloat(delta.toFixed(2), 'down');
+      }
+      if (data.bestRating !== undefined) bestRating.value = data.bestRating || 0.0;
+    }
+  };
+
+  client.onBankruptcy = (data) => {
+    if (data) {
+      bankruptSurvivalDays.value = data.survivalDays || 0;
+      bankruptBestRating.value = data.bestRating || 0.0;
+      bankruptCash.value = data.cash || 0.0;
+      bankruptReason.value = data.reason || '公司现金账户为负';
+      cash.value = data.cash || 0.0;
+      isStarting.value = false;
+      isBankrupt.value = true;
     }
   };
 
@@ -1079,6 +1191,10 @@ const getRiderStatusClass = (status) => {
 .btn-pause:hover { background: rgba(245, 158, 11, 0.3); }
 .btn-stop { padding: 6px 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
 .btn-stop:hover { background: rgba(239, 68, 68, 0.3); color: #fff; }
+.speed-control { display: flex; align-items: center; gap: 2px; padding: 2px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; }
+.btn-speed { padding: 4px 8px; background: transparent; border: none; color: #7dd3fc; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.btn-speed:hover { background: rgba(56, 189, 248, 0.2); }
+.btn-speed.active { background: rgba(56, 189, 248, 0.35); color: #fff; box-shadow: 0 0 6px rgba(56, 189, 248, 0.5); }
 
 .status-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 6px var(--danger); }
@@ -1220,4 +1336,75 @@ const getRiderStatusClass = (status) => {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* === 公司现金栏 === */
+.cash-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  transition: all 0.3s;
+  position: relative;
+}
+.cash-normal { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.35); }
+.cash-normal .cash-value { color: #34d399; }
+.cash-warning { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.55); }
+.cash-warning .cash-value { color: #fbbf24; }
+.cash-danger { background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.6); }
+.cash-danger .cash-value { color: #f87171; }
+.cash-label { color: #cbd5e1; font-weight: 600; }
+.cash-value { font-size: 15px; letter-spacing: 0.5px; }
+.cash-warn-tag { font-size: 10px; color: #fbbf24; }
+.cash-danger-tag { font-size: 10px; color: #f87171; }
+
+.cash-float-text {
+  position: absolute;
+  left: 50%;
+  top: -22px;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 800;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.cash-float-text.up { color: #34d399; }
+.cash-float-text.down { color: #f87171; }
+.cash-float-enter-active, .cash-float-leave-active { transition: all 0.5s ease; }
+.cash-float-enter-from, .cash-float-leave-to { opacity: 0; transform: translateX(-50%) translateY(10px); }
+
+/* === 破产结算画面 === */
+.bankrupt-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 14, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bankrupt-panel {
+  padding: 36px;
+  border-radius: 18px;
+  width: 420px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.25);
+  background: rgba(15, 23, 42, 0.96);
+  animation: fadeIn 0.3s ease;
+}
+.bankrupt-panel h2 { margin: 0; text-align: center; color: #f87171; font-size: 1.6rem; }
+.bankrupt-sub { text-align: center; color: #cbd5e1; margin: 0; font-size: 0.9rem; }
+.bankrupt-stats { display: flex; flex-direction: column; gap: 12px; }
+.bs-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border-radius: 10px; }
+.bs-label { color: #94a3b8; font-size: 13px; }
+.bs-value { color: #fff; font-size: 14px; font-weight: 700; }
 </style>

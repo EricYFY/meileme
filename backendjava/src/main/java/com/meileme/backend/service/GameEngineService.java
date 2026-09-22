@@ -55,6 +55,12 @@ public class GameEngineService {
     private final AtomicReference<Double> totalExpenses = new AtomicReference<>(0.0);  // 平台总支出 (骑手底薪 + 提成)
     private final AtomicReference<Double> totalFines = new AtomicReference<>(0.0);     // 平台总罚款 (超时违约赔偿)
 
+    // === 玩家公司现金账户 (本局胜负核心) ===
+    private final AtomicReference<Double> playerCash = new AtomicReference<>(800.0);         // 公司现金余额 (开局 ¥800)
+    private final AtomicReference<Double> orderScoreSum = new AtomicReference<>(0.0);        // 累计订单综合分 (用于计算平均订单分)
+    private final AtomicInteger scoredOrderCount = new AtomicInteger(0);                       // 已评分完成订单数
+    private final AtomicReference<Double> bestAverageOrderScore = new AtomicReference<>(0.0); // 历史最高平均订单分 (破产结算的"最佳评级")
+
     // === 动态财务费率配置 (支持热更新即时生效) ===
     private volatile double platformTakeRate = 0.25; // 平台抽成比例 (默认 25%, 即 0.25)
     private volatile double riderBonusMin = 3.0;     // 骑手提成最小值 (0.0 ~ 20.0)
@@ -64,6 +70,13 @@ public class GameEngineService {
     public static final long BASE_VIRTUAL_TIME_MS = 1782835200000L;
     private volatile long gameVirtualTimeMs = BASE_VIRTUAL_TIME_MS;
     private volatile int currentVirtualDay = 1;
+
+    // === 全局倍速与模拟时间累加器 ===
+    // 倍速 (0.5 / 1 / 2 / 4)，严格全局缩放：虚拟时钟、订单生命周期、骑手物理全部同步
+    private volatile double simulationSpeed = 1.0;
+    // 模拟时间累加器 (单调递增)：按「真实流逝时间 × 倍速」积分，取代订单生命周期的 System.currentTimeMillis()
+    private double simTimeMs = System.currentTimeMillis();
+    private long lastSimRealMs = System.currentTimeMillis();
 
     // 是否正在运行 / 是否暂停
     private boolean isRunning = false;
@@ -166,14 +179,23 @@ public class GameEngineService {
             }
 
             // 初始化平台财务总账
-            // 总收入 = 商家加盟费 (¥50 * 商家数)
-            // 总支出 = 骑手底薪 (¥100 * 骑手数)
+            // 总收入 = 商家加盟费 (¥50 * 商家数) — 每天 00:00 支付给平台，开局即第 1 天 00:00
+            // 总支出 = 0 — 骑手日薪在次日 00:00 才发放，开局无支出
             totalRevenue.set(50.0 * merchantsData.size());
-            totalExpenses.set(100.0 * riderCount);
+            totalExpenses.set(0.0);
             totalFines.set(0.0);
+            // 初始化玩家现金账户：开局 ¥800 + 第 1 天加盟费收入
+            playerCash.set(800.0 + 50.0 * merchantsData.size());
+            orderScoreSum.set(0.0);
+            scoredOrderCount.set(0);
+            bestAverageOrderScore.set(0.0);
 
             this.currentVirtualDay = 1;
             this.gameVirtualTimeMs = BASE_VIRTUAL_TIME_MS;
+            // 新开一局重置为 1 倍速，并重置模拟时间累加器基准
+            this.simulationSpeed = 1.0;
+            this.simTimeMs = System.currentTimeMillis();
+            this.lastSimRealMs = System.currentTimeMillis();
             this.isRunning = true;
             this.isPaused = false;
             
@@ -190,6 +212,8 @@ public class GameEngineService {
 
     public void pauseSimulation() {
         this.isPaused = true;
+        // 冻结模拟时间基准，暂停期间不推进模拟时钟
+        this.lastSimRealMs = System.currentTimeMillis();
         try {
             RestTemplate restTemplate = new RestTemplate();
             restTemplate.postForObject("http://localhost:8081/api/simulation/pause", null, String.class);
@@ -203,6 +227,8 @@ public class GameEngineService {
 
     public void resumeSimulation() {
         this.isPaused = false;
+        // 恢复运行时重置基准，避免把暂停时长错误计入模拟时钟
+        this.lastSimRealMs = System.currentTimeMillis();
         try {
             RestTemplate restTemplate = new RestTemplate();
             restTemplate.postForObject("http://localhost:8081/api/simulation/resume", null, String.class);
@@ -214,9 +240,48 @@ public class GameEngineService {
         System.out.println("模拟已继续");
     }
 
+    /**
+     * 模拟时钟：返回按「真实流逝时间 × 倍速」积分后的单调递增模拟时间 (毫秒)。
+     * 用于订单生命周期 (超时 / 备餐 / 配送时效分) 的计时，保证倍速切换时所有子系统一致缩放。
+     * 在暂停期间不会被调用 (两个定时器均提前 return)，故无需内部感知暂停状态；
+     * 恢复运行时已在 resumeSimulation 重置基准，避免把暂停时长错误计速。
+     */
+    private synchronized long nowSimMs() {
+        long realNow = System.currentTimeMillis();
+        long realDelta = Math.max(0, realNow - lastSimRealMs);
+        lastSimRealMs = realNow;
+        simTimeMs += realDelta * simulationSpeed;
+        return (long) simTimeMs;
+    }
+
+    /**
+     * 切换全局倍速 (0.5 / 1 / 2 / 4)：更新本地倍速、写入 Redis 供 Python 引擎读取、广播给前端同步显示。
+     */
+    public void setSimulationSpeed(double speed) {
+        this.simulationSpeed = speed;
+        try {
+            redisTemplate.opsForValue().set("game:simulation:speed", String.valueOf(speed));
+        } catch (Exception e) {
+            System.err.println("写入倍速到 Redis 失败: " + e.getMessage());
+        }
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "SIMULATION_SPEED_CHANGED");
+        payload.put("speed", speed);
+        try {
+            webSocketHandler.broadcastMessage(objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            System.err.println("广播倍速变更失败: " + e.getMessage());
+        }
+        System.out.println(">>> 全局倍速切换为 " + speed + "x");
+    }
+
     public void stopSimulation() {
         this.isRunning = false;
         this.isPaused = false;
+        this.simulationSpeed = 1.0;
+        try {
+            redisTemplate.delete("game:simulation:speed");
+        } catch (Exception e) {}
         activeOrders.clear();
         busyRiderIds.clear();
         completedOrderCount.set(0);
@@ -228,6 +293,10 @@ public class GameEngineService {
         totalRevenue.set(0.0);
         totalExpenses.set(0.0);
         totalFines.set(0.0);
+        playerCash.set(800.0);
+        orderScoreSum.set(0.0);
+        scoredOrderCount.set(0);
+        bestAverageOrderScore.set(0.0);
 
         try {
             RestTemplate restTemplate = new RestTemplate();
@@ -240,13 +309,41 @@ public class GameEngineService {
         System.out.println("模拟已结束并重置");
     }
 
+    /**
+     * 破产结算：公司现金为负时触发，结束本局并广播破产结算数据。
+     */
+    private void triggerBankruptcy() {
+        this.isRunning = false;
+        this.isPaused = false;
+
+        // 通知 Python 引擎停止物理模拟
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.postForObject("http://localhost:8081/api/simulation/stop", null, String.class);
+        } catch (Exception e) {
+            System.err.println("破产结算时停止 Python 引擎失败: " + e.getMessage());
+        }
+
+        // 结算前最后一次广播财务（含为负的现金余额）
+        broadcastFinancialSummary();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("survivalDays", currentVirtualDay);
+        payload.put("bestRating", bestAverageOrderScore.get());
+        payload.put("reason", "公司现金账户为负，资不抵债");
+        payload.put("cash", Math.round(playerCash.get() * 100.0) / 100.0);
+        broadcastState("BANKRUPTCY", payload);
+
+        System.out.println(">>> 💥 公司破产！存活 " + currentVirtualDay + " 天，最佳评级(平均订单分) " + bestAverageOrderScore.get() + "，现金 " + playerCash.get());
+    }
+
     // 1. 低频定时器 (1s)：推进虚拟时间、跨天日结结算、订单生成、失效检查与派单
     @Scheduled(fixedRate = 1000)
     public void scheduledLoop() {
         if (!isRunning || isPaused) return;
 
-        // 现实 1 秒 = 游戏 120 秒 (2分钟)
-        gameVirtualTimeMs += 120 * 1000L;
+        // 现实 1 秒 = 游戏 120 秒 (2分钟)，并按全局倍速缩放
+        gameVirtualTimeMs += (long)(120 * 1000L * simulationSpeed);
 
         // 1. 跨天日结检测 (基于权威虚拟时间偏移量计算天数)
         checkDailySettlement();
@@ -283,6 +380,8 @@ public class GameEngineService {
             }
             final double finalRiderSalaryAdded = totalRiderBaseSalaryAdded;
             totalExpenses.updateAndGet(e -> e + finalRiderSalaryAdded);
+            // 骑手日薪在次日 00:00 结算时从公司现金扣除
+            playerCash.updateAndGet(c -> Math.round((c - finalRiderSalaryAdded) * 100.0) / 100.0);
 
             // 2. 扣除商家每日加盟费、门面租金+人工固定成本、广告成本
             double totalMerchantFranchiseAdded = 0.0;
@@ -301,15 +400,22 @@ public class GameEngineService {
             }
             final double finalFranchiseAdded = totalMerchantFranchiseAdded;
             totalRevenue.updateAndGet(r -> r + finalFranchiseAdded);
+            // 加盟费每天 00:00 入账公司现金
+            playerCash.updateAndGet(c -> Math.round((c + finalFranchiseAdded) * 100.0) / 100.0);
 
             // 广播最新状态
             broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
             broadcastFinancialSummary();
+
+            // 破产判定：日结后公司现金为负 → 本局结束
+            if (playerCash.get() < 0) {
+                triggerBankruptcy();
+            }
         }
     }
 
     private void checkUnassignedOrderExpiration() {
-        long now = System.currentTimeMillis();
+        long now = nowSimMs();
         List<Order> expiredList = new ArrayList<>();
         
         for (Order order : activeOrders) {
@@ -325,9 +431,11 @@ public class GameEngineService {
             unassignedExpiredCount.addAndGet(expiredList.size());
             int expCount = expiredOrderCount.addAndGet(expiredList.size());
             
-            // ★ 平台违约责任：超时无人接单，平台赔偿客户 ¥20.00/单，计入平台总罚款/赔偿支出账本
-            double unassignedPenalty = 20.0 * expiredList.size();
+            // ★ 平台违约责任：超时无人接单，平台赔偿客户 ¥8.00/单，计入平台总罚款/赔偿支出账本
+            double unassignedPenalty = 8.0 * expiredList.size();
             totalFines.updateAndGet(f -> Math.round((f + unassignedPenalty) * 100.0) / 100.0);
+            // 罚款实时从公司现金扣除
+            playerCash.updateAndGet(c -> Math.round((c - unassignedPenalty) * 100.0) / 100.0);
 
             for (Order expiredOrder : expiredList) {
                 if (expiredOrder.getMerchantId() != null) {
@@ -345,7 +453,7 @@ public class GameEngineService {
                 expPayload.put("unassignedExpiredCount", unassignedExpiredCount.get());
                 expPayload.put("mealTimeoutExpiredCount", mealTimeoutExpiredCount.get());
                 broadcastState("ORDER_EXPIRED", expPayload);
-                System.out.println(">>> 订单无人接单超时失效：" + expiredOrder.getId().substring(0, 8) + " (平台赔偿 ¥20.00，累计失效: " + expCount + ", 未接单: " + unassignedExpiredCount.get() + ", 等餐超时: " + mealTimeoutExpiredCount.get() + ")");
+                System.out.println(">>> 订单无人接单超时失效：" + expiredOrder.getId().substring(0, 8) + " (平台赔偿 ¥8.00，累计失效: " + expCount + ", 未接单: " + unassignedExpiredCount.get() + ", 等餐超时: " + mealTimeoutExpiredCount.get() + ")");
             }
 
             broadcastState("MERCHANT_UPDATE", merchantRepository.findAll());
@@ -420,12 +528,14 @@ public class GameEngineService {
                 double prepDuration = Math.max(1.5, basePrep + (random.nextDouble() * 2.0 - 1.0));
                 prepDuration = Math.round(prepDuration * 10.0) / 10.0;
 
+                long nowSim = nowSimMs();
                 Order order = new Order(pickupLoc, deliveryLoc);
+                order.setCreateTime(nowSim);
                 order.setMerchantId(m.getId());
                 order.setOrderPrice(orderPrice);
                 order.setMaterialCost(materialCost);
                 order.setPrepDurationSec(prepDuration);
-                order.setPrepFinishTime(System.currentTimeMillis() + (long)(prepDuration * 1000L));
+                order.setPrepFinishTime(nowSim + (long)(prepDuration * 1000L));
                 order.setStatus(0); // 0: CREATED 备餐中 / 待派单
                 activeOrders.add(order);
                 
@@ -525,7 +635,7 @@ public class GameEngineService {
     }
 
     private void checkMealWaitingStatusAndTimeout() {
-        long now = System.currentTimeMillis();
+        long now = nowSimMs();
         for (Order order : activeOrders) {
             if (order.getStatus() == 2) { // 2: WAITING_MEAL (在店等餐)
                 double waitSec = (now - order.getRiderArriveMerchantTime()) / 1000.0;
@@ -591,6 +701,8 @@ public class GameEngineService {
 
                     // 平台超时违约账本记录
                     totalFines.updateAndGet(f -> Math.round((f + order.getOrderPrice()) * 100.0) / 100.0);
+                    // 罚款实时从公司现金扣除
+                    playerCash.updateAndGet(c -> Math.round((c - order.getOrderPrice()) * 100.0) / 100.0);
 
                     Map<String, Object> expPayload = new HashMap<>();
                     expPayload.put("id", order.getId());
@@ -613,7 +725,7 @@ public class GameEngineService {
 
         try {
             if (status == 1) { // 骑手到达取餐点 (商家)
-                long now = System.currentTimeMillis();
+                long now = nowSimMs();
                 currentOrder.setRiderArriveMerchantTime(now);
                 currentOrder.setPickupDurationSec(Math.round(((now - currentOrder.getCreateTime()) / 1000.0) * 10.0) / 10.0);
 
@@ -662,7 +774,7 @@ public class GameEngineService {
     }
 
     private void settleOrderFinancialsAndRating(Order order, String riderId) {
-        long now = System.currentTimeMillis();
+        long now = nowSimMs();
         order.setDeliverTime(now);
         double totalSec = (now - order.getCreateTime()) / 1000.0;
         order.setTotalDurationSec(Math.round(totalSec * 100.0) / 100.0);
@@ -698,6 +810,14 @@ public class GameEngineService {
         double sOrder = Math.round((0.5 * sQuality + 0.5 * sTime) * 10.0) / 10.0;
         order.setFinalScore(sOrder);
 
+        // 记录「历史最高平均订单分」，作为破产结算展示的公司最佳评级
+        orderScoreSum.updateAndGet(s -> Math.round((s + sOrder) * 100.0) / 100.0);
+        int scoreCount = scoredOrderCount.incrementAndGet();
+        if (scoreCount > 0) {
+            double avgScore = Math.round((orderScoreSum.get() / scoreCount) * 100.0) / 100.0;
+            bestAverageOrderScore.updateAndGet(b -> Math.max(b, avgScore));
+        }
+
         // 4. === 骑手单笔提成结算 (基于动态可配置区间 [riderBonusMin, riderBonusMax]) ===
         double speedRatio = Math.max(0.0, Math.min(1.0, (25.0 - totalSec) / 25.0));
         double rawBonus = riderBonusMin + (riderBonusMax - riderBonusMin) * speedRatio;
@@ -716,6 +836,10 @@ public class GameEngineService {
         final double platformTake = Math.round((orderPrice * platformTakeRate) * 100.0) / 100.0; // 动态平台抽成
         
         totalRevenue.updateAndGet(r -> Math.round((r + platformTake) * 100.0) / 100.0);
+
+        // 玩家现金账户：订单毛利实时入账 (毛利 = 平台抽成 - 骑手提成)
+        final double orderGrossProfit = Math.round((platformTake - riderBonus) * 100.0) / 100.0;
+        playerCash.updateAndGet(c -> Math.round((c + orderGrossProfit) * 100.0) / 100.0);
 
         // 6. 更新商家财务流水、耗材成本与评分 (EWMA)
         if (merchant != null) {
@@ -792,6 +916,8 @@ public class GameEngineService {
         financialData.put("expiredOrderCount", expiredOrderCount.get());
         financialData.put("unassignedExpiredCount", unassignedExpiredCount.get());
         financialData.put("mealTimeoutExpiredCount", mealTimeoutExpiredCount.get());
+        financialData.put("cash", Math.round(playerCash.get() * 100.0) / 100.0);
+        financialData.put("bestRating", bestAverageOrderScore.get());
 
         broadcastState("FINANCIAL_UPDATE", financialData);
     }
@@ -839,6 +965,8 @@ public class GameEngineService {
             financialData.put("expiredOrderCount", expiredOrderCount.get());
             financialData.put("unassignedExpiredCount", unassignedExpiredCount.get());
             financialData.put("mealTimeoutExpiredCount", mealTimeoutExpiredCount.get());
+            financialData.put("cash", Math.round(playerCash.get() * 100.0) / 100.0);
+            financialData.put("bestRating", bestAverageOrderScore.get());
             session.sendMessage(new org.springframework.web.socket.TextMessage(objectMapper.writeValueAsString(new MessageWrapper("FINANCIAL_UPDATE", financialData))));
 
             // 4. 发送所有活跃订单
