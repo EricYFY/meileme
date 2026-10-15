@@ -12,6 +12,8 @@ export default class WebSocketClient {
         this.onStatusChange = null;
         this.onBankruptcy = null; // 破产结算事件
         this.onSpeedChanged = null; // 全局倍速变更
+        this.onManualAssignFailed = null; // 手动派单失败
+        this.onDispatchModeChanged = null; // 派单模式变更 (全自动 / 全手动)
     }
 
     connect() {
@@ -83,6 +85,12 @@ export default class WebSocketClient {
                 break;
             case 'SIMULATION_SPEED_CHANGED':
                 if (this.onSpeedChanged) this.onSpeedChanged(msg.speed);
+                break;
+            case 'MANUAL_ASSIGN_FAILED':
+                if (this.onManualAssignFailed) this.onManualAssignFailed(msg.data);
+                break;
+            case 'DISPATCH_MODE_CHANGED':
+                if (this.onDispatchModeChanged) this.onDispatchModeChanged(msg.mode);
                 break;
             case 'SIMULATION_STOPPED':
                 if (this.onSimulationStopped) this.onSimulationStopped();

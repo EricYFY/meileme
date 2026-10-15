@@ -15,6 +15,8 @@ class SimulationEngine:
         self.rider_count = rider_count
         self.running = False
         self.paused = False
+        # 派单模式: AUTO = 全自动派单 (空闲骑手自动寻热巡游) / MANUAL = 全手动派单 (不巡游, 由玩家手动调度)
+        self.dispatch_mode = "AUTO"
         
         # 提取地图中的商家及其就近道路坐标，供空闲寻热巡游使用
         self.merchants = map_data.get("merchants", [])
@@ -65,6 +67,8 @@ class SimulationEngine:
                 "speed": spawn_speed,  # 初始道路速度
                 "status": 0,
                 "currentOrderId": None,
+                # === 玩家手动调度目标 (全手动派单模式下的"前往某地点"一次性指令) ===
+                "manualTarget": None,
                 # === 空闲主动寻热巡游字段 ===
                 "isCruising": False,
                 "cruiseTarget": None,
@@ -78,7 +82,7 @@ class SimulationEngine:
         # ★ 启动前彻底清空旧的 Redis 残留键，防止跨次启动的状态污染与死锁
         if self.redis_client:
             try:
-                keys_to_clean = ["game:state:riders", "game:rider:status", "game:rider:orders", "game:rider:targets", "game:events:reach_target"]
+                keys_to_clean = ["game:state:riders", "game:rider:status", "game:rider:orders", "game:rider:targets", "game:rider:manual_targets", "game:events:reach_target"]
                 self.redis_client.delete(*keys_to_clean)
             except Exception as e:
                 print(f"[Engine] 启动清空 Redis 异常: {e}")
@@ -107,7 +111,7 @@ class SimulationEngine:
             self.thread.join(timeout=1.0)
         if self.redis_client:
             try:
-                keys_to_clean = ["game:state:riders", "game:rider:status", "game:rider:orders", "game:rider:targets", "game:events:reach_target"]
+                keys_to_clean = ["game:state:riders", "game:rider:status", "game:rider:orders", "game:rider:targets", "game:rider:manual_targets", "game:events:reach_target"]
                 self.redis_client.delete(*keys_to_clean)
                 print("[Engine] 已清理模拟相关 Redis Key")
             except Exception as e:
@@ -121,7 +125,7 @@ class SimulationEngine:
             export_list.append({
                 "id": r["id"],
                 "currentPosition": {"x": r["currentPosition"]["x"], "y": r["currentPosition"]["y"]},
-                "targetPosition": r["targetPosition"],
+                "targetPosition": r["targetPosition"] or r.get("manualTarget"),
                 "speed": r["speed"],
                 "status": r["status"],
                 "currentOrderId": r["currentOrderId"]
@@ -144,6 +148,7 @@ class SimulationEngine:
                     dt = 0.1
 
             start_time = time.time()
+            self._sync_dispatch_mode()
             self._update_riders(dt)
             
             # 同步到 Redis 供 Java 读取
@@ -156,11 +161,35 @@ class SimulationEngine:
             sleep_time = max(0.1 - elapsed, 0)
             time.sleep(sleep_time)
 
+    def _sync_dispatch_mode(self):
+        """同步 Java 下发的派单模式；切为全手动时立即取消所有骑手在途的自动巡游。"""
+        if not self.redis_client:
+            return
+        try:
+            mode = self.redis_client.get("game:dispatch:mode") or "AUTO"
+        except Exception:
+            return
+        if mode == self.dispatch_mode:
+            return
+        self.dispatch_mode = mode
+        if mode == "MANUAL":
+            for rider in self.riders.values():
+                if rider["isCruising"]:
+                    rider["isCruising"] = False
+                    rider["cruiseTarget"] = None
+                    rider["path"] = []
+                    rider["plannedTarget"] = None
+            print("[Engine] 已切换为全手动派单: 空闲骑手停止自动巡游, 等待玩家调度")
+
     def _update_idle_cruising(self):
         """
         空闲骑手主动寻热巡游调度算法：
         根据商圈出单期望、通行距离及周边骑手竞争惩罚，为停滞的空闲骑手规划前往热点商圈的巡航路径。
         """
+        # 全手动派单模式下不自动巡游：空闲骑手原地待命，由玩家点击调度其前往指定地点
+        if self.dispatch_mode != "AUTO":
+            return
+
         if not self.merchant_road_points:
             return
 
@@ -224,6 +253,7 @@ class SimulationEngine:
                 targets = self.redis_client.hgetall("game:rider:targets")
                 status_updates = self.redis_client.hgetall("game:rider:status")
                 orders = self.redis_client.hgetall("game:rider:orders")
+                manual_targets = self.redis_client.hgetall("game:rider:manual_targets")
                 
                 for r_id, rider in self.riders.items():
                     # 更新状态
@@ -236,6 +266,11 @@ class SimulationEngine:
                                 rider["isCruising"] = False
                                 rider["path"] = []
                                 rider["plannedTarget"] = None
+                            # 转为业务任务后，玩家手动调度目标作废
+                            if new_status != 0 and rider.get("manualTarget") is not None:
+                                rider["manualTarget"] = None
+                                if self.redis_client:
+                                    self.redis_client.hdel("game:rider:manual_targets", r_id)
                     
                     if r_id in orders:
                         new_order = orders[r_id] if orders[r_id] != "null" else None
@@ -245,6 +280,11 @@ class SimulationEngine:
                                 rider["isCruising"] = False
                                 rider["path"] = []
                                 rider["plannedTarget"] = None
+                            # 接到业务订单后，玩家手动调度目标作废
+                            if new_order is not None and rider.get("manualTarget") is not None:
+                                rider["manualTarget"] = None
+                                if self.redis_client:
+                                    self.redis_client.hdel("game:rider:manual_targets", r_id)
 
                     # 更新目标坐标
                     if r_id in targets:
@@ -265,6 +305,26 @@ class SimulationEngine:
                             if rider["targetPosition"] is not None:
                                 rider["targetPosition"] = None
                                 rider["plannedTarget"] = None
+
+                    # 玩家手动调度目标 (全手动派单模式)：仅在骑手空闲且无业务任务时采纳为一次性目标
+                    if r_id in manual_targets:
+                        mt_str = manual_targets[r_id]
+                        if mt_str and mt_str != "null":
+                            try:
+                                mt = json.loads(mt_str)
+                            except Exception:
+                                mt = None
+                            if (mt is not None and rider["status"] == 0 and
+                                rider["currentOrderId"] is None and rider["targetPosition"] is None):
+                                cur_mt = rider.get("manualTarget")
+                                if (cur_mt is None or
+                                    abs(cur_mt["x"] - mt["x"]) > 0.1 or
+                                    abs(cur_mt["y"] - mt["y"]) > 0.1):
+                                    rider["manualTarget"] = mt
+                                    rider["isCruising"] = False
+                                    rider["cruiseTarget"] = None
+                                    rider["path"] = []
+                                    rider["plannedTarget"] = None
                             
             except Exception as e:
                 pass # 忽略 Redis 偶发读取错误
@@ -274,7 +334,10 @@ class SimulationEngine:
 
         # 3. 寻路与沿道路网移动
         for rider in self.riders.values():
+            # 业务目标优先；无业务目标时采用玩家手动调度目标
             tar = rider["targetPosition"]
+            if tar is None:
+                tar = rider.get("manualTarget")
             
             # 若有业务目标点，优先响应业务订单目标
             if tar is not None:
@@ -328,6 +391,12 @@ class SimulationEngine:
                         rider["cruiseTarget"] = None
                         rider["plannedTarget"] = None
                         rider["idleWaitUntil"] = time.time() + random.uniform(3.0, 5.0)
+                    elif rider["targetPosition"] is None and rider.get("manualTarget") is not None:
+                        # 玩家手动调度到达目的地：清空一次性目标，不推送业务到达事件
+                        rider["manualTarget"] = None
+                        rider["plannedTarget"] = None
+                        if self.redis_client:
+                            self.redis_client.hdel("game:rider:manual_targets", rider["id"])
                     else:
                         # 业务订单到达
                         rider["targetPosition"] = None

@@ -33,10 +33,12 @@ const props = defineProps({
   mapData: Object,
   riders: Array,
   orders: Object,
-  selectedOrderId: String
+  selectedOrderId: String,
+  manualMode: Boolean,
+  movingRiderId: String
 });
 
-const emit = defineEmits(['orderSelected']);
+const emit = defineEmits(['orderSelected', 'riderSelected', 'riderMoveSelected', 'riderMoveTarget']);
 
 const container = ref(null);
 const canvasEl = ref(null);
@@ -49,6 +51,20 @@ onMounted(() => {
   engine.onOrderSelected = (orderId) => {
     emit('orderSelected', orderId);
   };
+  // 手动派单：点击空闲骑手时通知父组件
+  engine.onRiderSelected = (riderId) => {
+    emit('riderSelected', riderId);
+  };
+  // 手动调度：点击空闲骑手进入"前往某地点"待选态
+  engine.onRiderMoveSelected = (riderId) => {
+    emit('riderMoveSelected', riderId);
+  };
+  // 手动调度：点击地图目标点下发前往指令
+  engine.onRiderMoveTarget = (riderId, x, y) => {
+    emit('riderMoveTarget', { riderId, x, y });
+  };
+  engine.setManualMode(props.manualMode);
+  engine.setMovingRider(props.movingRiderId);
   
   const resize = () => {
     if (container.value) {
@@ -85,6 +101,16 @@ watch(() => props.orders, (newOrders) => {
 // 从侧边栏点击订单时，同步高亮到 Canvas
 watch(() => props.selectedOrderId, (newId) => {
   if (engine) engine.selectOrder(newId);
+});
+
+// 手动派单开关变化时同步到 Canvas
+watch(() => props.manualMode, (enabled) => {
+  if (engine) engine.setManualMode(enabled);
+});
+
+// 移动待选骑手变化时同步到 Canvas
+watch(() => props.movingRiderId, (riderId) => {
+  if (engine) engine.setMovingRider(riderId);
 });
 </script>
 

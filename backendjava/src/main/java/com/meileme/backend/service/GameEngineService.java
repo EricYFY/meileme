@@ -44,6 +44,10 @@ public class GameEngineService {
     // 记录正在执行任务或已被预指派的骑手ID集合，防止高频调度下重复派单
     private final Set<String> busyRiderIds = ConcurrentHashMap.newKeySet();
 
+    // 派单模式：AUTO = 全自动派单（系统每秒自动把待派单订单派给最近的空闲骑手）
+    //          MANUAL = 全手动派单（系统完全不派单，所有 CREATED 订单退出派单候选、等待玩家指派）
+    private volatile String dispatchMode = "AUTO";
+
     // 订单统计计数器
     private final AtomicInteger completedOrderCount = new AtomicInteger(0);
     private final AtomicInteger expiredOrderCount = new AtomicInteger(0);
@@ -156,6 +160,8 @@ public class GameEngineService {
             // 清空旧数据与计数器
             activeOrders.clear();
             busyRiderIds.clear();
+            // 新开一局复位为全自动派单
+            setDispatchMode("AUTO");
             completedOrderCount.set(0);
             expiredOrderCount.set(0);
             unassignedExpiredCount.set(0);
@@ -164,7 +170,7 @@ public class GameEngineService {
 
             // ★ 清空 Redis 中的骑手控制状态 Hash，杜绝脏数据污染
             try {
-                redisTemplate.delete(Arrays.asList("game:rider:status", "game:rider:targets", "game:rider:orders", "game:events:reach_target"));
+                redisTemplate.delete(Arrays.asList("game:rider:status", "game:rider:targets", "game:rider:orders", "game:rider:manual_targets", "game:events:reach_target"));
             } catch (Exception e) {}
 
             // 初始化骑手财务数据（发放第一天底薪 ¥100.00）
@@ -275,6 +281,120 @@ public class GameEngineService {
         System.out.println(">>> 全局倍速切换为 " + speed + "x");
     }
 
+    // === 派单模式 (全自动 / 全手动) ===
+
+    /**
+     * 切换派单模式：
+     * AUTO   = 全自动派单，系统每秒自动把待派单订单派给最近的空闲骑手；
+     * MANUAL = 全手动派单，系统完全不派单，所有处于 CREATED 的订单退出派单候选、等待玩家指派。
+     * 模式同步写入 Redis，供 Python 引擎读取 (手动模式下空闲骑手不再自动寻热巡游)。
+     */
+    public void setDispatchMode(String mode) {
+        String normalized = "MANUAL".equalsIgnoreCase(mode) ? "MANUAL" : "AUTO";
+        this.dispatchMode = normalized;
+        try {
+            redisTemplate.opsForValue().set("game:dispatch:mode", normalized);
+        } catch (Exception e) {
+            System.err.println("写入派单模式到 Redis 失败: " + e.getMessage());
+        }
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "DISPATCH_MODE_CHANGED");
+        payload.put("mode", normalized);
+        try {
+            webSocketHandler.broadcastMessage(objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            System.err.println("广播派单模式变更失败: " + e.getMessage());
+        }
+        System.out.println(">>> 派单模式切换为: " + ("AUTO".equals(normalized) ? "全自动派单" : "全手动派单"));
+    }
+
+    /**
+     * 手动调度空闲骑手前往地图指定地点 (仅全手动派单模式下有效)。
+     * 通过 Redis 下发目标点，Python 引擎据此寻路前往；骑手保持空闲状态，仍可被指派订单。
+     */
+    public void moveRider(String riderId, float x, float y) {
+        if (!"MANUAL".equals(dispatchMode)) { failManualAssign(null, riderId, "MODE_NOT_MANUAL"); return; }
+        Rider rider = currentRidersState.stream().filter(r -> r.getId().equals(riderId)).findFirst().orElse(null);
+        if (rider == null) { failManualAssign(null, riderId, "RIDER_NOT_FOUND"); return; }
+        if (rider.getStatus() != 0 || busyRiderIds.contains(rider.getId())) { failManualAssign(null, riderId, "RIDER_NOT_IDLE"); return; }
+
+        try {
+            Map<String, Float> target = new HashMap<>();
+            target.put("x", x);
+            target.put("y", y);
+            redisTemplate.opsForHash().put("game:rider:manual_targets", riderId, objectMapper.writeValueAsString(target));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("riderId", riderId);
+        payload.put("x", x);
+        payload.put("y", y);
+        broadcastState("RIDER_MOVE_ORDERED", payload);
+        System.out.println(">>> 手动调度骑手 " + riderId + " 前往 (" + Math.round(x) + ", " + Math.round(y) + ")");
+    }
+
+    /** 手动把订单派给指定骑手 (仅全手动派单模式下有效)；若订单已派他人且其仍在取餐中，则改派。 */
+    public void manualAssign(String orderId, String riderId) {
+        if (!"MANUAL".equals(dispatchMode)) { failManualAssign(orderId, riderId, "MODE_NOT_MANUAL"); return; }
+        Order order = activeOrders.stream().filter(o -> o.getId().equals(orderId)).findFirst().orElse(null);
+        if (order == null) { failManualAssign(orderId, riderId, "ORDER_NOT_FOUND"); return; }
+        if (order.getStatus() != 0 && order.getStatus() != 1) { failManualAssign(orderId, riderId, "ORDER_NOT_ASSIGNABLE"); return; }
+        Rider newRider = currentRidersState.stream().filter(r -> r.getId().equals(riderId)).findFirst().orElse(null);
+        if (newRider == null) { failManualAssign(orderId, riderId, "RIDER_NOT_FOUND"); return; }
+        if (newRider.getStatus() != 0 || busyRiderIds.contains(newRider.getId())) { failManualAssign(orderId, riderId, "RIDER_NOT_IDLE"); return; }
+
+        // 改派：释放原骑手 (订单已派他人且非用户所选)
+        if (order.getStatus() == 1) {
+            Rider old = currentRidersState.stream().filter(r -> order.getId().equals(r.getCurrentOrderId())).findFirst().orElse(null);
+            if (old != null && !old.getId().equals(newRider.getId())) {
+                releaseRider(old.getId());
+            }
+            // 仅重置 createTime (时效分重算)，prepFinishTime 不变 (商家备餐不受影响)
+            order.setCreateTime(nowSimMs());
+        }
+
+        // 指派新骑手
+        order.setStatus(1);
+        busyRiderIds.add(newRider.getId());
+        newRider.setStatus(1);
+        newRider.setCurrentOrderId(order.getId());
+        try {
+            redisTemplate.opsForHash().put("game:rider:status", newRider.getId(), "1");
+            redisTemplate.opsForHash().put("game:rider:orders", newRider.getId(), order.getId());
+            redisTemplate.opsForHash().put("game:rider:targets", newRider.getId(), objectMapper.writeValueAsString(order.getPickupLocation()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        broadcastState("RIDER_ASSIGNED", newRider);
+        System.out.println(">>> 手动派单: 订单 " + orderId.substring(0, 8) + " 派给骑手 " + riderId);
+    }
+
+    private void releaseRider(String riderId) {
+        busyRiderIds.remove(riderId);
+        Rider r = currentRidersState.stream().filter(x -> x.getId().equals(riderId)).findFirst().orElse(null);
+        if (r != null) {
+            r.setStatus(0);
+            r.setCurrentOrderId(null);
+        }
+        try {
+            redisTemplate.opsForHash().put("game:rider:status", riderId, "0");
+            redisTemplate.opsForHash().put("game:rider:orders", riderId, "null");
+            redisTemplate.opsForHash().put("game:rider:targets", riderId, "null");
+        } catch (Exception e) {}
+    }
+
+    private void failManualAssign(String orderId, String riderId, String reason) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("orderId", orderId);
+        payload.put("riderId", riderId);
+        payload.put("reason", reason);
+        broadcastState("MANUAL_ASSIGN_FAILED", payload);
+        System.out.println(">>> 手动派单失败: " + reason + " (订单 " + orderId + ", 骑手 " + riderId + ")");
+    }
+
     public void stopSimulation() {
         this.isRunning = false;
         this.isPaused = false;
@@ -284,6 +404,8 @@ public class GameEngineService {
         } catch (Exception e) {}
         activeOrders.clear();
         busyRiderIds.clear();
+        // 结束本局复位为全自动派单
+        setDispatchMode("AUTO");
         completedOrderCount.set(0);
         expiredOrderCount.set(0);
         unassignedExpiredCount.set(0);
@@ -553,6 +675,9 @@ public class GameEngineService {
     }
 
     private void dispatchOrdersToRiders() {
+        // 全手动派单模式下完全不派单：所有 CREATED 订单退出派单候选，等待玩家手动指派
+        if (!"AUTO".equals(dispatchMode)) return;
+
         List<Order> unassignedOrders = activeOrders.stream().filter(o -> o.getStatus() == 0).collect(Collectors.toList());
         if (unassignedOrders.isEmpty() || currentRidersState.isEmpty()) return;
 

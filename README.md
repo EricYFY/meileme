@@ -205,13 +205,48 @@ Java 模块基于 Spring Boot 运行在 **8080** 端口，是系统的业务控�
 ```mermaid
 flowchart LR
     Start(("● 生成")) --> S0["待接单 (status=0)"]
-    S0 -->|"派单 (加锁)"| S1["前往取餐 (status=1)"]
+    S0 -->|"派单"| S1["前往取餐 (status=1)"]
     S0 -->|"超时 60s 未接单"| SExp["已失效 (expiredCount++)"]
     S1 -->|"到达商家"| S2["配送中 (status=2)"]
     S2 -->|"送达用户"| S3["已送达 (completedCount++)"]
     SExp --> EndNode(("● 结束"))
     S3 --> EndNode
 ```
+
+### 4. 派单模式 (全自动 / 全手动)
+
+系统提供两种互斥的派单模式，用户可在页面顶部（暂停/倍速按钮旁）随时切换：
+
+- **🤖 全自动派单 (AUTO，默认)**：完全保留系统派单逻辑——每秒钟把所有待接单订单（`status=0`）派给最近的空闲骑手；空闲骑手按「商圈吸引力」自主寻热巡游待命。此模式下**不支持任何手动干预**（点击骑手不生效）。
+- **🎯 全手动派单 (MANUAL)**：系统**完全不派单**——所有处于 `status=0 (CREATED)` 的订单立即退出系统派单候选，等待玩家手动指派；空闲骑手**停止自动巡游**，原地待命，由玩家点击调度。
+
+模式切换由 `SET_DISPATCH_MODE` 命令下发，后端同步写入 Redis `game:dispatch:mode` 并广播顶层消息 `DISPATCH_MODE_CHANGED`（供 Python 引擎与前端一致）。
+
+#### (1) 全手动派单模式操作
+
+- **选中订单**：产生订单时页面高亮订单位置；在地图或侧边栏点击选中订单后，同时高亮取餐点、送达点，并高亮**所有空闲骑手**（绿色圈）。
+- **派单**：鼠标悬停在某个空闲骑手时，绘制该骑手到取餐点的绿色虚线引导线；点击该空闲骑手即把订单派给该骑手（`MANUAL_ASSIGN`）。
+- **改派规则**：仅 `status 0/1`（待派单 / 骑手前往取餐中）可改派。若订单已派给某骑手、该骑手仍在取餐中，且玩家所选骑手空闲，则立即改派（原骑手释放为空闲，新骑手接手）；若原骑手已取完餐在送餐中（订单 `status ≥ 2`），则不允许改派并返回失败提示。
+- **改派计时**：仅重置该订单 `createTime`（配送时效分重算），`prepFinishTime` 不变（商家备餐不受影响）。
+
+#### (2) 全手动派单模式下调度空闲骑手前往指定地点
+
+- **进入待选态**：在**未选中订单**的前提下，点击某个空闲骑手，该骑手进入「前往某地点」待选态（紫色高亮圈 + 顶部提示）；再次点击同一骑手或按 `ESC` 可取消。
+- **下发前往指令**：待选态下将鼠标移动到地图任意位置，画布实时绘制「骑手 → 鼠标」的紫色虚线及目标准心；点击即下发 `MOVE_RIDER` 指令，骑手沿道路网寻路前往该地点。
+- **一次性指令**：手动调度目标是**一次性**指令（Redis 独立键 `game:rider:manual_targets`，与业务目标 `game:rider:targets` 分离），骑手到达后自动清除，不产生业务到达事件；期间骑手保持空闲（`status=0`），仍可被指派订单。
+- **冲突处理**：一旦该骑手被派单（转为业务任务，`status≠0` 或有 `currentOrderId`），手动调度目标立即作废。
+
+相关 WebSocket 命令与广播：
+
+| 方向 | 消息 | 作用 |
+| :--- | :--- | :--- |
+| Client → Server | `SET_DISPATCH_MODE` | 切换派单模式（`mode` = `AUTO` / `MANUAL`） |
+| Client → Server | `MANUAL_ASSIGN` | 手动把订单派给指定骑手（仅 MANUAL 模式） |
+| Client → Server | `MOVE_RIDER` | 调度空闲骑手前往地图指定坐标（仅 MANUAL 模式） |
+| Server → Client | `DISPATCH_MODE_CHANGED` | 派单模式变更广播（顶层 `mode` 字段） |
+| Server → Client | `RIDER_MOVE_ORDERED` | 骑手前往目标点指令已下发 |
+| Server → Client | `MANUAL_ASSIGN_FAILED` | 手动操作失败（携带 `reason`：`MODE_NOT_MANUAL` / `ORDER_NOT_FOUND` / `ORDER_NOT_ASSIGNABLE` / `RIDER_NOT_FOUND` / `RIDER_NOT_IDLE`） |
+| Server → Client | `RIDER_ASSIGNED` | 派单成功广播 |
 
 ### 4. 商家综合评分数学模型与出单机制
 系统建立了真实拟真的**商家动态评分与订单引流模型**：

@@ -169,6 +169,23 @@
                 {{ s }}x
               </button>
             </div>
+            <!-- 派单模式切换 (全自动 / 全手动) -->
+            <div v-if="isSimulationStarted" class="dispatch-mode-control" title="切换派单模式">
+              <button
+                class="btn-mode"
+                :class="{ 'active': dispatchMode === 'AUTO' }"
+                @click="setDispatchMode('AUTO')"
+              >
+                🤖 全自动派单
+              </button>
+              <button
+                class="btn-mode"
+                :class="{ 'active': dispatchMode === 'MANUAL' }"
+                @click="setDispatchMode('MANUAL')"
+              >
+                🎯 全手动派单
+              </button>
+            </div>
             <button v-if="isSimulationStarted" class="btn-stop" @click="stopSimulation" title="结束当前模拟并重置">
               ⏹️ 结束模拟
             </button>
@@ -184,9 +201,17 @@
             :riders="riders" 
             :orders="orders"
             :selectedOrderId="selectedOrderId"
+            :manualMode="isManualDispatch"
+            :movingRiderId="movingRiderId"
             @orderSelected="onMapOrderSelected"
+            @riderSelected="onRiderSelected"
+            @riderMoveSelected="onRiderMoveSelected"
+            @riderMoveTarget="onRiderMoveTarget"
           />
         </div>
+        <transition name="tip">
+          <div v-if="manualTip" class="manual-tip-toast">{{ manualTip }}</div>
+        </transition>
       </div>
 
       <!-- 右侧控制面板 -->
@@ -341,7 +366,7 @@
         <div v-if="selectedOrder" class="detail-card glass-panel">
           <div class="detail-header">
             <h3>📦 订单详情 (#{{ selectedOrder.id.substring(0, 8) }})</h3>
-            <button class="close-btn" @click="selectedOrderId = null">✕</button>
+            <button class="close-btn" @click="selectOrder(null)">✕</button>
           </div>
           <div class="detail-body">
             <div class="detail-row">
@@ -457,7 +482,7 @@
                     :key="order.id" 
                     class="order-item" 
                     :class="['status-' + order.status, { 'selected': order.id === selectedOrderId }]"
-                    @click="selectedOrderId = order.id"
+                    @click="selectOrder(order.id)"
                   >
                     <div class="order-header">
                       <span class="order-id">#{{ order.id.substring(0,8) }} ({{ order.merchantId }})</span>
@@ -517,7 +542,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, reactive } from 'vue';
 import MapRenderer from './components/MapRenderer.vue';
 import MapEditor from './components/MapEditor.vue';
 import WebSocketClient from './services/WebSocketClient.js';
@@ -719,6 +744,14 @@ const mapData = ref(null);
 const riders = ref([]);
 const orders = ref({});
 const selectedOrderId = ref(null);
+// 派单模式：AUTO = 全自动派单 / MANUAL = 全手动派单 (页面顶部切换)
+const dispatchMode = ref('AUTO');
+const isManualDispatch = computed(() => dispatchMode.value === 'MANUAL');
+// 全手动模式下点击空闲骑手后进入"前往某地点"待选态
+const movingRiderId = ref(null);
+// 轻提示
+const manualTip = ref(null);
+let manualTipTimer = null;
 
 const fetchSavedMaps = async () => {
   try {
@@ -801,6 +834,9 @@ onMounted(() => {
     riders.value = [];
     merchants.value = [];
     selectedOrderId.value = null;
+    dispatchMode.value = 'AUTO';
+    movingRiderId.value = null;
+    manualTip.value = null;
     completedOrderCount.value = 0;
     expiredOrderCount.value = 0;
     unassignedExpiredCount.value = 0;
@@ -821,6 +857,11 @@ onMounted(() => {
   client.onSimulationPaused = () => isPaused.value = true;
   client.onSimulationResumed = () => isPaused.value = false;
   client.onSpeedChanged = (s) => speed.value = s;
+  // 派单模式变更广播 (后端确认为准)
+  client.onDispatchModeChanged = (mode) => {
+    dispatchMode.value = mode === 'MANUAL' ? 'MANUAL' : 'AUTO';
+    if (dispatchMode.value === 'AUTO') movingRiderId.value = null;
+  };
 
   client.onSimulationStopped = () => {
     isSimulationStarted.value = false;
@@ -833,6 +874,9 @@ onMounted(() => {
     riders.value = [];
     merchants.value = [];
     selectedOrderId.value = null;
+    dispatchMode.value = 'AUTO';
+    movingRiderId.value = null;
+    manualTip.value = null;
     completedOrderCount.value = 0;
     expiredOrderCount.value = 0;
     unassignedExpiredCount.value = 0;
@@ -940,12 +984,24 @@ onMounted(() => {
       if (data.currentOrderId && orders.value[data.currentOrderId]) {
         orders.value[data.currentOrderId].status = 1;
       }
+      // 派单成功：该骑手退出"前往某地点"待选态
+      if (data.id && movingRiderId.value === data.id) {
+        movingRiderId.value = null;
+      }
+      // 成功派单的订单若正被选中，清除选中以便继续处理其他订单
+      if (data.currentOrderId && data.currentOrderId === selectedOrderId.value) {
+        selectedOrderId.value = null;
+      }
     } else if (type === 'ORDER_STATUS_CHANGED') {
       if (orders.value[data.id]) {
         orders.value[data.id].status = data.status;
         if (data.waitDurationSec !== undefined) {
           orders.value[data.id].waitDurationSec = data.waitDurationSec;
         }
+      }
+      // 订单进入取完餐/配送阶段后不可改派：若正选中则清选中并解锁
+      if (data.status >= 2 && selectedOrderId.value === data.id) {
+        selectOrder(null);
       }
     } else if (type === 'ORDER_COMPLETED') {
       if (data.completedCount !== undefined) {
@@ -954,7 +1010,7 @@ onMounted(() => {
         completedOrderCount.value++;
       }
       delete orders.value[data.id];
-      if (selectedOrderId.value === data.id) selectedOrderId.value = null;
+      if (selectedOrderId.value === data.id) selectOrder(null);
     } else if (type === 'ORDER_EXPIRED') {
       if (data.expiredCount !== undefined) {
         expiredOrderCount.value = data.expiredCount;
@@ -968,14 +1024,76 @@ onMounted(() => {
         mealTimeoutExpiredCount.value = data.mealTimeoutExpiredCount;
       }
       delete orders.value[data.id];
-      if (selectedOrderId.value === data.id) selectedOrderId.value = null;
+      if (selectedOrderId.value === data.id) selectOrder(null);
     }
   };
+
+  // 手动派单/调度失败轻提示
+  client.onManualAssignFailed = (data) => {
+    const reasonMap = {
+      'MODE_NOT_MANUAL': '当前为全自动派单模式，请先切换到全手动派单',
+      'ORDER_NOT_FOUND': '未找到该订单，请重试',
+      'ORDER_NOT_ASSIGNABLE': '该订单已进入配送流程，无法改派',
+      'RIDER_NOT_FOUND': '未找到该骑手，请重试',
+      'RIDER_NOT_IDLE': '该骑手已非空闲状态，请选择其他空闲骑手'
+    };
+    showManualTip(reasonMap[data && data.reason] || '操作失败，请重试');
+  };
   
+  // ESC 取消"前往某地点"待选态；卸载时清理监听与计时器
+  window.addEventListener('keydown', handleEscKey);
+  onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleEscKey);
+    if (manualTipTimer) clearTimeout(manualTipTimer);
+  });
+
   client.connect();
 });
 
-const onMapOrderSelected = (orderId) => { selectedOrderId.value = orderId; };
+// 选中订单 (地图或侧边栏)
+const selectOrder = (orderId) => {
+  selectedOrderId.value = orderId;
+};
+
+const onMapOrderSelected = (orderId) => { selectOrder(orderId); };
+
+// 切换派单模式 (顶部：全自动 / 全手动)。立即本地更新，由 DISPATCH_MODE_CHANGED 广播校正。
+const setDispatchMode = (mode) => {
+  if (!isSimulationStarted.value) return;
+  const normalized = mode === 'MANUAL' ? 'MANUAL' : 'AUTO';
+  client.send({ command: 'SET_DISPATCH_MODE', mode: normalized });
+  dispatchMode.value = normalized;
+  if (normalized === 'AUTO') movingRiderId.value = null;
+};
+
+// 点击空闲骑手 -> 派单 (成功结果通过 RIDER_ASSIGNED 广播回传后再清选中)
+const onRiderSelected = (riderId) => {
+  if (!selectedOrderId.value) return;
+  client.send({ command: 'MANUAL_ASSIGN', orderId: selectedOrderId.value, riderId });
+};
+
+// 点击空闲骑手 -> 进入/退出"前往某地点"待选态 (再点地图任意位置下发前往指令)
+const onRiderMoveSelected = (riderId) => {
+  movingRiderId.value = (movingRiderId.value === riderId) ? null : riderId;
+};
+
+// 点击地图目标点 -> 下发骑手前往指令
+const onRiderMoveTarget = (payload) => {
+  if (!payload || !payload.riderId) return;
+  client.send({ command: 'MOVE_RIDER', riderId: payload.riderId, x: payload.x, y: payload.y });
+  movingRiderId.value = null;
+};
+
+// ESC 取消"前往某地点"待选态
+const handleEscKey = (e) => {
+  if (e.key === 'Escape') movingRiderId.value = null;
+};
+
+const showManualTip = (text) => {
+  manualTip.value = text;
+  if (manualTipTimer) clearTimeout(manualTipTimer);
+  manualTipTimer = setTimeout(() => { manualTip.value = null; }, 2400);
+};
 
 const selectedOrder = computed(() => {
   if (!selectedOrderId.value) return null;
@@ -1191,6 +1309,28 @@ const getRiderStatusClass = (status) => {
 .btn-pause:hover { background: rgba(245, 158, 11, 0.3); }
 .btn-stop { padding: 6px 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
 .btn-stop:hover { background: rgba(239, 68, 68, 0.3); color: #fff; }
+.dispatch-mode-control { display: flex; align-items: center; gap: 2px; padding: 2px; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 6px; }
+.btn-mode { padding: 4px 10px; background: transparent; border: none; color: #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.btn-mode:hover { background: rgba(148, 163, 184, 0.2); }
+.btn-mode.active { background: rgba(34, 197, 94, 0.35); color: #fff; box-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
+
+.manual-tip-toast {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+.tip-enter-active, .tip-leave-active { transition: all 0.3s ease; }
+.tip-enter-from, .tip-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 .speed-control { display: flex; align-items: center; gap: 2px; padding: 2px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; }
 .btn-speed { padding: 4px 8px; background: transparent; border: none; color: #7dd3fc; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
 .btn-speed:hover { background: rgba(56, 189, 248, 0.2); }

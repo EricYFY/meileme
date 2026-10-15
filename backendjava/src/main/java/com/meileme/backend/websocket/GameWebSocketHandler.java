@@ -95,6 +95,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     double speed = jsonNode.has("speed") ? jsonNode.get("speed").asDouble() : 1.0;
                     System.out.println(">>> [来自 Client] 切换全局倍速: " + speed + "x");
                     gameEngineService.setSimulationSpeed(speed);
+                } else if ("SET_DISPATCH_MODE".equals(cmd)) {
+                    String mode = jsonNode.has("mode") ? jsonNode.get("mode").asText() : "AUTO";
+                    System.out.println(">>> [来自 Client] 切换派单模式: " + mode);
+                    gameEngineService.setDispatchMode(mode);
+                } else if ("MANUAL_ASSIGN".equals(cmd)) {
+                    String orderId = jsonNode.has("orderId") ? jsonNode.get("orderId").asText() : "";
+                    String riderId = jsonNode.has("riderId") ? jsonNode.get("riderId").asText() : "";
+                    System.out.println(">>> [来自 Client] 手动派单: 订单 " + orderId + " -> 骑手 " + riderId);
+                    gameEngineService.manualAssign(orderId, riderId);
+                } else if ("MOVE_RIDER".equals(cmd)) {
+                    String riderId = jsonNode.has("riderId") ? jsonNode.get("riderId").asText() : "";
+                    float x = (float) jsonNode.path("x").asDouble();
+                    float y = (float) jsonNode.path("y").asDouble();
+                    System.out.println(">>> [来自 Client] 手动调度骑手: " + riderId + " -> (" + x + ", " + y + ")");
+                    gameEngineService.moveRider(riderId, x, y);
                 } else if ("UPDATE_FINANCIAL_CONFIG".equals(cmd)) {
                     double takeRate = jsonNode.has("platformTakeRate") ? jsonNode.get("platformTakeRate").asDouble() : 0.25;
                     double bonusMin = jsonNode.has("riderBonusMin") ? jsonNode.get("riderBonusMin").asDouble() : 3.0;

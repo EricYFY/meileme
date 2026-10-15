@@ -21,6 +21,14 @@ export default class CanvasEngine {
         // 选中高亮状态
         this.selectedOrderId = null;
         this.onOrderSelected = null; // 回调：通知 Vue 层
+        this.manualMode = false;     // 全手动派单模式开关
+        this.hoveredRiderId = null;  // 当前悬停的空闲骑手 (选中订单时用于派单预览)
+        this.onRiderSelected = null; // 回调：点击空闲骑手派单
+        // 手动调度骑手 (全手动模式下: 点击空闲骑手 → 再点地图目标点)
+        this.movingRiderId = null;       // 当前处于"前往某地点"待选态的骑手
+        this.mouseGrid = null;           // 鼠标当前所在网格坐标 (用于绘制前往目标的引导线)
+        this.onRiderMoveSelected = null; // 回调：点击空闲骑手进入移动待选态
+        this.onRiderMoveTarget = null;   // 回调：点击地图目标点下发前往指令
         
         this._bindEvents();
         
@@ -37,13 +45,33 @@ export default class CanvasEngine {
         });
 
         this.canvas.addEventListener('mousemove', (e) => {
-            if (!this.isDragging) return;
-            const dx = e.clientX - this.lastMouse.x;
-            const dy = e.clientY - this.lastMouse.y;
-            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.dragMoved = true;
-            this.offsetX += dx;
-            this.offsetY += dy;
-            this.lastMouse = { x: e.clientX, y: e.clientY };
+            if (this.isDragging) {
+                const dx = e.clientX - this.lastMouse.x;
+                const dy = e.clientY - this.lastMouse.y;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.dragMoved = true;
+                this.offsetX += dx;
+                this.offsetY += dy;
+                this.lastMouse = { x: e.clientX, y: e.clientY };
+                return;
+            }
+
+            if (!this.mapData) {
+                this.hoveredRiderId = null;
+                this.mouseGrid = null;
+                return;
+            }
+
+            const { gridX, gridY } = this._worldFromEvent(e);
+            this.mouseGrid = { gridX, gridY };
+            this.canvas.style.cursor = this.movingRiderId ? 'crosshair' : 'grab';
+
+            // 手动派单 hover：已选中订单时命中空闲骑手则记录，用于绘制派单引导线
+            if (this.manualMode && this.selectedOrderId) {
+                const rider = this._findRiderAt(gridX, gridY);
+                this.hoveredRiderId = (rider && rider.status === 0) ? rider.id : null;
+            } else {
+                this.hoveredRiderId = null;
+            }
         });
 
         this.canvas.addEventListener('mouseup', (e) => {
@@ -58,6 +86,8 @@ export default class CanvasEngine {
 
         this.canvas.addEventListener('mouseleave', () => {
             this.isDragging = false;
+            this.hoveredRiderId = null;
+            this.mouseGrid = null;
             this.canvas.style.cursor = 'grab';
         });
 
@@ -80,18 +110,38 @@ export default class CanvasEngine {
         });
     }
 
-    _handleClick(e) {
-        if (!this.mapData) return;
-        
+    _worldFromEvent(e) {
         const rect = this.canvas.getBoundingClientRect();
         const canvasX = e.clientX - rect.left;
         const canvasY = e.clientY - rect.top;
-        
-        // 屏幕坐标 → 世界坐标 (格子坐标)
         const worldX = (canvasX - this.offsetX) / this.scale;
         const worldY = (canvasY - this.offsetY) / this.scale;
-        const gridX = Math.floor(worldX / this.tileSize) + this.mapData.min;
-        const gridY = Math.floor(worldY / this.tileSize) + this.mapData.min;
+        return {
+            gridX: worldX / this.tileSize + this.mapData.min,
+            gridY: worldY / this.tileSize + this.mapData.min
+        };
+    }
+
+    _findRiderAt(gridX, gridY) {
+        let best = null;
+        let bestDist = 2.5;
+        this.riders.forEach(r => {
+            const d = Math.hypot(r.current.x - gridX, r.current.y - gridY);
+            if (d < bestDist) { bestDist = d; best = r; }
+        });
+        return best;
+    }
+
+    _handleClick(e) {
+        if (!this.mapData) return;
+        
+        const { gridX, gridY } = this._worldFromEvent(e);
+
+        // 优先级 1：移动待选态下，点击地图任意位置 = 下发前往指令
+        if (this.manualMode && this.movingRiderId) {
+            if (this.onRiderMoveTarget) this.onRiderMoveTarget(this.movingRiderId, gridX, gridY);
+            return;
+        }
         
         // 检查是否点中了某个订单的取餐点或送餐点
         let clickedOrderId = null;
@@ -107,10 +157,39 @@ export default class CanvasEngine {
             }
         });
         
+        // 全手动派单模式：命中空闲骑手时的两种意图
+        if (this.manualMode) {
+            const rider = this._findRiderAt(gridX, gridY);
+            if (rider && rider.status === 0) {
+                // 优先级 2：已选中订单 → 点击空闲骑手 = 派单
+                if (this.selectedOrderId) {
+                    if (this.onRiderSelected) this.onRiderSelected(rider.id);
+                    return;
+                }
+                // 优先级 3：未选中订单 → 点击空闲骑手 = 进入"前往某地点"待选态
+                if (this.onRiderMoveSelected) this.onRiderMoveSelected(rider.id);
+                return;
+            }
+        }
+        
         this.selectedOrderId = clickedOrderId;
         if (this.onOrderSelected) {
             this.onOrderSelected(clickedOrderId);
         }
+    }
+
+    setManualMode(enabled) {
+        this.manualMode = enabled;
+        if (!enabled) {
+            this.hoveredRiderId = null;
+            this.movingRiderId = null;
+            this.mouseGrid = null;
+        }
+    }
+
+    // 外部调用：设置正处于"前往某地点"待选态的骑手 (null 取消)
+    setMovingRider(riderId) {
+        this.movingRiderId = riderId;
     }
 
     // 外部调用：从侧边栏点击订单时选中
@@ -324,6 +403,77 @@ export default class CanvasEngine {
                     }
                 });
             }
+        }
+
+        // 4b. 全手动派单：高亮所有空闲骑手 + 派单/移动引导线
+        if (this.manualMode && this.mapData) {
+            const min = this.mapData.min;
+            const order = this.selectedOrderId ? this.orders.get(this.selectedOrderId) : null;
+
+            let pickupPx = 0, pickupPy = 0;
+            if (order) {
+                pickupPx = (order.pickupLocation.x - min) * this.tileSize + this.tileSize/2;
+                pickupPy = (order.pickupLocation.y - min) * this.tileSize + this.tileSize/2;
+            }
+
+            this.riders.forEach(r => {
+                if (r.status !== 0) return;
+                const rpx = (r.current.x - min) * this.tileSize + this.tileSize/2;
+                const rpy = (r.current.y - min) * this.tileSize + this.tileSize/2;
+
+                const isMoving = r.id === this.movingRiderId;
+                const isHovered = r.id === this.hoveredRiderId;
+
+                // 空闲骑手高亮圈 (绿色；待移动骑手用紫色强调)
+                this.ctx.strokeStyle = isMoving ? '#a855f7' : '#22c55e';
+                this.ctx.lineWidth = isMoving ? 3 : 2;
+                this.ctx.shadowBlur = isMoving ? 20 : 12;
+                this.ctx.shadowColor = this.ctx.strokeStyle;
+                this.ctx.beginPath();
+                this.ctx.arc(rpx, rpy, this.tileSize * (isMoving ? 1.4 : 1.1), 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.shadowBlur = 0;
+
+                // 派单 hover 引导线：骑手 -> 取餐点 (已选中订单且悬停该骑手)
+                if (order && isHovered && !isMoving) {
+                    this.ctx.setLineDash([6, 4]);
+                    this.ctx.strokeStyle = 'rgba(34, 197, 94, 0.9)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(rpx, rpy);
+                    this.ctx.lineTo(pickupPx, pickupPy);
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]);
+                }
+
+                // 移动待选引导线：骑手 -> 鼠标当前位置 + 目标准心
+                if (isMoving && this.mouseGrid) {
+                    const tx = (this.mouseGrid.gridX - min) * this.tileSize + this.tileSize/2;
+                    const ty = (this.mouseGrid.gridY - min) * this.tileSize + this.tileSize/2;
+
+                    this.ctx.setLineDash([6, 4]);
+                    this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.9)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(rpx, rpy);
+                    this.ctx.lineTo(tx, ty);
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]);
+
+                    this.ctx.strokeStyle = '#a855f7';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(tx, ty, this.tileSize * 0.9, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(tx - this.tileSize * 0.6, ty);
+                    this.ctx.lineTo(tx + this.tileSize * 0.6, ty);
+                    this.ctx.moveTo(tx, ty - this.tileSize * 0.6);
+                    this.ctx.lineTo(tx, ty + this.tileSize * 0.6);
+                    this.ctx.stroke();
+                }
+            });
+            this.ctx.shadowBlur = 0;
         }
 
         // 5. 绘制所有订单
