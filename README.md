@@ -58,9 +58,9 @@ flowchart TB
 
 | 实体分类 | 对象 / 状态 | 标准颜色 | 色值 Hex | 说明 |
 | :--- | :--- | :---: | :---: | :--- |
-| **道路层级** | **主干道 (Main Road)** | ⬜ **白色** | `#ffffff` | 最高车速 9.0 格/秒，3格宽 |
-| | **大路 (Big Road)** | 🔘 **灰色** | `#94a3b8` | 次高车速 6.5 格/秒，2格宽 |
-| | **小路 (Small Road)** | ⚫ **深灰色** | `#475569` | 基础车速 4.0 格/秒，1格宽 |
+| **道路层级** | **主干道 (Main Road)** | ⬜ **白色** | `#ffffff` | 最高车速 12.0 格/秒，3格宽 |
+| | **大路 (Big Road)** | 🔘 **灰色** | `#94a3b8` | 次高车速 6.0 格/秒，2格宽 |
+| | **小路 (Small Road)** | ⚫ **深灰色** | `#475569` | 基础车速 3.0 格/秒，1格宽 |
 | **功能分区** | **高密度商业区** | 🟪 **深紫色** | `#6b21a8` | 产出商家取餐点 |
 | | **低密度商业区** | 🟪 **浅紫色** | `#c084fc` | 产出商家取餐点 |
 | | **高密度住宅区** | 🟩 **深绿色** | `#15803d` | 产出订单送餐目标 |
@@ -105,7 +105,7 @@ Python 模块运行在 **8081** 端口，提供基于 FastAPI 的生命周期接
   - 直向移动（上下左右）：$\Delta d = 1.0, \text{cost} = \frac{1.0}{speed(v)}$
   - 斜向对角线移动：$\Delta d = \sqrt{2} \approx 1.414, \text{cost} = \frac{\sqrt{2}}{speed(v)}$
 - **八方向 Octile 启发式函数**：
-  $$h(n) = \frac{(\sqrt{2} - 1) \cdot \min(|dx|, |dy|) + \max(|dx|, |dy|)}{\text{MaxSpeed}(9.0)}$$
+  $$h(n) = \frac{(\sqrt{2} - 1) \cdot \min(|dx|, |dy|) + \max(|dx|, |dy|)}{\text{MaxSpeed}(12.0)}$$
 - **拐点压缩（Waypoints）**：自动对 8 个方向的同向直线进行拐点压缩，输出精简路点序列。
 
 ### 2. 物理运动与动态变速 (`engine.py`)
@@ -159,46 +159,6 @@ Java 模块基于 Spring Boot 运行在 **8080** 端口，是系统的业务控�
 - **起始基准时间**：**2026年07月01日 00:00:00**
 - **时间加速倍率**：**120 倍**（现实 **1 秒** = 游戏 **2 分钟**；现实 30 秒 = 游戏 1 小时；现实 12 分钟 = 游戏 1 整天）。
 - **流速控制**：仅在模拟处于“运行中”且“非暂停”状态下推进时间，暂停时时钟绝对定格，重置时归零。
-
-### 3. 订单生命周期与超时失效状态机
-### 2. 物理运动与动态变速 (`engine.py`)
-- 物理引擎以 **10Hz (100ms/tick)** 周期运行。
-- 每个 tick 骑手根据当前所在格子的道路类型**动态调整瞬时速度**：
-  $$\text{speed} = \text{RoadSpeeds}[\text{currentTile}]$$
-- 沿 8 方向路点序列逐段匀速前进：
-  - 若一步位移跨越拐点，自动转向并消耗下一个拐点。
-  - 到达最终目标（距离 $< 0.05$）时，清空当前目标并向 Redis 的 `game:events:reach_target` 队列推送到达事件。
-
----
-
-## ☕ 四、 Java 业务调度与生命周期规则
-
-Java 模块基于 Spring Boot 运行在 **8080** 端口，是系统的业务控制中枢与 WebSocket 网关。
-
-### 1. 动态生命周期管理
-系统默认处于静默等待状态，必须通过前端配置参数后启动：
-- **`START_SIMULATION` (启动)**：
-  1. 接收前端传入的 `merchantCount`（商家数）和 `riderCount`（骑手数）。
-  2. 调用 Python `POST /api/simulation/start` 动态初始化地图并启动 10Hz 物理引擎。
-  3. 清空活跃订单列表、骑手占用锁，并将 `completedOrderCount` 和 `expiredOrderCount` 计数器归零。
-  4. 重置虚拟时钟为 **2026年07月01日 00:00:00**，设置 `isRunning = true, isPaused = false`，开启各项定时调度任务并广播 `SIMULATION_STARTED`。
-- **`PAUSE_SIMULATION` (暂停)**：
-  1. 设置 `isPaused = true`，阻断订单生成、派单与超时计算。
-  2. 调用 Python `POST /api/simulation/pause`，使物理引擎暂停计算，骑手瞬间定格在马路当前坐标。
-  3. 向所有客户端广播 `SIMULATION_PAUSED`，前端虚拟时钟与订单流定格。
-- **`RESUME_SIMULATION` (继续)**：
-  1. 设置 `isPaused = false`，恢复业务调度。
-  2. 调用 Python `POST /api/simulation/resume`，恢复物理引擎动力学更新。
-  3. 向所有客户端广播 `SIMULATION_RESUMED`，前端时钟继续流逝。
-- **`STOP_SIMULATION` (结束并重置)**：
-  1. 设置 `isRunning = false, isPaused = false`，立即阻断所有订单生成与派单调度。
-  2. 调用 Python `POST /api/simulation/stop` 停止物理 Tick 线程并清空 Redis 键。
-  3. 清空所有内存活跃数据与计数器，向所有客户端广播 `SIMULATION_STOPPED`。
-
-### 2. 游戏虚拟时间系统 (Game Virtual Time)
-- **起始基准时间**：**2026年07月01日 00:00:00**
-- **时间加速倍率**：**120 倍**（现实 **1 秒** = 游戏 **2 分钟**；现实 30 秒 = 游戏 1 小时；现实 12 分钟 = 游戏 1 整天）。
-- **流速控制**：仅在模拟处于“运行中”且“非暂停”状态下推进时间，暂停时时钟绝对定格，重置时归零。
 - **全局倍速 (0.5x / 1x / 2x / 4x)**：前端「暂停/继续」旁提供倍速分段切换按钮，通过 `SET_SIMULATION_SPEED` 命令下发。后端以「模拟时间累加器」按 `真实流逝时间 × 倍速` 积分，统一缩放虚拟时钟、订单生命周期（超时 / 备餐 / 配送时效分）与骑手物理步长，保证不同倍速下模拟结果一致、仅整体快慢变化；新开一局默认重置为 1x。
 
 ### 3. 订单生命周期与超时失效状态机
@@ -206,11 +166,14 @@ Java 模块基于 Spring Boot 运行在 **8080** 端口，是系统的业务控�
 flowchart LR
     Start(("● 生成")) --> S0["待接单 (status=0)"]
     S0 -->|"派单"| S1["前往取餐 (status=1)"]
-    S0 -->|"超时 60s 未接单"| SExp["已失效 (expiredCount++)"]
-    S1 -->|"到达商家"| S2["配送中 (status=2)"]
-    S2 -->|"送达用户"| S3["已送达 (completedCount++)"]
+    S0 -->|"超时 60s 未接单"| SExp["已失效 (status=5)"]
+    S1 -->|"到达商家·餐未好"| S2["在店等餐 (status=2)"]
+    S1 -->|"到达商家·餐已好"| S3["配送中 (status=3)"]
+    S2 -->|"餐品备齐"| S3
+    S2 -->|"等餐超 15s"| SExp
+    S3 -->|"送达用户"| S4["已送达 (status=4)"]
     SExp --> EndNode(("● 结束"))
-    S3 --> EndNode
+    S4 --> EndNode
 ```
 
 ### 4. 派单模式 (全自动 / 全手动)
@@ -248,36 +211,39 @@ flowchart LR
 | Server → Client | `MANUAL_ASSIGN_FAILED` | 手动操作失败（携带 `reason`：`MODE_NOT_MANUAL` / `ORDER_NOT_FOUND` / `ORDER_NOT_ASSIGNABLE` / `RIDER_NOT_FOUND` / `RIDER_NOT_IDLE`） |
 | Server → Client | `RIDER_ASSIGNED` | 派单成功广播 |
 
-### 4. 商家综合评分数学模型与出单机制
+### 5. 商家综合评分数学模型与出单机制
 系统建立了真实拟真的**商家动态评分与订单引流模型**：
 
 #### (1) 商家评分模型 $(0, 5.0]$
 每送达一单，系统自动核算本单综合体验分，并平滑更新商家评分：
-- **配送时效分 $S_{delivery} \in [1.0, 5.0]$**（根据送达耗时 $T = (\text{now} - \text{createTime})/1000$ 秒）：
-  $$S_{delivery} = \begin{cases} 
-  5.0 & T \le 15\text{s} \\
-  5.0 - \frac{T - 15}{15} \times 1.0 & 15\text{s} < T \le 30\text{s} \\
-  4.0 - \frac{T - 30}{30} \times 2.0 & 30\text{s} < T \le 60\text{s} \\
-  1.0 & T > 60\text{s}
+- **配送时效分 $S_{time} \in [1.0, 5.0]$**（根据送达耗时 $T = (\text{now} - \text{createTime})/1000$ 秒）：
+  $$S_{time} = \begin{cases} 
+  5.0 & T \le 12\text{s} \\
+  5.0 - \frac{T - 12}{13} \times 1.5 & 12\text{s} < T \le 25\text{s} \\
+  3.5 - \frac{T - 25}{20} \times 2.5 & 25\text{s} < T \le 45\text{s} \\
+  1.0 & T > 45\text{s}
   \end{cases}$$
-- **餐品质量分 $S_{quality} \in [1.0, 5.0]$**：顾客对食物口味的随机打分（90% 概率落入 $[3.5, 5.0]$，10% 概率为偶然差评 $[1.0, 3.0]$）。
-- **单单综合得分**：$S_{order} = 0.4 \times S_{delivery} + 0.6 \times S_{quality}$。
+- **餐品质量分 $S_{quality} \in [1.0, 5.0]$**：由商家耗材成本率决定基准并叠加随机波动 —— $S_{quality} = \text{clamp}\big(1.0 + \text{materialCostRate} \times 4.5 + N(0, 0.35),\; 1.0,\; 5.0\big)$。
+- **单单综合得分**：$S_{order} = 0.5 \times S_{quality} + 0.5 \times S_{time}$。
 - **商家评分平滑迭代 (EMA)**：
-  $$\text{Rating}_{new} = \text{round}(\text{Rating}_{old} \times 0.85 + S_{order} \times 0.15, 1)$$
+  $$\text{Rating}_{new} = \text{round}(\text{Rating}_{old} \times 0.90 + S_{order} \times 0.10, 1)$$
 
-#### (2) 商家数量与评分决定出单规则
+#### (2) 商家数量、评分与时段决定出单规则
 系统以 **1 秒为周期** 扫描所有商家，商家 $i$ 在当前秒独立触发生成订单的概率为：
-$$P_i = 0.15 \times \left(\frac{\text{Rating}_i}{5.0}\right)^2$$
-- **多商家效应**：全图商家越多，每秒总订单生成量成正比放大（$N$ 个商家每秒期望出单 $0.15 \times N$ 单）。
-- **高评分马太效应**：满分 5.0 商家平均 6.6 秒出 1 单；3.0 分商家平均 18.5 秒出 1 单，评分直接左右商家订单量。
+$$P_i = 0.32 \times k_{time} \times \left(\frac{\text{Rating}_i}{5.0}\right)^2 \times \Big(1.0 + 0.5 \times \ln\big(1.0 + \frac{\text{AdSpend}_i}{10.0}\big)\Big)$$
+- **高峰时段系数 $k_{time}$**：午高峰 11:00–13:00 = 2.5；晚高峰 17:00–19:00 = 2.0；早高峰 06:00–09:00 = 1.2；14:00–15:00 与 21:00–22:00 = 1.0；深夜 22:00–06:00 = 0.1；其余平峰 = 0.5。
+- **广告引流加成**：商家广告投入 $\text{AdSpend}$ 越高出单概率越大（默认广告 ¥20 时加成系数约 1.35）。
+- **多商家效应**：全图商家越多，每秒总订单生成量随时间同步放大。
+- **高评分马太效应**：评分以平方关系放大出单概率，直接左右商家订单量（相同广告与时段下，满分商家的出单率约为 3.0 分商家的 2.8 倍）。
+- **送达点约束**：送达点在该商家周边 100 格（10km）内的临路住宅区格子中随机选取。
 
-### 5. 商业经济与财务结算体系 (Financial & Revenue System)
+### 6. 商业经济与财务结算体系 (Financial & Revenue System)
 系统建立了完整的平台、骑手与商家的三方商业财务结算闭环：
 
 ```mermaid
 flowchart TD
     subgraph 平台总账 [💰 平台财务总账]
-        Rev["平台总收入 (商家佣金 + 订单抽成 15%)"]
+        Rev["平台总收入 (商家加盟费 + 订单抽成 25%)"]
         Exp["平台总支出 (骑手底薪 + 配送提成)"]
         Fin["平台总罚款 (失效超时赔付 ¥8/单)"]
         Net["净利润 = 总收入 - 总支出 - 总罚款"]
@@ -291,7 +257,7 @@ flowchart TD
 
     subgraph 商家收支 [🏢 商家财务体系]
         MComm["每日入驻佣金: ¥50.00/天 (每日00:00支付平台)"]
-        MRev["单笔订单净收入: 85% 菜品总额"]
+        MRev["单笔订单净收入: 75% 菜品总额"]
         MNet["总净收益 = 订单收入 - 佣金"]
     end
 
@@ -309,25 +275,26 @@ flowchart TD
 - **暂停保活机制**：当模拟暂停时，虚拟时间绝对定格，天数与财务日结绝不跳变，恢复后继续无缝对齐。
 
 #### (2) 骑手单笔时效提成算法
-设订单送达实际耗时为 $T_{\text{cost}}$ 秒，标杆时效为 $30.0$ 秒：
-$$\text{RiderBonus} = \max\left(3.0, \; 5.0 + 3.0 \times \max\left(0, \; \frac{30.0 - T_{\text{cost}}}{30.0}\right)\right)$$
-- 送达越快提成越高（最高 ¥8.00，最低保底 ¥3.00）；
+设订单送达实际耗时为 $T_{\text{cost}}$ 秒，标杆时效为 $25.0$ 秒：
+$$\text{speedRatio} = \max\left(0.0, \; \min\left(1.0, \; \frac{25.0 - T_{\text{cost}}}{25.0}\right)\right)$$
+$$\text{RiderBonus} = \text{riderBonusMin} + (\text{riderBonusMax} - \text{riderBonusMin}) \times \text{speedRatio}$$
+- 送达越快提成越高（默认区间 ¥3.00 ~ ¥8.00，超出标杆时效则保底 ¥3.00）；
 - 骑手总工资：$\text{TotalSalary} = \text{BaseSalary} + \text{Bonus}$。
 
 #### (3) 商家订单收入与平台抽成算法
-结合菜品质量评分 $S_{quality}$ 与配送速度评分 $S_{delivery}$ 核算单笔菜品总额（约 ¥24.00 ~ ¥36.00）：
-$$\text{OrderValue} = 30.0 \times \left(0.6 + 0.4 \times \frac{S_{quality} + S_{delivery}}{10.0}\right)$$
-- **平台技术抽成 (15%)**：$\text{PlatformTake} = \text{OrderValue} \times 0.15$
-- **商家订单净得 (85%)**：$\text{MerchantIncome} = \text{OrderValue} \times 0.85$
+每笔订单的客单价（`OrderValue`）由商家自定义区间 $[\text{minOrderPrice}, \text{maxOrderPrice}]$ 内随机生成（默认 ¥15.00 ~ ¥35.00）：
+$$\text{OrderValue} = \text{minOrderPrice} + \text{random} \times (\text{maxOrderPrice} - \text{minOrderPrice})$$
+- **平台技术抽成**：$\text{PlatformTake} = \text{OrderValue} \times \text{platformTakeRate}$（默认 25%）
+- **商家订单净得**：$\text{MerchantIncome} = \text{OrderValue} \times (1.0 - \text{platformTakeRate})$（默认 75%）
 - **商家总净收益**：$\text{TotalIncome} = \text{OrderRevenue} - \text{Commission}$。
 
-#### (5) 动态财务费率实时热更新配置 (Dynamic Rate Config)
+#### (4) 动态财务费率实时热更新配置 (Dynamic Rate Config)
 用户可以在游戏运行过程中随时在页面右上角点击 **【⚙️ 费率配置】**，微调以下核心费率参数并点击 **【💾 保存并立刻生效】**：
-- **平台每单抽成比例 (`platformTakeRate`)**：支持配置 `0% ~ 100%`（默认 `15%`）；
+- **平台每单抽成比例 (`platformTakeRate`)**：支持配置 `0% ~ 100%`（默认 `25%`）；
 - **骑手配送提成下限 (`riderBonusMin`)**：支持配置 `0 ~ 20` 元（默认 `¥3.00`）；
 - **骑手配送提成上限 (`riderBonusMax`)**：支持配置 `0 ~ 20` 元（默认 `¥8.00`）；
 - **即时生效公式**：
-  $$\text{speedRatio} = \max\left(0.0, \; \min\left(1.0, \; \frac{30.0 - T_{\text{cost}}}{30.0}\right)\right)$$
+  $$\text{speedRatio} = \max\left(0.0, \; \min\left(1.0, \; \frac{25.0 - T_{\text{cost}}}{25.0}\right)\right)$$
   $$\text{RiderBonus} = \text{riderBonusMin} + (\text{riderBonusMax} - \text{riderBonusMin}) \times \text{speedRatio}$$
   $$\text{PlatformTake} = \text{OrderValue} \times \text{platformTakeRate}$$
   $$\text{MerchantIncome} = \text{OrderValue} \times (1.0 - \text{platformTakeRate})$$
@@ -335,16 +302,16 @@ $$\text{OrderValue} = 30.0 \times \left(0.6 + 0.4 \times \frac{S_{quality} + S_{
   ```json
   {
     "command": "UPDATE_FINANCIAL_CONFIG",
-    "platformTakeRate": 0.20,
+    "platformTakeRate": 0.25,
     "riderBonusMin": 4.0,
     "riderBonusMax": 10.0
   }
   ```
 
-#### (6) 平台收支汇总与净利润
+#### (5) 平台收支汇总与净利润
 $$\text{NetProfit} = \text{TotalRevenue} - \text{TotalExpenses} - \text{TotalFines}$$
 
-#### (7) 公司现金账户与破产结算 (Player Cash & Bankruptcy)
+#### (6) 公司现金账户与破产结算 (Player Cash & Bankruptcy)
 - **开局现金**：¥800，并在第 1 天 00:00 立即入账当日加盟费。
 - **现金流闭环**：
   - 每笔完成订单的**毛利**（平台抽成 − 骑手提成）实时入账；
@@ -356,14 +323,17 @@ $$\text{NetProfit} = \text{TotalRevenue} - \text{TotalExpenses} - \text{TotalFin
 
 ---
 
-## 📡 六、 Redis 数据契约与交互字典
+## 📡 五、 Redis 数据契约与交互字典
 
 | Redis Key | 数据结构 | 生产者 | 消费者 | 作用与格式 |
 | :--- | :---: | :---: | :---: | :--- |
-| `game:state:riders` | String (JSON) | Python | Java | 骑手列表快照 `[{"id":"rider-001","currentPosition":{x,y},"speed":9.0,"status":1},...]` |
-| `game:rider:targets` | Hash | Java | Python | 骑手目标点坐标 Hash，Field 为 `riderId`，Value 为 `{"x":...,"y":...}` 或 `"null"` |
+| `game:state:riders` | String (JSON) | Python | Java | 骑手列表快照 `[{"id":"rider-001","currentPosition":{x,y},"targetPosition":{x,y},"speed":12.0,"status":1},...]` |
+| `game:rider:targets` | Hash | Java | Python | 骑手业务目标点坐标 Hash，Field 为 `riderId`，Value 为 `{"x":...,"y":...}` 或 `"null"` |
 | `game:rider:status` | Hash | Java | Python | 骑手业务状态 Hash：`0` 空闲、`1` 取餐中、`2` 送餐中 |
 | `game:rider:orders` | Hash | Java | Python | 骑手当前绑定的订单 ID |
+| `game:rider:manual_targets` | Hash | Java | Python | **全手动派单模式**下玩家调度骑手前往的目标点 Hash（一次性指令），Field 为 `riderId`，Value 为 `{"x":...,"y":...}`；骑手到达后由 Python `hdel` 清除 |
+| `game:dispatch:mode` | String | Java | Python | 当前派单模式：`AUTO`（全自动）/ `MANUAL`（全手动）；Python 据此决定空闲骑手是否自动巡游 |
+| `game:simulation:speed` | String | Java | Python | 全局倍速（`0.5` / `1` / `2` / `4`）；Python 每 tick 读取并缩放物理步长 `dt = 0.1 × speed` |
 | `game:events:reach_target` | List (Queue) | Python | Java | 到达事件队列，元素为 `{"riderId":..., "orderId":..., "status":...}` |
 
 ---
