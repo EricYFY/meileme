@@ -14,13 +14,13 @@ class MapStorage:
         """如果地图库为空，自动创建一张经典的预设示范地图"""
         if not os.listdir(MAPS_DIR):
             from map_generator import MapGenerator
-            gen = MapGenerator(merchant_count=10)
+            gen = MapGenerator()
             gen.generate()
             map_data = gen.get_map_data()
             
             default_map = {
                 "id": "map_default_preset",
-                "name": "经典示范城市 (Preset)",
+                "name": "度假村示例地图 (Preset)",
                 "createdAt": int(time.time() * 1000),
                 "updatedAt": int(time.time() * 1000),
                 "min": map_data["min"],

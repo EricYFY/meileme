@@ -72,7 +72,7 @@
         </div>
 
         <div class="tool-group">
-          <div class="group-title">道路层级 (骑手可通行)</div>
+          <div class="group-title">道路层级 (游客/员工可通行)</div>
           <button 
             class="tool-btn" 
             :class="{ active: currentTool === 1 }" 
@@ -107,7 +107,7 @@
             @click="setTool(6, 3)"
           >
             <span class="tool-color c-com-high"></span>
-            🏬 高密商业区 (产出商家)
+            🏬 高密商业区 (地形分区)
           </button>
           <button 
             class="tool-btn" 
@@ -115,7 +115,7 @@
             @click="setTool(7, 3)"
           >
             <span class="tool-color c-com-low"></span>
-            🏢 低密商业区 (产出商家)
+            🏢 低密商业区 (地形分区)
           </button>
           <button 
             class="tool-btn" 
@@ -123,7 +123,7 @@
             @click="setTool(4, 3)"
           >
             <span class="tool-color c-res-high"></span>
-            🏙️ 高密住宅区 (送餐目标)
+            🏙️ 高密住宅区 (地形分区)
           </button>
           <button 
             class="tool-btn" 
@@ -131,7 +131,7 @@
             @click="setTool(5, 3)"
           >
             <span class="tool-color c-res-low"></span>
-            🏠 低密住宅区 (送餐目标)
+            🏠 低密住宅区 (地形分区)
           </button>
           <button 
             class="tool-btn" 
@@ -203,11 +203,11 @@
             <span class="val text-success">{{ roadStats.totalRoads }}</span>
           </div>
           <div class="stat-row">
-            <span>🏢 临路商业区 (商家位)：</span>
+            <span>🏢 临路商业区 (可建造位)：</span>
             <span class="val text-warning">{{ roadStats.roadsideCom }}</span>
           </div>
           <div class="stat-row">
-            <span>🏠 临路住宅区 (送餐位)：</span>
+            <span>🏠 临路住宅区 (可建造位)：</span>
             <span class="val text-success">{{ roadStats.roadsideRes }}</span>
           </div>
         </div>
@@ -217,8 +217,8 @@
           <ul>
             <li><strong>直线拉取</strong>：切换至【📏 直线拉取】，可以非常轻松地一笔拉出贯穿全城笔直的主干道！</li>
             <li><strong>随时撤销</strong>：画错随时点击【↩️ 撤销】或按 <strong>Ctrl+Z</strong> 回退。</li>
-            <li><strong>临路原则</strong>：商业区与住宅区只要与道路紧邻，系统即可自动抽取作为商家与送餐点！</li>
-            <li><strong>骑手出生</strong>：骑手启动时会在您绘制的所有马路格子上随机分散出生。</li>
+            <li><strong>临路原则</strong>：任何与道路紧邻的非道路格子，系统都会自动抽取为可建造地块（用于放置建筑/地块）。</li>
+            <li><strong>游客/员工出生</strong>：游客与员工启动时会在园区入口附近的马路格子上分散出生。</li>
           </ul>
         </div>
       </div>

@@ -1,42 +1,33 @@
 <template>
   <div class="dashboard-wrapper">
     <!-- 地图编辑器视图 -->
-    <MapEditor 
-      v-if="currentView === 'editor'" 
-      @close="currentView = 'simulation'" 
-      @mapSaved="fetchSavedMaps" 
+    <MapEditor
+      v-if="currentView === 'editor'"
+      @close="currentView = 'simulation'"
+      @mapSaved="fetchSavedMaps"
     />
 
-    <!-- 模拟监控主控制台视图 -->
+    <!-- 经营主控制台视图 -->
     <div v-else class="dashboard">
       <!-- 启动配置弹窗 -->
       <div v-if="!isSimulationStarted" class="start-modal-overlay">
         <div class="start-modal glass-panel">
-          <h2>🚀 外卖调度拟真模拟器</h2>
-          <p class="modal-desc">201x201 (20.1km*20.1km) 真实环境模拟</p>
-          
+          <h2>🏞️ 山间民宿度假村经营模拟</h2>
+          <p class="modal-desc">挂机经营 · 逐日结算 · 淡旺季与随机事件</p>
+
           <div class="form-group">
             <label>运行地图选择</label>
             <select v-model="selectedMapId" class="map-dropdown">
-              <option value="random">🎲 随机生成全新拟真地图</option>
+              <option value="random">🎲 随机生成全新山地地图</option>
               <option v-for="m in savedMaps" :key="m.id" :value="m.id">
                 🗺️ {{ m.name }} ({{ m.roadCount }} 道路格)
               </option>
             </select>
           </div>
 
-          <div class="form-group">
-            <label>初始商家数量 (1-50)</label>
-            <input type="number" v-model.number="merchantCount" min="1" max="50" />
-          </div>
-          <div class="form-group">
-            <label>初始骑手数量 (1-100)</label>
-            <input type="number" v-model.number="riderCount" min="1" max="100" />
-          </div>
-          
           <div class="modal-actions">
-            <button class="btn-start" @click="startSimulation" :disabled="!isConnected || isStarting">
-              {{ !isConnected ? '等待服务器连接...' : (isStarting ? '启动中...' : '启动拟真模拟引擎') }}
+            <button class="btn-start" @click="startGame" :disabled="!isConnected || isStarting">
+              {{ !isConnected ? '等待服务器连接...' : (isStarting ? '开局中...' : '🏁 开始经营') }}
             </button>
             <button class="btn-open-editor" @click="currentView = 'editor'">
               🎨 绘制/编辑自定义地图
@@ -48,74 +39,56 @@
       <!-- 破产结算画面 -->
       <div v-if="isBankrupt" class="bankrupt-overlay">
         <div class="bankrupt-panel glass-panel">
-          <h2>💥 公司破产</h2>
-          <p class="bankrupt-sub">公司现金账户为负，资不抵债，本局结束。</p>
+          <h2>💥 度假村破产</h2>
+          <p class="bankrupt-sub">资金耗尽，资不抵债，本局结束。</p>
           <div class="bankrupt-stats">
-            <div class="bs-row"><span class="bs-label">📅 存活天数</span><span class="bs-value">{{ bankruptSurvivalDays }} 天</span></div>
-            <div class="bs-row"><span class="bs-label">🏆 最佳评级</span><span class="bs-value">{{ bankruptBestRating.toFixed(2) }} / 5.0</span></div>
-            <div class="bs-row"><span class="bs-label">💰 期末现金</span><span class="bs-value text-red">¥{{ bankruptCash.toFixed(2) }}</span></div>
-            <div class="bs-row"><span class="bs-label">⚠️ 破产原因</span><span class="bs-value">{{ bankruptReason }}</span></div>
-          </div>
-          <button class="btn-start" @click="restartAfterBankruptcy">🔄 一键重开</button>
-        </div>
-      </div>
-
-      <!-- 单个商家经营参数配置模态窗 -->
-      <div v-if="showMerchantModal" class="merchant-modal-overlay">
-        <div class="merchant-modal glass-panel" @click.stop>
-          <div class="modal-header">
-            <h3>⚙️ 商家经营参数配置 ({{ editingMerchant?.id }})</h3>
-            <button class="modal-close-btn" @click="showMerchantModal = false" title="关闭">✕</button>
-          </div>
-          
-          <div class="merchant-form-body">
-            <div class="form-section-title">📦 定价与耗材</div>
-            <div class="form-row-2">
-              <div class="form-field">
-                <label>客单价下限 (¥)</label>
-                <input type="number" v-model.number="merchantForm.minOrderPrice" min="1" step="1" />
-              </div>
-              <div class="form-field">
-                <label>客单价上限 (¥)</label>
-                <input type="number" v-model.number="merchantForm.maxOrderPrice" min="1" step="1" />
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label>订单耗材成本占比: <span class="highlight-val">{{ merchantForm.materialCostRatePercent }}%</span> (直接影响餐品质量好评)</label>
-              <input type="range" v-model.number="merchantForm.materialCostRatePercent" min="10" max="90" step="5" class="slider-input" />
-            </div>
-
-            <div class="form-section-title">🏢 运营与广告成本 (每日固定)</div>
-            <div class="form-row-2">
-              <div class="form-field">
-                <label>门面租金 (¥/天)</label>
-                <input type="number" v-model.number="merchantForm.rentCost" min="0" step="10" />
-              </div>
-              <div class="form-field">
-                <label>人工成本 (¥/天)</label>
-                <input type="number" v-model.number="merchantForm.laborCost" min="0" step="10" />
-              </div>
-            </div>
-            <div class="field-tip">💡 提示：门面租金 + 人工成本越高，后厨人手越多，订单备餐越快，可大幅降低骑手等餐超时风险。</div>
-
-            <div class="form-row-2">
-              <div class="form-field">
-                <label>每日广告投入 (¥/天)</label>
-                <input type="number" v-model.number="merchantForm.adSpend" min="0" step="5" />
-              </div>
-              <div class="form-field">
-                <label>每日平台加盟费 (¥/天)</label>
-                <input type="number" v-model.number="merchantForm.dailyFranchiseFee" min="0" step="10" />
-              </div>
-            </div>
-            <div class="field-tip">💡 提示：广告投入越高，在用户端的曝光率越高，产生订单概率越大。</div>
+            <div class="bs-row"><span class="bs-label">📅 存活天数</span><span class="bs-value">{{ bankruptcy.daysSurvived }} 天</span></div>
+            <div class="bs-row"><span class="bs-label">💰 最终资金</span><span class="bs-value text-red">¥{{ fmtMoney(bankruptcy.finalCash) }}</span></div>
+            <div class="bs-row"><span class="bs-label">⚠️ 破产原因</span><span class="bs-value">{{ bankruptcy.endReason }}</span></div>
           </div>
 
-          <div class="modal-footer">
-            <button class="btn-cancel" @click="showMerchantModal = false">取消</button>
-            <button class="btn-save" @click="saveMerchantConfig">💾 保存并立刻下发</button>
+          <!-- 末日收支明细：让玩家看清钱花在哪 -->
+          <div v-if="bankruptcy.lastDay" class="bankrupt-breakdown">
+            <div class="bb-title">第 {{ bankruptcy.lastDay }} 天（末日）收支明细</div>
+            <div class="bb-cols">
+              <div class="bb-col">
+                <div class="bb-head">收入</div>
+                <div class="bb-row"><span>🛏️ 客房</span><span>¥{{ fmtMoney(bankruptcy.revenueDetail && bankruptcy.revenueDetail.roomFee) }}</span></div>
+                <div class="bb-row"><span>🍽️ 餐饮</span><span>¥{{ fmtMoney(bankruptcy.revenueDetail && bankruptcy.revenueDetail.dining) }}</span></div>
+                <div class="bb-row"><span>🎡 游乐</span><span>¥{{ fmtMoney(bankruptcy.revenueDetail && bankruptcy.revenueDetail.recreation) }}</span></div>
+                <div class="bb-row"><span>🎉 团建</span><span>¥{{ fmtMoney(bankruptcy.revenueDetail && bankruptcy.revenueDetail.teamOrder) }}</span></div>
+                <div class="bb-row bb-total"><span>收入合计</span><span>¥{{ fmtMoney(bankruptcy.lastTotalRevenue) }}</span></div>
+              </div>
+              <div class="bb-col">
+                <div class="bb-head">支出</div>
+                <div class="bb-row"><span>👷 工资</span><span>¥{{ fmtMoney(bankruptcy.expenseDetail && bankruptcy.expenseDetail.staffSalary) }}</span></div>
+                <div class="bb-row"><span>🏢 维护</span><span>¥{{ fmtMoney(bankruptcy.expenseDetail && bankruptcy.expenseDetail.buildingMaintenance) }}</span></div>
+                <div class="bb-row"><span>📣 广告</span><span>¥{{ fmtMoney(bankruptcy.expenseDetail && bankruptcy.expenseDetail.adBudget) }}</span></div>
+                <div class="bb-row"><span>⚠️ 事件</span><span>¥{{ fmtMoney(bankruptcy.expenseDetail && bankruptcy.expenseDetail.eventCost) }}</span></div>
+                <div class="bb-row"><span>🚫 团建罚款</span><span>¥{{ fmtMoney(bankruptcy.expenseDetail && bankruptcy.expenseDetail.teamPenalty) }}</span></div>
+                <div class="bb-row bb-total"><span>支出合计</span><span>¥{{ fmtMoney(bankruptcy.lastTotalExpense) }}</span></div>
+              </div>
+            </div>
+            <div class="bb-net">
+              当日起始资金 ¥{{ fmtMoney(bankruptcy.lastCashBefore) }} · 当日净利
+              <span :class="bankruptcy.lastNetProfit >= 0 ? 'text-green' : 'text-red'">{{ bankruptcy.lastNetProfit >= 0 ? '+' : '' }}¥{{ fmtMoney(bankruptcy.lastNetProfit) }}</span>
+            </div>
           </div>
+
+          <!-- 本局每日结算日志（内嵌，可滚动，最多近 365 天） -->
+          <div v-if="bankruptcy.dailyReports && bankruptcy.dailyReports.length" class="bankrupt-log">
+            <div class="bb-title">本局每日结算日志（共 {{ bankruptcy.dailyReports.length }} 天）</div>
+            <div class="bankrupt-log-body">
+              <div v-for="d in bankruptcy.dailyReports" :key="d.day" class="blog-row">
+                <span class="blog-day">第 {{ d.day }} 天</span>
+                <span :class="d.netProfit >= 0 ? 'text-green' : 'text-red'">净利 {{ d.netProfit >= 0 ? '+' : '-' }}¥{{ fmtMoney(Math.abs(d.netProfit)) }}</span>
+                <span class="blog-cash">资金 ¥{{ fmtMoney(d.cashAfter) }}</span>
+                <span class="blog-rep">⭐ {{ (d.reputationAfter || 0).toFixed(1) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-start" @click="restartGame">🔄 重新开局</button>
         </div>
       </div>
 
@@ -123,418 +96,341 @@
       <div class="map-section glass-panel">
         <div class="header">
           <div class="header-left">
-            <h2>外卖调度模拟器 (201x201 / 20.1km*20.1km)</h2>
-            <!-- 公司现金栏 (常驻顶部) -->
-            <div v-if="isSimulationStarted" class="cash-bar" :class="cashBarClass">
-              <span class="cash-label">💰 公司现金</span>
-              <span class="cash-value mono">¥{{ cash.toFixed(2) }}</span>
-              <span v-if="cash < 200 && cash >= 0" class="cash-warn-tag">⚠️ 资金紧张</span>
-              <span v-if="cash < 0" class="cash-danger-tag">🔴 资不抵债</span>
-              <transition name="cash-float">
-                <span v-if="cashFlash" class="cash-float-text" :class="cashFlash.type">{{ cashFlash.text }}</span>
-              </transition>
+            <!-- 全局状态条 -->
+            <div v-if="isSimulationStarted" class="status-bar">
+              <div class="sb-row">
+                <span class="sb-item">📅 第 {{ resortState.day }} 天</span>
+                <span class="sb-item sb-season">{{ seasonLabel }}</span>
+                <span class="sb-item sb-clock" :class="{ 'sb-clock-idle': !clockAdvancing }" title="当日游戏时刻">
+                  🕘 {{ clockText }}
+                </span>
+                <span class="sb-item sb-cash">💰 ¥{{ fmtMoney(resortState.cash) }}</span>
+                <span class="sb-item sb-rep">⭐ {{ (resortState.reputation || 0).toFixed(1) }}</span>
+                <span class="sb-phase phase-running">{{ phaseText }}</span>
+              </div>
+              <!-- 当日进度条：00:00 → 24:00 -->
+              <div class="sb-progress">
+                <div class="sb-progress-fill" :style="{ width: (dayProgress * 100).toFixed(2) + '%' }"></div>
+              </div>
             </div>
-            <!-- 赛博风虚拟时间时钟 (1s=2min) -->
-            <div v-if="isSimulationStarted" class="game-time-badge" :class="{ 'paused': isPaused }">
-              <span class="time-icon">{{ isPaused ? '⏸️' : '🕒' }}</span>
-              <span class="time-label">虚拟时间:</span>
-              <span class="time-val mono">{{ formattedGameTime }}</span>
-              <span class="peak-badge">{{ currentPeakLabel }}</span>
-            </div>
+            <h2 v-else>山间民宿度假村经营模拟</h2>
           </div>
           <div class="header-actions">
-            <!-- 地图编辑器入口 -->
             <button v-if="!isSimulationStarted" class="btn-editor-entry" @click="currentView = 'editor'" title="打开地图编辑器">
               🎨 地图编辑器
             </button>
-            <!-- 暂停/继续按钮 -->
-            <button 
-              v-if="isSimulationStarted" 
-              class="btn-pause" 
-              :class="{ 'paused': isPaused }"
-              @click="togglePause" 
-              :title="isPaused ? '继续模拟' : '暂停模拟'"
-            >
-              {{ isPaused ? '▶️ 继续' : '⏸️ 暂停' }}
-            </button>
-            <!-- 全局倍速切换 (0.5x / 1x / 2x / 4x) -->
-            <div v-if="isSimulationStarted" class="speed-control" title="切换全局倍速">
-              <button
-                v-for="s in speedOptions"
-                :key="s"
-                class="btn-speed"
-                :class="{ 'active': speed === s }"
-                @click="setSpeed(s)"
-              >
-                {{ s }}x
+            <template v-if="isSimulationStarted">
+              <button class="btn-report" @click="openReport" title="自选区间生成经营报告">📊 生成报告</button>
+              <button class="btn-log" @click="requestDailyLog" title="查看本局完整每日结算日志（近 365 天）">📜 完整日志</button>
+              <button class="btn-pause" :class="{ 'paused': isPaused }" @click="togglePause" :title="isPaused ? '继续' : '暂停'">
+                {{ isPaused ? '▶️ 继续' : '⏸️ 暂停' }}
               </button>
-            </div>
-            <!-- 派单模式切换 (全自动 / 全手动) -->
-            <div v-if="isSimulationStarted" class="dispatch-mode-control" title="切换派单模式">
-              <button
-                class="btn-mode"
-                :class="{ 'active': dispatchMode === 'AUTO' }"
-                @click="setDispatchMode('AUTO')"
-              >
-                🤖 全自动派单
-              </button>
-              <button
-                class="btn-mode"
-                :class="{ 'active': dispatchMode === 'MANUAL' }"
-                @click="setDispatchMode('MANUAL')"
-              >
-                🎯 全手动派单
-              </button>
-            </div>
-            <button v-if="isSimulationStarted" class="btn-stop" @click="stopSimulation" title="结束当前模拟并重置">
-              ⏹️ 结束模拟
-            </button>
+              <div class="speed-control" title="切换全局倍速">
+                <button
+                  v-for="s in speedOptions"
+                  :key="s"
+                  class="btn-speed"
+                  :class="{ 'active': speed === s }"
+                  @click="setSpeed(s)"
+                >
+                  {{ s }}x
+                </button>
+              </div>
+              <button class="btn-fitview" @click="resetView" title="缩放至整图">🗺️ 整图</button>
+              <button class="btn-stop" @click="stopGame" title="结束并重置">⏹️ 结束并重置</button>
+            </template>
             <div class="status-indicator">
               <span class="dot" :class="{ 'connected': isConnected }"></span>
               {{ isConnected ? '服务器已连接' : '服务器断开' }}
             </div>
           </div>
         </div>
+
+        <!-- 仿真运行中横幅已移除：实时经营允许随时操作 -->
         <div class="map-wrapper">
-          <MapRenderer 
-            :mapData="mapData" 
-            :riders="riders" 
-            :orders="orders"
-            :selectedOrderId="selectedOrderId"
-            :manualMode="isManualDispatch"
-            :movingRiderId="movingRiderId"
-            @orderSelected="onMapOrderSelected"
-            @riderSelected="onRiderSelected"
-            @riderMoveSelected="onRiderMoveSelected"
-            @riderMoveTarget="onRiderMoveTarget"
+          <MapRenderer
+            ref="mapRef"
+            :mapData="mapData"
+            :guests="guests"
+            :staff="npcStaff"
+            :buildings="buildings"
+            :plots="plots"
           />
         </div>
-        <transition name="tip">
-          <div v-if="manualTip" class="manual-tip-toast">{{ manualTip }}</div>
-        </transition>
       </div>
 
       <!-- 右侧控制面板 -->
       <div class="control-panel">
-        <!-- 平台财务总账看板 -->
-        <div class="stats-card glass-panel financial-panel">
-          <div class="panel-header-row">
-            <h3>💰 平台财务总账 (第 {{ virtualDay }} 天)</h3>
-            <button class="btn-config-toggle" :class="{ active: showRateConfig }" @click="showRateConfig = !showRateConfig">
-              ⚙️ {{ showRateConfig ? '收起配置' : '平台费率' }}
-            </button>
-          </div>
-
-          <!-- 费率参数设置折叠面板 -->
-          <div v-if="showRateConfig" class="rate-config-drawer">
-            <div class="config-title">⚙️ 平台抽成与骑手提成费率 (即时生效)</div>
-            <div class="config-form-grid">
-              <div class="config-field">
-                <label>平台抽成比例 (%)</label>
-                <div class="input-unit-wrap">
-                  <input 
-                    type="number" 
-                    v-model.number="configTakeRatePercent" 
-                    min="0" 
-                    max="100" 
-                    step="1"
-                  />
-                  <span class="unit">%</span>
-                </div>
-                <span class="field-hint">默认 25%</span>
-              </div>
-
-              <div class="config-field">
-                <label>骑手提成下限 (¥)</label>
-                <div class="input-unit-wrap">
-                  <input 
-                    type="number" 
-                    v-model.number="configBonusMin" 
-                    min="0" 
-                    max="20" 
-                    step="0.5"
-                  />
-                  <span class="unit">元</span>
-                </div>
-                <span class="field-hint">范围: 0 ~ 20 元</span>
-              </div>
-
-              <div class="config-field">
-                <label>骑手提成上限 (¥)</label>
-                <div class="input-unit-wrap">
-                  <input 
-                    type="number" 
-                    v-model.number="configBonusMax" 
-                    min="0" 
-                    max="20" 
-                    step="0.5"
-                  />
-                  <span class="unit">元</span>
-                </div>
-                <span class="field-hint">范围: 0 ~ 20 元</span>
-              </div>
-            </div>
-
-            <div class="config-action-row">
-              <button class="btn-save-config" @click="submitFinancialConfig">
-                💾 保存费率
-              </button>
-              <span v-if="saveRateSuccess" class="save-success-tip">✅ 费率已生效！</span>
-            </div>
-          </div>
-
-          <div class="stats-grid financial-grid">
-            <div class="stat-item fin-item">
-              <span class="label">💰 平台总收入</span>
-              <span class="value text-revenue">¥{{ totalRevenue.toFixed(2) }}</span>
-              <span class="sub-label">(抽成 {{ Math.round((currentTakeRate || 0.25) * 100) }}% + 加盟费)</span>
-            </div>
-            <div class="stat-item fin-item">
-              <span class="label">💸 平台总支出</span>
-              <span class="value text-expense">¥{{ totalExpenses.toFixed(2) }}</span>
-              <span class="sub-label">(底薪+提成 [¥{{ (currentBonusMin || 3.0).toFixed(1) }}, ¥{{ (currentBonusMax || 8.0).toFixed(1) }}])</span>
-            </div>
-            <div class="stat-item fin-item">
-              <span class="label">⚠️ 平台总罚款</span>
-              <span class="value text-fines">¥{{ totalFines.toFixed(2) }}</span>
-              <span class="sub-label">(超时违约赔偿)</span>
-            </div>
-            <div class="stat-item fin-item">
-              <span class="label">📊 平台净利润</span>
-              <span class="value" :class="netProfit >= 0 ? 'text-profit-pos' : 'text-profit-neg'">
-                {{ netProfit >= 0 ? '+' : '' }}¥{{ netProfit.toFixed(2) }}
-              </span>
-              <span class="sub-label">(收支结算)</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 实时调度状态 -->
+        <!-- 经营控制面板 -->
         <div class="stats-card glass-panel">
           <div class="panel-header-row">
-            <h3>⚡ 实时调度状态 (10Hz)</h3>
+            <h3>🏗️ 经营控制面板</h3>
+            <span class="phase-tag" :class="canOperate ? 'ok' : 'lock'">
+              {{ canOperate ? '可操作' : '已锁定' }}
+            </span>
           </div>
-          <div class="realtime-stats-grid">
-            <div class="stat-item">
-              <span class="label">空闲骑手</span>
-              <span class="value text-success">{{ idleRidersCount }}</span>
+
+          <!-- 建造面板 -->
+          <div class="panel-section">
+            <div class="section-title">🏢 建造 ({{ resortState.buildings.length }})</div>
+            <div class="plot-select-row">
+              <label>建造地块</label>
+              <select v-model="selectedPlotId" class="mini-select" :disabled="!canOperate">
+                <option v-for="p in resortState.unlockedPlots" :key="p" :value="p">{{ plotName(p) }}</option>
+              </select>
             </div>
-            <div class="stat-item">
-              <span class="label">取餐中骑手</span>
-              <span class="value text-picking">{{ pickingRidersCount }}</span>
+            <div class="building-grid">
+              <div v-for="bt in BUILDING_TYPES" :key="bt.type" class="building-card">
+                <div class="bc-head">
+                  <span class="bc-name">{{ bt.icon }} {{ bt.name }}</span>
+                </div>
+                <div class="bc-meta">
+                  <span>造价 ¥{{ bt.cost }}</span>
+                  <span>维护 ¥{{ bt.maintenance }}/天</span>
+                  <span>容量 {{ bt.capacity }}</span>
+                </div>
+                <button class="btn-op" :disabled="!canOperate || resortState.cash < bt.cost" @click="buildBuilding(bt.type)">
+                  建造
+                </button>
+              </div>
             </div>
-            <div class="stat-item">
-              <span class="label">送餐中骑手</span>
-              <span class="value text-delivering">{{ deliveringRidersCount }}</span>
+          </div>
+
+          <!-- 已建造建筑详情：逐座列出（所在地块 + 容量 + 维护费） -->
+          <div class="panel-section">
+            <div class="section-title">🏘️ 已建造建筑 ({{ buildings.length }})</div>
+            <div class="built-list">
+              <div v-for="b in buildings" :key="b.id" class="built-item">
+                <span class="built-name">{{ buildingIcon(b.type) }} {{ b.typeName || buildingName(b.type) }}</span>
+                <span class="built-plot">{{ plotName(b.plotId) }}</span>
+                <span class="built-meta">容量 {{ buildingCapacity(b.type) }}</span>
+                <span class="built-meta">维护 ¥{{ fmtMoney(buildingMaintenance(b.type)) }}/天</span>
+              </div>
+              <div v-if="buildings.length === 0" class="empty-inline">暂无建筑</div>
             </div>
-            <div class="stat-item">
-              <span class="label">已完成送达</span>
-              <span class="value text-completed">{{ completedOrderCount }}</span>
+          </div>
+
+          <!-- 员工管理 -->
+          <div class="panel-section">
+            <div class="section-title">👷 招聘员工 ({{ resortState.staffList.length }} 人)</div>
+            <div class="hire-row" v-for="st in STAFF_TYPES" :key="st.type">
+              <span class="hire-name">{{ st.name }}</span>
+              <span class="hire-base">底薪 ¥{{ st.baseSalary }}</span>
+              <select v-model="salaryMode[st.type]" class="mini-select" :disabled="!canOperate">
+                <option value="normal">标准</option>
+                <option value="high">高薪</option>
+                <option value="low">廉价</option>
+              </select>
+              <button class="btn-op" :disabled="!canOperate" @click="hireStaff(st.type)">招聘</button>
             </div>
-            <div class="stat-item">
-              <span class="label">备餐待派</span>
-              <span class="value text-danger">{{ pendingOrdersCount }}</span>
+            <div class="staff-list">
+              <div v-for="s in resortState.staffList" :key="s.id" class="staff-item">
+                <span class="staff-type">{{ s.typeName || staffName(s.type) }}</span>
+                <span class="staff-salary">¥{{ fmtMoney(s.dailySalary) }}/天</span>
+                <span class="staff-mode">{{ salaryModeLabel(s.salaryMode) }}</span>
+                <button class="btn-fire" :disabled="!canOperate" @click="fireStaff(s.id)">解雇</button>
+              </div>
+              <div v-if="resortState.staffList.length === 0" class="empty-inline">暂无员工</div>
             </div>
-            <div class="stat-item">
-              <span class="label">骑手到店中</span>
-              <span class="value text-warning">{{ dispatchedOrdersCount }}</span>
+          </div>
+
+          <!-- 定价与广告 -->
+          <div class="panel-section">
+            <div class="section-title">💵 定价与广告</div>
+            <div class="form-row-2">
+              <div class="form-field">
+                <label>普通房价 (¥)</label>
+                <input type="number" v-model.number="priceForm.standardRoomPrice" min="0" step="10" :disabled="!canOperate" />
+              </div>
+              <div class="form-field">
+                <label>豪华房价 (¥)</label>
+                <input type="number" v-model.number="priceForm.luxuryRoomPrice" min="0" step="10" :disabled="!canOperate" />
+              </div>
             </div>
-            <div class="stat-item">
-              <span class="label">在店等餐中</span>
-              <span class="value text-meal-wait">{{ mealWaitingOrdersCount }}</span>
+            <div class="form-field">
+              <label>每日广告预算 (¥)</label>
+              <input type="number" v-model.number="priceForm.adBudget" min="0" step="100" :disabled="!canOperate" />
             </div>
-            <div class="stat-item">
-              <span class="label">送餐配送中</span>
-              <span class="value text-accent">{{ deliveringOrdersCount }}</span>
+            <button class="btn-primary-op" :disabled="!canOperate" @click="submitPricing">💾 应用定价与广告</button>
+          </div>
+
+          <!-- 地块解锁 -->
+          <div class="panel-section">
+            <div class="section-title">🗺️ 地块解锁</div>
+            <div class="unlock-row" v-for="p in PLOT_UNLOCKS" :key="p.id">
+              <span class="unlock-name">{{ p.name }} ({{ resortState.unlockedPlots.includes(p.id) ? '已解锁' : '¥' + p.cost }})</span>
+              <button class="btn-op" :disabled="!canOperate || resortState.unlockedPlots.includes(p.id) || resortState.cash < p.cost" @click="unlockPlot(p.id)">
+                {{ resortState.unlockedPlots.includes(p.id) ? '已拥有' : '解锁' }}
+              </button>
             </div>
-            <div class="stat-item stat-item-danger">
-              <span class="label">失效订单总数</span>
-              <span class="value text-danger font-bold">{{ expiredOrderCount }}</span>
+          </div>
+
+          <!-- 团建订单：今日待决 + 已接单待生效 -->
+          <div class="panel-section">
+            <div class="section-title">🎉 今日团建订单 ({{ activeTeamOrders.length }})</div>
+            <div class="team-order-list">
+              <div v-for="o in activeTeamOrders" :key="o.id" class="team-order-card">
+                <div class="to-head">
+                  <span class="to-size">{{ o.sizeName || sizeName(o.size) }}</span>
+                  <span class="to-status">当天有效</span>
+                </div>
+                <div class="to-meta">
+                  <span>需客房 {{ o.requiredRooms }} 间</span>
+                  <span>规模 {{ o.guestCount }} 人</span>
+                </div>
+                <div class="to-meta">
+                  <span class="text-green">收益 ¥{{ fmtMoney(o.revenue) }}</span>
+                  <span class="text-red">违约罚款 ¥{{ fmtMoney(o.penalty) }}</span>
+                </div>
+                <div class="to-req">
+                  必备配套:
+                  <span v-if="o.requiresRestaurant" class="req-tag">餐厅</span>
+                  <span v-if="o.requiresSpa" class="req-tag">温泉池</span>
+                  <span v-if="o.requiresViewpoint" class="req-tag">观景台</span>
+                  <span v-if="!o.requiresRestaurant && !o.requiresSpa && !o.requiresViewpoint" class="req-tag none">无</span>
+                </div>
+                <div class="to-actions">
+                  <button class="btn-accept" :disabled="!canOperate || isQueuedOrder(o.id, 'ACCEPT')" @click="acceptTeamOrder(o.id)">
+                    {{ isQueuedOrder(o.id, 'ACCEPT') ? '已排队' : '接受' }}
+                  </button>
+                  <button class="btn-reject" :disabled="!canOperate" @click="rejectTeamOrder(o.id)">拒绝</button>
+                </div>
+              </div>
+              <div v-if="activeTeamOrders.length === 0" class="empty-inline">今日暂无待决团建订单</div>
             </div>
-            <div class="stat-item stat-item-sub-fail">
-              <span class="label">超时未接单</span>
-              <span class="value text-sub-expire">{{ unassignedExpiredCount }}</span>
+
+            <div class="section-title sub-title">📌 已接单 · 待生效 ({{ scheduledOrders.length }})</div>
+            <div class="team-order-list">
+              <div v-for="o in scheduledOrders" :key="o.id" class="team-order-card to-accepted">
+                <div class="to-head">
+                  <span class="to-size">{{ o.sizeName || sizeName(o.size) }}</span>
+                  <span class="to-status">第 {{ o.effectiveDay }} 天生效</span>
+                </div>
+                <div class="to-meta">
+                  <span>需客房 {{ o.requiredRooms }} 间</span>
+                  <span class="text-green">收益 ¥{{ fmtMoney(o.revenue) }}</span>
+                </div>
+              </div>
+              <div v-if="scheduledOrders.length === 0" class="empty-inline">暂无待生效订单</div>
             </div>
-            <div class="stat-item stat-item-sub-fail">
-              <span class="label">超时未出餐</span>
-              <span class="value text-sub-expire">{{ mealTimeoutExpiredCount }}</span>
-            </div>
+          </div>
+
+          <!-- 进行中：次日 0 点生效 -->
+          <div class="panel-section">
+            <div class="section-title">⏳ 进行中 · 次日 0 点生效</div>
+
+            <!-- 施工中 -->
+            <template v-if="constructingBuildings.length">
+              <div class="sub-title">🏗️ 施工中 ({{ constructingBuildings.length }})</div>
+              <div class="pending-list">
+                <div v-for="b in constructingBuildings" :key="b.id" class="pending-item">
+                  <span class="pending-summary">{{ buildingIcon(b.type) }} {{ b.typeName || buildingName(b.type) }} · {{ plotName(b.plotId) }}</span>
+                  <span class="pending-day">次日完工</span>
+                </div>
+              </div>
+            </template>
+
+            <!-- 入职中 -->
+            <template v-if="pendingHires.length">
+              <div class="sub-title">👷 入职中 ({{ pendingHires.length }})</div>
+              <div class="pending-list">
+                <div v-for="c in pendingHires" :key="c.id" class="pending-item">
+                  <span class="pending-summary">{{ c.summary }}</span>
+                  <span class="pending-day">次日上岗</span>
+                </div>
+              </div>
+            </template>
+
+            <!-- 开垦中 -->
+            <template v-if="pendingUnlocks.length">
+              <div class="sub-title">🗺️ 开垦中 ({{ pendingUnlocks.length }})</div>
+              <div class="pending-list">
+                <div v-for="c in pendingUnlocks" :key="c.id" class="pending-item">
+                  <span class="pending-summary">{{ plotName(c.text1) }} 开垦中</span>
+                  <span class="pending-day">次日可建造</span>
+                </div>
+              </div>
+            </template>
+
+            <!-- 其它排队指令 -->
+            <template v-if="otherPending.length">
+              <div class="sub-title">📋 其它排队 ({{ otherPending.length }})</div>
+              <div class="pending-list">
+                <div v-for="c in otherPending" :key="c.id" class="pending-item">
+                  <span class="pending-summary">{{ c.summary }}</span>
+                  <span class="pending-day">第 {{ c.queuedDay }} 天排队</span>
+                </div>
+              </div>
+            </template>
+
+            <div v-if="!pendingCommands.length && !constructingBuildings.length" class="empty-inline">暂无进行中操作</div>
           </div>
         </div>
 
-        <!-- 选中订单详情 -->
-        <div v-if="selectedOrder" class="detail-card glass-panel">
-          <div class="detail-header">
-            <h3>📦 订单详情 (#{{ selectedOrder.id.substring(0, 8) }})</h3>
-            <button class="close-btn" @click="selectOrder(null)">✕</button>
+        <!-- 实时事件流 -->
+        <div class="stats-card glass-panel">
+          <div class="panel-header-row">
+            <h3>⚡ 实时事件</h3>
           </div>
-          <div class="detail-body">
-            <div class="detail-row">
-              <span class="detail-label">当前状态</span>
-              <span class="detail-value" :class="'text-status-' + selectedOrder.status">
-                {{ getStatusText(selectedOrder.status) }}
+          <div v-for="(e, i) in eventLog" :key="i" class="event-row">
+            <span class="event-type">第{{ e.day }}天</span>
+            <span class="event-desc">{{ e.description }}</span>
+          </div>
+          <div v-if="eventLog.length === 0" class="empty-inline">暂无实时事件</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 操作失败/提示轻提示 -->
+    <transition name="tip">
+      <div v-if="actionTip" class="tip-toast">{{ actionTip }}</div>
+    </transition>
+
+    <!-- 区间经营报告弹窗 -->
+    <RangeReport
+      :visible="reportVisible"
+      :report="rangeReport"
+      @close="reportVisible = false"
+      @request="requestReport"
+    />
+
+    <!-- 完整日志弹窗：逐日结算详情（近 365 天） -->
+    <div v-if="logVisible" class="log-overlay" @click.self="logVisible = false">
+      <div class="log-panel glass-panel">
+        <div class="log-head">
+          <h3>📜 {{ logTitle }}（近 {{ dailyLogs.length }} 天）</h3>
+          <button class="log-close" @click="logVisible = false">✕</button>
+        </div>
+        <div class="log-body">
+          <div v-for="d in dailyLogs" :key="d.day" class="log-day">
+            <div class="log-day-head">
+              <span class="ld-day">第 {{ d.day }} 天</span>
+              <span class="ld-season">{{ d.seasonName }}</span>
+              <span class="ld-net" :class="d.netProfit >= 0 ? 'text-green' : 'text-red'">
+                净利 {{ d.netProfit >= 0 ? '+' : '-' }}¥{{ fmtMoney(Math.abs(d.netProfit)) }}
+              </span>
+              <span class="ld-cash">资金 ¥{{ fmtMoney(d.cashAfter) }}</span>
+              <span class="ld-rep">⭐ {{ (d.reputationAfter || 0).toFixed(1) }}
+                (<span :class="d.reputationDelta >= 0 ? 'text-green' : 'text-red'">{{ d.reputationDelta >= 0 ? '+' : '' }}{{ (d.reputationDelta || 0).toFixed(1) }}</span>)
               </span>
             </div>
-            <div class="detail-row">
-              <span class="detail-label">💵 订单金额</span>
-              <span class="detail-value mono">标价: ¥{{ (selectedOrder.orderPrice || 20).toFixed(2) }} (耗材: ¥{{ (selectedOrder.materialCost || 10).toFixed(2) }})</span>
+            <div class="log-day-detail">
+              入住率 {{ (d.occupancyRate || 0).toFixed(1) }}% · 接待 {{ d.guestsServed || 0 }} 人 · 溢出未接待 {{ d.turnedAway || 0 }} 人
             </div>
-            <div class="detail-row">
-              <span class="detail-label">🟠 商家取餐点</span>
-              <span class="detail-value">({{ Math.round(selectedOrder.pickupLocation.x) }}, {{ Math.round(selectedOrder.pickupLocation.y) }})</span>
+            <div class="log-day-detail">
+              收入 客房 ¥{{ fmtMoney(d.revenueDetail && d.revenueDetail.roomFee) }} · 餐饮 ¥{{ fmtMoney(d.revenueDetail && d.revenueDetail.dining) }} · 游乐 ¥{{ fmtMoney(d.revenueDetail && d.revenueDetail.recreation) }} · 团建 ¥{{ fmtMoney(d.revenueDetail && d.revenueDetail.teamOrder) }}
             </div>
-            <div class="detail-row">
-              <span class="detail-label">🟢 客户送达点</span>
-              <span class="detail-value">({{ Math.round(selectedOrder.deliveryLocation.x) }}, {{ Math.round(selectedOrder.deliveryLocation.y) }})</span>
+            <div class="log-day-detail">
+              支出 工资 ¥{{ fmtMoney(d.expenseDetail && d.expenseDetail.staffSalary) }} · 维护 ¥{{ fmtMoney(d.expenseDetail && d.expenseDetail.buildingMaintenance) }} · 广告 ¥{{ fmtMoney(d.expenseDetail && d.expenseDetail.adBudget) }} · 事件 ¥{{ fmtMoney(d.expenseDetail && d.expenseDetail.eventCost) }} · 罚款 ¥{{ fmtMoney(d.expenseDetail && d.expenseDetail.teamPenalty) }}
             </div>
-            <div v-if="assignedRider" class="detail-row">
-              <span class="detail-label">⚪ 负责骑手</span>
-              <span class="detail-value">{{ assignedRider.id }} @ ({{ Math.round(assignedRider.currentPosition.x) }}, {{ Math.round(assignedRider.currentPosition.y) }})</span>
+            <div v-if="d.teamOrders && d.teamOrders.length" class="log-day-lines">
+              <div v-for="(t, i) in d.teamOrders" :key="'t' + i" class="log-line">🎉 {{ t }}</div>
             </div>
-            <div v-if="selectedOrder.status === 2" class="detail-row highlight-row">
-              <span class="detail-label">⏳ 等餐计时</span>
-              <span class="detail-value text-red mono font-bold">已等 {{ selectedOrder.waitDurationSec || 0 }}s / 15s (超15s罚款原价)</span>
+            <div v-if="d.events && d.events.length" class="log-day-lines">
+              <div v-for="(ev, i) in d.events" :key="'e' + i" class="log-line">⚡ {{ ev }}</div>
             </div>
           </div>
-        </div>
-
-        <!-- 下方三个 Tab 页签切换 -->
-        <div class="tabs-container glass-panel">
-          <div class="tabs-header">
-            <button 
-              class="tab-btn" 
-              :class="{ active: activeTab === 'merchants' }" 
-              @click="activeTab = 'merchants'"
-            >
-              🏢 商家列表 ({{ merchants.length }})
-            </button>
-            <button 
-              class="tab-btn" 
-              :class="{ active: activeTab === 'orders' }" 
-              @click="activeTab = 'orders'"
-            >
-              📦 进行中订单 ({{ Object.keys(orders).length }})
-            </button>
-            <button 
-              class="tab-btn" 
-              :class="{ active: activeTab === 'riders' }" 
-              @click="activeTab = 'riders'"
-            >
-              🚴 骑手列表 ({{ riders.length }})
-            </button>
-          </div>
-
-          <div class="tab-body">
-            <!-- 1. 商家列表 (含真实经济全景与配置入口) -->
-            <div v-show="activeTab === 'merchants'" class="tab-pane">
-              <div class="merchant-list">
-                <div v-for="m in sortedMerchants" :key="m.id" class="merchant-item">
-                  <div class="merchant-header">
-                    <div class="m-title-group">
-                      <span class="merchant-name">{{ m.id }}</span>
-                      <span class="merchant-rating">⭐ {{ (m.rating || 5.0).toFixed(1) }}</span>
-                    </div>
-                    <button class="btn-edit-m" @click.stop="openMerchantConfig(m)">
-                      ⚙️ 经营配置
-                    </button>
-                  </div>
-                  
-                  <!-- 经营参数摘要 -->
-                  <div class="merchant-param-tags">
-                    <span class="m-tag">单价: ¥{{ m.minOrderPrice || 15 }}-{{ m.maxOrderPrice || 35 }}</span>
-                    <span class="m-tag">耗材: {{ Math.round((m.materialCostRate || 0.5) * 100) }}%</span>
-                    <span class="m-tag">固定: ¥{{ (m.rentCost || 100) + (m.laborCost || 150) }}/天</span>
-                    <span class="m-tag">广告: ¥{{ m.adSpend || 20 }}/天</span>
-                  </div>
-
-                  <!-- 财务核算指标 -->
-                  <div class="merchant-financial-row">
-                    <span class="fin-tag tag-rev">流水: ¥{{ (m.totalRevenue || 0).toFixed(1) }}</span>
-                    <span class="fin-tag tag-take">抽成: -¥{{ (m.totalCommissionPaid || 0).toFixed(1) }}</span>
-                    <span class="fin-tag tag-mat">耗材: -¥{{ (m.totalMaterialCost || 0).toFixed(1) }}</span>
-                    <span class="fin-tag tag-fixed">固定: -¥{{ (m.totalFixedCost || 0).toFixed(1) }}</span>
-                    <span class="fin-tag tag-ad">广告: -¥{{ (m.totalAdSpend || 0).toFixed(1) }}</span>
-                    <span class="fin-tag tag-comm">加盟: -¥{{ (m.totalFranchisePaid || 0).toFixed(1) }}</span>
-                    <span v-if="m.totalFines > 0" class="fin-tag tag-fines">罚款: -¥{{ m.totalFines.toFixed(1) }}</span>
-                    <span class="fin-tag tag-income" :class="(m.totalIncome || 0) >= 0 ? 'text-green font-bold' : 'text-red font-bold'">
-                      净利润: ¥{{ (m.totalIncome || 0).toFixed(1) }}
-                    </span>
-                  </div>
-
-                  <div class="merchant-details">
-                    <span class="tag tag-ongoing">进行中: {{ m.ongoingOrders || 0 }}</span>
-                    <span class="tag tag-completed">已完成: {{ m.completedOrders || 0 }}</span>
-                    <span class="merchant-coord">坐标: ({{ Math.round(m.location.x) }}, {{ Math.round(m.location.y) }})</span>
-                  </div>
-                </div>
-                <div v-if="merchants.length === 0" class="empty-state">
-                  暂无商家数据
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. 订单列表 (含备餐与等餐倒计时) -->
-            <div v-show="activeTab === 'orders'" class="tab-pane">
-              <div class="order-list">
-                <TransitionGroup name="list">
-                  <div 
-                    v-for="order in sortedOrders" 
-                    :key="order.id" 
-                    class="order-item" 
-                    :class="['status-' + order.status, { 'selected': order.id === selectedOrderId }]"
-                    @click="selectOrder(order.id)"
-                  >
-                    <div class="order-header">
-                      <span class="order-id">#{{ order.id.substring(0,8) }} ({{ order.merchantId }})</span>
-                      <span class="order-status-badge" :class="'badge-status-' + order.status">
-                        {{ getStatusText(order.status) }}
-                      </span>
-                    </div>
-                    
-                    <div class="order-meta-row">
-                      <span class="order-price-badge">💵 标价: ¥{{ (order.orderPrice || 20).toFixed(1) }}</span>
-                      <span class="order-mat-badge">耗材: ¥{{ (order.materialCost || 10).toFixed(1) }}</span>
-                      <span v-if="order.status === 0" class="order-prep-badge">🍳 预计备餐: {{ order.prepDurationSec || 0 }}s</span>
-                      <span v-if="order.status === 2" class="order-wait-badge">⏳ 已等餐: {{ order.waitDurationSec || 0 }}s/15s</span>
-                    </div>
-
-                    <div class="order-detail">
-                      <span>取: ({{ Math.round(order.pickupLocation.x) }}, {{ Math.round(order.pickupLocation.y) }})</span>
-                      <span>送: ({{ Math.round(order.deliveryLocation.x) }}, {{ Math.round(order.deliveryLocation.y) }})</span>
-                    </div>
-                  </div>
-                </TransitionGroup>
-                <div v-if="Object.keys(orders).length === 0" class="empty-state">
-                  暂无进行中的订单
-                </div>
-              </div>
-            </div>
-
-            <!-- 3. 骑手列表 (含底薪、提成与总工资) -->
-            <div v-show="activeTab === 'riders'" class="tab-pane">
-              <div class="rider-list">
-                <div v-for="rider in riders" :key="rider.id" class="rider-item">
-                  <div class="rider-header">
-                    <span class="rider-id">{{ rider.id }}</span>
-                    <span :class="['status-badge', getRiderStatusClass(rider.status)]">{{ getRiderStatusText(rider.status) }}</span>
-                  </div>
-                  <div class="rider-salary-row">
-                    <span class="salary-tag">底薪: ¥{{ (rider.baseSalary || 0).toFixed(1) }}</span>
-                    <span class="salary-tag tag-bonus">提成: +¥{{ (rider.bonus || 0).toFixed(1) }}</span>
-                    <span class="salary-tag tag-total">总工资: ¥{{ (rider.totalSalary || 0).toFixed(1) }}</span>
-                  </div>
-                  <div class="rider-details">
-                    <div>坐标: {{ rider.currentPosition ? Math.round(rider.currentPosition.x) + ',' + Math.round(rider.currentPosition.y) : '未知' }}</div>
-                    <div v-if="rider.targetPosition">目标: {{ Math.round(rider.targetPosition.x) }}, {{ Math.round(rider.targetPosition.y) }}</div>
-                    <div v-if="rider.currentOrderId" class="rider-order text-accent">订单: #{{ rider.currentOrderId.substring(0,8) }}</div>
-                  </div>
-                </div>
-                <div v-if="riders.length === 0" class="empty-state">
-                  暂无骑手数据
-                </div>
-              </div>
-            </div>
-          </div>
+          <div v-if="dailyLogs.length === 0" class="empty-inline">暂无日志</div>
         </div>
       </div>
     </div>
@@ -542,799 +438,577 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, reactive } from 'vue';
+import { ref, computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import MapRenderer from './components/MapRenderer.vue';
 import MapEditor from './components/MapEditor.vue';
+import RangeReport from './components/RangeReport.vue';
 import WebSocketClient from './services/WebSocketClient.js';
 
-const currentView = ref('simulation'); // 'simulation' | 'editor'
+// ===== 静态配置（数值来源与后端 GameConfig 保持一致，仅用于 UI 展示/预校验）=====
+const BUILDING_TYPES = [
+  { type: 'STANDARD_ROOM', name: '普通客房', icon: '🏠', cost: 3000, maintenance: 120, capacity: 2 },
+  { type: 'LUXURY_SUITE',  name: '豪华套房', icon: '🏰', cost: 8000, maintenance: 350, capacity: 4 },
+  { type: 'RESTAURANT',    name: '餐厅',     icon: '🍽️', cost: 6000, maintenance: 220, capacity: 8 },
+  { type: 'SPA',           name: '温泉池',   icon: '♨️', cost: 7500, maintenance: 280, capacity: 6 },
+  { type: 'VIEWPOINT',     name: '观景台',   icon: '🗼', cost: 4000, maintenance: 150, capacity: 10 },
+  { type: 'PARKING',       name: '停车场',   icon: '🅿️', cost: 2500, maintenance: 80,  capacity: 20 }
+];
+
+const STAFF_TYPES = [
+  { type: 'FRONT_DESK',  name: '前台', baseSalary: 180 },
+  { type: 'CLEANING',    name: '保洁', baseSalary: 160 },
+  { type: 'CHEF',        name: '厨师', baseSalary: 220 },
+  { type: 'MAINTENANCE', name: '维修', baseSalary: 200 }
+];
+
+const PLOT_UNLOCKS = [
+  { id: 'MOUNTAIN', name: '山地', cost: 35000 },
+  { id: 'LAKESIDE', name: '湖畔', cost: 60000 }
+];
+
+const SEASON_LABEL = { SPRING: '春季', SUMMER: '夏季', AUTUMN: '秋季', WINTER: '冬季' };
+const REASON_MAP = {
+  GAME_NOT_RUNNING: '本局尚未开始或已结束',
+  INVALID_SPEED: '不支持的倍速档位',
+  INVALID_PRICE: '房价必须大于 0',
+  INSUFFICIENT_FUNDS: '资金不足',
+  PLOT_LIMIT_EXCEEDED: '该地块建筑数量已达上限',
+  NO_SPACE: '该地块无可建造空位',
+  PLOT_NOT_UNLOCKED: '地块尚未解锁（解锁次日生效）',
+  ALREADY_UNLOCKED: '该地块已解锁',
+  ALREADY_QUEUED: '该操作已在排队中',
+  UNKNOWN_PLOT: '未知地块',
+  ORDER_NOT_FOUND: '未找到该团建订单',
+  ORDER_NOT_PENDING: '该团建订单已处理',
+  STAFF_NOT_FOUND: '未找到该员工'
+};
+
+// ===== 视图与连接 =====
+const currentView = ref('simulation');
 const savedMaps = ref([]);
 const selectedMapId = ref('random');
-
 const isConnected = ref(false);
 const isSimulationStarted = ref(false);
 const isStarting = ref(false);
-const merchantCount = ref(5);
-const riderCount = ref(10);
-
-const completedOrderCount = ref(0);
-const expiredOrderCount = ref(0);
-const unassignedExpiredCount = ref(0);
-const mealTimeoutExpiredCount = ref(0);
-
-// === 平台财务数据 ===
-const totalRevenue = ref(0.0);
-const totalExpenses = ref(0.0);
-const totalFines = ref(0.0);
-const netProfit = ref(0.0);
-const virtualDay = ref(1);
-
-// === 公司现金账户与破产 ===
-const cash = ref(800.0);
-const bestRating = ref(0.0);
 const isBankrupt = ref(false);
-const bankruptSurvivalDays = ref(0);
-const bankruptBestRating = ref(0.0);
-const bankruptCash = ref(0.0);
-const bankruptReason = ref('');
-const cashFlash = ref(null);
+const bankruptcy = ref({
+  daysSurvived: 0, finalCash: 0, endReason: '',
+  lastDay: undefined, lastCashBefore: 0, lastNetProfit: 0,
+  lastTotalRevenue: 0, lastTotalExpense: 0, revenueDetail: null, expenseDetail: null,
+  dailyReports: []
+});
+const mapRef = ref(null);
 
-const cashBarClass = computed(() => {
-    if (cash.value < 0) return 'cash-danger';
-    if (cash.value < 200) return 'cash-warning';
-    return 'cash-normal';
+// ===== 全局经营状态 =====
+const resortState = ref({
+  cash: 20000,
+  reputation: 70,
+  season: 'SPRING',
+  seasonName: '春季',
+  day: 1,
+  phase: 'RUNNING',
+  standardRoomPrice: 280,
+  luxuryRoomPrice: 680,
+  adBudget: 0,
+  unlockedPlots: ['INITIAL'],
+  buildings: [],
+  staffList: [],
+  teamOrders: [],
+  pendingCommands: [],
+  scheduledOrders: []
 });
 
-// 动态费率配置参数 (用户可在页面随时微调并即时生效)
-const showRateConfig = ref(false);
-const configTakeRatePercent = ref(25); // 0% ~ 100% (默认 25%)
-const configBonusMin = ref(3.0);       // 0 ~ 20 元
-const configBonusMax = ref(8.0);       // 0 ~ 20 元
-const currentTakeRate = ref(0.25);
-const currentBonusMin = ref(3.0);
-const currentBonusMax = ref(8.0);
-const saveRateSuccess = ref(false);
-
-const submitFinancialConfig = () => {
-  let ratePercent = Math.max(0, Math.min(100, Number(configTakeRatePercent.value) || 0));
-  let minB = Math.max(0, Math.min(20, Number(configBonusMin.value) || 0));
-  let maxB = Math.max(0, Math.min(20, Number(configBonusMax.value) || 0));
-
-  if (minB > maxB) {
-    const temp = minB;
-    minB = maxB;
-    maxB = temp;
-    configBonusMin.value = minB;
-    configBonusMax.value = maxB;
+const phase = computed(() => resortState.value.phase || 'RUNNING');
+// 实时经营：只要本局未结束即可操作（不再有决策窗口概念）
+const canOperate = computed(() => isSimulationStarted.value && !isBankrupt.value);
+const phaseText = computed(() => {
+  switch (phase.value) {
+    case 'RUNNING': return '实时经营中';
+    case 'GAME_OVER': return '已结束';
+    default: return phase.value;
   }
-
-  configTakeRatePercent.value = ratePercent;
-  const takeRate = ratePercent / 100.0;
-
-  client.send({
-    command: 'UPDATE_FINANCIAL_CONFIG',
-    platformTakeRate: takeRate,
-    riderBonusMin: minB,
-    riderBonusMax: maxB
-  });
-
-  currentTakeRate.value = takeRate;
-  currentBonusMin.value = minB;
-  currentBonusMax.value = maxB;
-
-  saveRateSuccess.value = true;
-  setTimeout(() => {
-    saveRateSuccess.value = false;
-  }, 3000);
-};
-
-// === 商家经营参数配置模态窗 ===
-const showMerchantModal = ref(false);
-const editingMerchant = ref(null);
-const merchantForm = reactive({
-  minOrderPrice: 15,
-  maxOrderPrice: 35,
-  materialCostRatePercent: 50,
-  rentCost: 100,
-  laborCost: 150,
-  adSpend: 20,
-  dailyFranchiseFee: 50
 });
+const pendingCommands = computed(() => resortState.value.pendingCommands || []);
+const scheduledOrders = computed(() => resortState.value.scheduledOrders || []);
+const seasonLabel = computed(() => resortState.value.seasonName || SEASON_LABEL[resortState.value.season] || '');
+const buildings = computed(() => resortState.value.buildings || []);
+// 施工中（status===1）建筑 / 各类排队中的指令，用于「进行中」反馈
+const constructingBuildings = computed(() => buildings.value.filter(b => b.status === 1));
+const pendingHires = computed(() => pendingCommands.value.filter(c => c.type === 'HIRE_STAFF'));
+const pendingUnlocks = computed(() => pendingCommands.value.filter(c => c.type === 'UNLOCK_PLOT'));
+const otherPending = computed(() => pendingCommands.value.filter(c =>
+  c.type !== 'HIRE_STAFF' && c.type !== 'UNLOCK_PLOT' && c.type !== 'BUILD_BUILDING'));
 
-const openMerchantConfig = (m) => {
-  editingMerchant.value = m;
-  merchantForm.minOrderPrice = m.minOrderPrice || 15;
-  merchantForm.maxOrderPrice = m.maxOrderPrice || 35;
-  merchantForm.materialCostRatePercent = Math.round((m.materialCostRate || 0.5) * 100);
-  merchantForm.rentCost = m.rentCost || 100;
-  merchantForm.laborCost = m.laborCost || 150;
-  merchantForm.adSpend = m.adSpend || 20;
-  merchantForm.dailyFranchiseFee = m.dailyFranchiseFee || 50;
-  showMerchantModal.value = true;
-};
-
-const saveMerchantConfig = () => {
-  if (!editingMerchant.value) return;
-
-  let minP = Math.max(1, Number(merchantForm.minOrderPrice) || 15);
-  let maxP = Math.max(minP, Number(merchantForm.maxOrderPrice) || 35);
-  let matRate = Math.max(0.1, Math.min(0.9, (Number(merchantForm.materialCostRatePercent) || 50) / 100.0));
-  let rent = Math.max(0, Number(merchantForm.rentCost) || 0);
-  let labor = Math.max(0, Number(merchantForm.laborCost) || 0);
-  let ad = Math.max(0, Number(merchantForm.adSpend) || 0);
-  let fran = Math.max(0, Number(merchantForm.dailyFranchiseFee) || 50);
-
-  client.send({
-    command: 'UPDATE_MERCHANT_CONFIG',
-    merchantId: editingMerchant.value.id,
-    minOrderPrice: minP,
-    maxOrderPrice: maxP,
-    materialCostRate: matRate,
-    rentCost: rent,
-    laborCost: labor,
-    adSpend: ad,
-    dailyFranchiseFee: fran
-  });
-
-  // 同步本地缓存
-  editingMerchant.value.minOrderPrice = minP;
-  editingMerchant.value.maxOrderPrice = maxP;
-  editingMerchant.value.materialCostRate = matRate;
-  editingMerchant.value.rentCost = rent;
-  editingMerchant.value.laborCost = labor;
-  editingMerchant.value.adSpend = ad;
-  editingMerchant.value.dailyFranchiseFee = fran;
-
-  showMerchantModal.value = false;
-};
-
-const activeTab = ref('merchants');
-const merchants = ref([]);
-
-// 商家列表按编号顺序（merchant-001, merchant-002...）自然排序展示
-const sortedMerchants = computed(() => {
-  return [...merchants.value].sort((a, b) => {
-    return (a.id || '').localeCompare(b.id || '', undefined, { numeric: true, sensitivity: 'base' });
-  });
-});
-
-// ★ 游戏虚拟时间：固定从 2026年07月01日 00:00:00 开始
-const BASE_GAME_TIME = new Date(2026, 6, 1, 0, 0, 0).getTime();
-const gameTimeMs = ref(BASE_GAME_TIME);
-const isPaused = ref(false);
-// 全局倍速 (0.5 / 1 / 2 / 4)
-const speedOptions = [0.5, 1, 2, 4];
-const speed = ref(1.0);
-
-const formattedGameTime = computed(() => {
-  const d = new Date(gameTimeMs.value);
-  const pad = (n) => String(n).padStart(2, '0');
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
-  const seconds = pad(d.getSeconds());
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-});
-
-const currentPeakLabel = computed(() => {
-  const d = new Date(gameTimeMs.value);
-  const h = d.getHours();
-  if (h >= 11 && h < 13) return '🔥 午饭最大高峰 (2.5x)';
-  if (h >= 17 && h < 19) return '⚡ 晚饭中高峰 (2.0x)';
-  if (h >= 6 && h < 9) return '🥐 早饭小高峰 (1.2x)';
-  if (h >= 14 && h < 15) return '☕ 下午茶 (1.0x)';
-  if (h >= 21 && h < 22) return '🍢 夜宵时段 (1.0x)';
-  if (h >= 22 || h < 6) return '🌙 深夜低谷 (0.1x)';
-  return '🌱 常规平峰 (0.5x)';
-});
-
-let timeInterval = null;
-const startTimer = () => {
-  if (timeInterval) clearInterval(timeInterval);
-  timeInterval = setInterval(() => {
-    if (isSimulationStarted.value && !isPaused.value) {
-      gameTimeMs.value += 12000;
-    }
-  }, 100);
-};
-
+// ===== 地图与可视化 =====
 const mapData = ref(null);
-const riders = ref([]);
-const orders = ref({});
-const selectedOrderId = ref(null);
-// 派单模式：AUTO = 全自动派单 / MANUAL = 全手动派单 (页面顶部切换)
-const dispatchMode = ref('AUTO');
-const isManualDispatch = computed(() => dispatchMode.value === 'MANUAL');
-// 全手动模式下点击空闲骑手后进入"前往某地点"待选态
-const movingRiderId = ref(null);
-// 轻提示
-const manualTip = ref(null);
-let manualTipTimer = null;
+const guests = ref([]);
+const npcStaff = ref([]);
+const selectedPlotId = ref('INITIAL');
+
+// 地块几何：优先使用地图自带 plots；退化时按 buildableCells 的 plotId 分组
+const plots = computed(() => {
+  const unlocked = resortState.value.unlockedPlots || [];
+  const base = mapData.value && mapData.value.plots;
+  if (Array.isArray(base) && base.length) {
+    return base.map(p => ({ id: p.id, cells: p.cells || [], unlocked: unlocked.includes(p.id) }));
+  }
+  const cells = mapData.value && mapData.value.buildableCells;
+  if (Array.isArray(cells) && cells.length) {
+    const groups = {};
+    cells.forEach(c => {
+      const x = Array.isArray(c) ? c[0] : c.x;
+      const y = Array.isArray(c) ? c[1] : c.y;
+      const pid = Array.isArray(c) ? c[2] : c.plotId;
+      if (pid === undefined || pid === null) return;
+      (groups[pid] = groups[pid] || []).push([x, y]);
+    });
+    const list = Object.keys(groups).map(id => ({ id, cells: groups[id], unlocked: unlocked.includes(id) }));
+    if (list.length) return list;
+  }
+  return [];
+});
+
+// ===== 倍速与暂停 =====
+const speedOptions = [0.5, 1, 2, 4, 8, 16];
+const speed = ref(1.0);
+const isPaused = ref(false);
+
+// ===== 仿真时钟：服务端 TIME_TICK + 本地插值（让玩家看得见时间在流逝）=====
+const timeTick = ref(null);        // 最近一次服务端时钟快照
+const tickReceivedAt = ref(0);     // 收到快照时的本地时刻
+const clockNow = ref(Date.now());  // 本地推进的「现在」，用于两次推送之间平滑走字
+let clockTimer = null;
+
+const interpVirtualMs = computed(() => {
+  const t = timeTick.value;
+  if (!t) return null;
+  const dt = Math.max(0, clockNow.value - tickReceivedAt.value); // 现实毫秒
+  // virtualMsPerRealSecond 是「每现实 1 秒推进的虚拟毫秒」，故先 /1000 换成现实秒
+  return t.virtualTimeMs + (dt / 1000) * (t.virtualMsPerRealSecond || 0);
+});
+const gameDayVirtualMs = computed(() => (timeTick.value && timeTick.value.gameDayVirtualMs) || 86400000);
+const clockAdvancing = computed(() => !!(timeTick.value && timeTick.value.virtualMsPerRealSecond > 0));
+const clockText = computed(() => {
+  const v = interpVirtualMs.value;
+  if (v === null) return '00:00';
+  const total = gameDayVirtualMs.value;
+  const inDay = ((v % total) + total) % total;
+  const h = Math.floor(inDay / 3600000);
+  const m = Math.floor((inDay % 3600000) / 60000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+});
+const dayProgress = computed(() => {
+  const v = interpVirtualMs.value;
+  if (v === null) return 0;
+  const total = gameDayVirtualMs.value;
+  const inDay = ((v % total) + total) % total;
+  return inDay / total;
+});
+
+// ===== 面板表单状态 =====
+const priceForm = reactive({ standardRoomPrice: 280, luxuryRoomPrice: 680, adBudget: 0 });
+const salaryMode = reactive({ FRONT_DESK: 'normal', CLEANING: 'normal', CHEF: 'normal', MAINTENANCE: 'normal' });
+
+// ===== 团建单 / 报告 / 事件 =====
+const teamOrders = ref([]);
+const activeTeamOrders = computed(() => teamOrders.value.filter(o => (o.status || 'PENDING') === 'PENDING'));
+const reportVisible = ref(false);
+const rangeReport = ref(null);
+const eventLog = ref([]);
+
+// ===== 完整日志（每日结算详情，近 365 天）=====
+const dailyLogs = ref([]);
+const logVisible = ref(false);
+const logTitle = ref('本局完整日志');
+
+const actionTip = ref(null);
+let actionTipTimer = null;
+const showTip = (text) => {
+  actionTip.value = text;
+  if (actionTipTimer) clearTimeout(actionTipTimer);
+  actionTipTimer = setTimeout(() => { actionTip.value = null; }, 2400);
+};
+
+// ===== 工具函数 =====
+// 金额统一按整数展示，超过三位加千分位
+const fmtMoney = (v) => Math.round(Number(v) || 0).toLocaleString('en-US');
+const plotName = (p) => ({ INITIAL: '初始地块', MOUNTAIN: '山地', LAKESIDE: '湖畔' }[p] || p);
+const staffName = (t) => (STAFF_TYPES.find(s => s.type === t) || {}).name || t;
+const sizeName = (s) => ({ SMALL: '小型团建', MEDIUM: '中型团建', LARGE: '大型团建' }[s] || s);
+const salaryModeLabel = (m) => ({ NORMAL: '标准', HIGH: '高薪', LOW: '廉价' }[m] || m || '');
+const buildingMeta = (t) => BUILDING_TYPES.find(x => x.type === t) || {};
+const buildingName = (t) => buildingMeta(t).name || t;
+const buildingIcon = (t) => buildingMeta(t).icon || '🏗️';
+const buildingCapacity = (t) => { const m = buildingMeta(t); return m.capacity != null ? m.capacity : '-'; };
+const buildingMaintenance = (t) => { const m = buildingMeta(t); return m.maintenance != null ? m.maintenance : 0; };
+// 该团建单是否已有排队中的接受指令
+const isQueuedOrder = (orderId, kind) => {
+  const t = kind === 'ACCEPT' ? 'ACCEPT_TEAM_ORDER' : 'REJECT_TEAM_ORDER';
+  return pendingCommands.value.some(c => c.type === t && c.text1 === orderId);
+};
+
+// ===== WebSocket 客户端 =====
+const client = new WebSocketClient();
+
+const syncPriceForm = () => {
+  priceForm.standardRoomPrice = resortState.value.standardRoomPrice;
+  priceForm.luxuryRoomPrice = resortState.value.luxuryRoomPrice;
+  priceForm.adBudget = resortState.value.adBudget;
+};
+
+// 建造落地反馈：点击后立即出现施工幽灵，弹提示 + 镜头自动定位到施工位置
+let prevBuildingCount = -1;
+const notifyBuildSuccess = (list) => {
+  const n = list.length;
+  if (prevBuildingCount >= 0 && n > prevBuildingCount) {
+    const b = list[n - 1];
+    const meta = BUILDING_TYPES.find(x => x.type === b.type);
+    showTip(`🏗️ 开始施工：${meta ? meta.name : (b.typeName || b.type)}（次日 0 点完工）`);
+    const pos = b.position;
+    if (mapRef.value && pos) mapRef.value.focusOn(pos.x, pos.y);
+  }
+  prevBuildingCount = n;
+};
+
+const resetView = () => { if (mapRef.value) mapRef.value.resetView(); };
+
+const applyResortState = (data) => {
+  if (!data) return;
+  const s = resortState.value;
+  if (data.cash !== undefined) s.cash = data.cash;
+  if (data.reputation !== undefined) s.reputation = data.reputation;
+  if (data.season !== undefined) s.season = data.season;
+  if (data.seasonName !== undefined) s.seasonName = data.seasonName;
+  if (data.day !== undefined) s.day = data.day;
+  if (data.phase !== undefined) s.phase = data.phase;
+  if (data.standardRoomPrice !== undefined) s.standardRoomPrice = data.standardRoomPrice;
+  if (data.luxuryRoomPrice !== undefined) s.luxuryRoomPrice = data.luxuryRoomPrice;
+  if (data.adBudget !== undefined) s.adBudget = data.adBudget;
+  if (Array.isArray(data.unlockedPlots)) s.unlockedPlots = data.unlockedPlots;
+  if (Array.isArray(data.buildings)) { notifyBuildSuccess(data.buildings); s.buildings = data.buildings; }
+  if (Array.isArray(data.staffList)) s.staffList = data.staffList;
+  if (Array.isArray(data.pendingCommands)) s.pendingCommands = data.pendingCommands;
+  if (Array.isArray(data.scheduledOrders)) s.scheduledOrders = data.scheduledOrders;
+  if (Array.isArray(data.teamOrders)) teamOrders.value = data.teamOrders;
+};
+
+// 新的一天：同步表单为后端已生效值
+watch(() => resortState.value.day, () => {
+  syncPriceForm();
+});
+
+// 解锁地块后校正当前建造地块选择
+watch(() => resortState.value.unlockedPlots.join(','), () => {
+  if (!resortState.value.unlockedPlots.includes(selectedPlotId.value)) {
+    selectedPlotId.value = resortState.value.unlockedPlots[0] || 'INITIAL';
+  }
+});
 
 const fetchSavedMaps = async () => {
   try {
     const res = await fetch('http://localhost:8081/api/maps');
-    if (res.ok) {
-      savedMaps.value = await res.json();
-    }
+    if (res.ok) savedMaps.value = await res.json();
   } catch (e) {
     console.error('拉取地图列表失败:', e);
   }
 };
 
-const startSimulation = () => {
-  if (isConnected.value && !isStarting.value) {
-    isStarting.value = true;
-    client.send({
-      command: 'START_SIMULATION',
-      merchantCount: merchantCount.value,
-      riderCount: riderCount.value,
-      mapId: selectedMapId.value
-    });
-  }
+// ===== 指令发送 =====
+const startGame = () => {
+  if (!isConnected.value || isStarting.value) return;
+  isStarting.value = true;
+  client.send({ command: 'START_GAME', mapId: selectedMapId.value });
+};
+
+const restartGame = () => {
+  isBankrupt.value = false;
+  isStarting.value = true;
+  client.send({ command: 'START_GAME', mapId: selectedMapId.value });
+};
+
+const stopGame = () => {
+  if (confirm('确定要结束当前经营并重置吗？')) client.send({ command: 'STOP_GAME' });
 };
 
 const togglePause = () => {
-  if (!isConnected.value || !isSimulationStarted.value) return;
+  if (!isSimulationStarted.value) return;
   if (isPaused.value) {
-    client.send({ command: 'RESUME_SIMULATION' });
+    client.send({ command: 'RESUME_GAME' });
+    isPaused.value = false;
   } else {
-    client.send({ command: 'PAUSE_SIMULATION' });
+    client.send({ command: 'PAUSE_GAME' });
+    isPaused.value = true;
   }
 };
 
 const setSpeed = (s) => {
-  if (!isConnected.value || !isSimulationStarted.value) return;
+  if (!isSimulationStarted.value) return;
   speed.value = s;
   client.send({ command: 'SET_SIMULATION_SPEED', speed: s });
 };
 
-const stopSimulation = () => {
-  if (confirm('确定要结束当前模拟并重置吗？')) {
-    client.send({
-      command: 'STOP_SIMULATION'
-    });
-  }
-};
+const buildBuilding = (type) => client.send({ command: 'BUILD_BUILDING', buildingType: type, plotId: selectedPlotId.value });
+const hireStaff = (type) => client.send({ command: 'HIRE_STAFF', staffType: type, salaryMode: salaryMode[type] || 'normal' });
+const fireStaff = (staffId) => client.send({ command: 'FIRE_STAFF', staffId });
 
-const client = new WebSocketClient();
-
-let cashFloatTimer = null;
-const showCashFloat = (text, type) => {
-  cashFlash.value = { text, type };
-  if (cashFloatTimer) clearTimeout(cashFloatTimer);
-  cashFloatTimer = setTimeout(() => { cashFlash.value = null; }, 1600);
-};
-
-const restartAfterBankruptcy = () => {
-  isBankrupt.value = false;
-  isStarting.value = true;
+const submitPricing = () => {
   client.send({
-    command: 'START_SIMULATION',
-    merchantCount: merchantCount.value,
-    riderCount: riderCount.value,
-    mapId: selectedMapId.value
+    command: 'SET_ROOM_PRICE',
+    standardRoomPrice: Math.max(0, Number(priceForm.standardRoomPrice) || 0),
+    luxuryRoomPrice: Math.max(0, Number(priceForm.luxuryRoomPrice) || 0)
   });
+  client.send({ command: 'SET_AD_BUDGET', adBudget: Math.max(0, Number(priceForm.adBudget) || 0) });
 };
 
+const unlockPlot = (plotId) => client.send({ command: 'UNLOCK_PLOT', plotId });
+
+// 团建单：入队后不改本地状态，等待后端次日 0 点生效后由 RESORT_STATE 回推
+const acceptTeamOrder = (orderId) => client.send({ command: 'ACCEPT_TEAM_ORDER', orderId });
+const rejectTeamOrder = (orderId) => client.send({ command: 'REJECT_TEAM_ORDER', orderId });
+
+// ===== 区间报告 =====
+const openReport = () => {
+  reportVisible.value = true;
+  requestReport(7);
+};
+const requestReport = (rangeDays) => {
+  if (!isSimulationStarted.value) return;
+  client.send({ command: 'REQUEST_RANGE_REPORT', rangeDays });
+};
+
+// ===== 完整日志 =====
+const requestDailyLog = () => {
+  if (!isSimulationStarted.value) return;
+  logTitle.value = '本局完整日志';
+  client.requestDailyLog();
+};
+
+// ===== 生命周期 =====
 onMounted(() => {
-  startTimer();
   fetchSavedMaps();
-  client.onStatusChange = (status) => isConnected.value = status;
-  
-  client.onSimulationStarted = () => {
-    isSimulationStarted.value = true;
-    isStarting.value = false;
-    isPaused.value = false;
-    speed.value = 1.0;
-    gameTimeMs.value = BASE_GAME_TIME;
-    orders.value = {};
-    riders.value = [];
-    merchants.value = [];
-    selectedOrderId.value = null;
-    dispatchMode.value = 'AUTO';
-    movingRiderId.value = null;
-    manualTip.value = null;
-    completedOrderCount.value = 0;
-    expiredOrderCount.value = 0;
-    unassignedExpiredCount.value = 0;
-    mealTimeoutExpiredCount.value = 0;
-    const initRev = 50.0 * merchantCount.value;
-    const initExp = 0; // 骑手日薪次日 00:00 才结算，开局无支出
-    totalRevenue.value = initRev;
-    totalExpenses.value = initExp;
-    totalFines.value = 0.0;
-    netProfit.value = initRev - initExp;
-    virtualDay.value = 1;
-    cash.value = 800.0 + initRev; // 开局 ¥800 + 第 1 天加盟费收入
-    bestRating.value = 0.0;
-    isBankrupt.value = false;
-    cashFlash.value = null;
-  };
 
-  client.onSimulationPaused = () => isPaused.value = true;
-  client.onSimulationResumed = () => isPaused.value = false;
-  client.onSpeedChanged = (s) => speed.value = s;
-  // 派单模式变更广播 (后端确认为准)
-  client.onDispatchModeChanged = (mode) => {
-    dispatchMode.value = mode === 'MANUAL' ? 'MANUAL' : 'AUTO';
-    if (dispatchMode.value === 'AUTO') movingRiderId.value = null;
-  };
-
-  client.onSimulationStopped = () => {
-    isSimulationStarted.value = false;
-    isStarting.value = false;
-    isPaused.value = false;
-    speed.value = 1.0;
-    gameTimeMs.value = BASE_GAME_TIME;
-    mapData.value = null;
-    orders.value = {};
-    riders.value = [];
-    merchants.value = [];
-    selectedOrderId.value = null;
-    dispatchMode.value = 'AUTO';
-    movingRiderId.value = null;
-    manualTip.value = null;
-    completedOrderCount.value = 0;
-    expiredOrderCount.value = 0;
-    unassignedExpiredCount.value = 0;
-    mealTimeoutExpiredCount.value = 0;
-    totalRevenue.value = 0.0;
-    totalExpenses.value = 0.0;
-    totalFines.value = 0.0;
-    netProfit.value = 0.0;
-    virtualDay.value = 1;
-    cash.value = 800.0;
-    bestRating.value = 0.0;
-    isBankrupt.value = false;
-    cashFlash.value = null;
-  };
-
-  client.onFinancialUpdate = (data) => {
-    if (data) {
-      isSimulationStarted.value = true;
-      isStarting.value = false;
-      totalRevenue.value = data.totalRevenue || 0.0;
-      totalExpenses.value = data.totalExpenses || 0.0;
-      totalFines.value = data.totalFines || 0.0;
-      netProfit.value = data.netProfit || 0.0;
-      if (data.virtualDay) virtualDay.value = data.virtualDay;
-      if (data.gameVirtualTimeMs) gameTimeMs.value = data.gameVirtualTimeMs;
-      if (data.completedOrderCount !== undefined) completedOrderCount.value = data.completedOrderCount;
-      if (data.expiredOrderCount !== undefined) expiredOrderCount.value = data.expiredOrderCount;
-      if (data.unassignedExpiredCount !== undefined) unassignedExpiredCount.value = data.unassignedExpiredCount;
-      if (data.mealTimeoutExpiredCount !== undefined) mealTimeoutExpiredCount.value = data.mealTimeoutExpiredCount;
-      if (data.platformTakeRate !== undefined) {
-        currentTakeRate.value = data.platformTakeRate;
-        if (!showRateConfig.value) configTakeRatePercent.value = Math.round(data.platformTakeRate * 100);
-      }
-      if (data.riderBonusMin !== undefined) {
-        currentBonusMin.value = data.riderBonusMin;
-        if (!showRateConfig.value) configBonusMin.value = data.riderBonusMin;
-      }
-      if (data.riderBonusMax !== undefined) {
-        currentBonusMax.value = data.riderBonusMax;
-        if (!showRateConfig.value) configBonusMax.value = data.riderBonusMax;
-      }
-      if (data.cash !== undefined) {
-        const prev = cash.value;
-        const next = Number(data.cash) || 0;
-        cash.value = next;
-        const delta = Math.round((next - prev) * 100) / 100;
-        if (delta > 0.005) showCashFloat('+' + delta.toFixed(2), 'up');
-        else if (delta < -0.005) showCashFloat(delta.toFixed(2), 'down');
-      }
-      if (data.bestRating !== undefined) bestRating.value = data.bestRating || 0.0;
-    }
-  };
-
-  client.onBankruptcy = (data) => {
-    if (data) {
-      bankruptSurvivalDays.value = data.survivalDays || 0;
-      bankruptBestRating.value = data.bestRating || 0.0;
-      bankruptCash.value = data.cash || 0.0;
-      bankruptReason.value = data.reason || '公司现金账户为负';
-      cash.value = data.cash || 0.0;
-      isStarting.value = false;
-      isBankrupt.value = true;
-    }
-  };
+  client.onStatusChange = (status) => { isConnected.value = status; };
 
   client.onMapData = (data) => {
     mapData.value = data;
-    if (data && data.merchants) merchants.value = data.merchants;
-    if (data && (data.roads || (data.grid && data.grid.length > 0))) {
-      isSimulationStarted.value = true;
-      isStarting.value = false;
-    }
+    if (data && data.buildableCells) { /* 供 plots 计算使用 */ }
   };
 
-  client.onOrdersSync = (data) => {
-    if (Array.isArray(data)) {
-      const newOrders = { ...orders.value };
-      data.forEach(o => { newOrders[o.id] = o; });
-      orders.value = newOrders;
-      isSimulationStarted.value = true;
-      isStarting.value = false;
-    }
-  };
-  
-  client.onMerchantUpdate = (data) => {
-    merchants.value = data;
-    if (data && data.length > 0) {
-      isSimulationStarted.value = true;
-      isStarting.value = false;
-    }
+  client.onGameStarted = () => {
+    isSimulationStarted.value = true;
+    isStarting.value = false;
+    isPaused.value = false;
+    isBankrupt.value = false;
+    rangeReport.value = null;
+    reportVisible.value = false;
+    logVisible.value = false;
+    dailyLogs.value = [];
+    eventLog.value = [];
+    teamOrders.value = [];
+    guestCleanState();
+    prevBuildingCount = -1;
+    syncPriceForm();
   };
 
-  client.onRiderUpdate = (data) => {
-    riders.value = data;
-    if (data && data.length > 0) {
-      isSimulationStarted.value = true;
-      isStarting.value = false;
+  client.onGameStopped = (data) => {
+    // 手动「结束并重置」：后端随 GAME_STOPPED 带回本局全部每日日志，弹窗展示
+    if (data && Array.isArray(data.dailyReports) && data.dailyReports.length) {
+      dailyLogs.value = data.dailyReports;
+      logTitle.value = '本局完整日志（已结束）';
+      logVisible.value = true;
     }
-  };
-  
-  client.onOrderEvent = (type, data) => {
-    if (type === 'ORDER_CREATED') {
-      orders.value[data.id] = data;
-    } else if (type === 'RIDER_ASSIGNED') {
-      if (data.currentOrderId && orders.value[data.currentOrderId]) {
-        orders.value[data.currentOrderId].status = 1;
-      }
-      // 派单成功：该骑手退出"前往某地点"待选态
-      if (data.id && movingRiderId.value === data.id) {
-        movingRiderId.value = null;
-      }
-      // 成功派单的订单若正被选中，清除选中以便继续处理其他订单
-      if (data.currentOrderId && data.currentOrderId === selectedOrderId.value) {
-        selectedOrderId.value = null;
-      }
-    } else if (type === 'ORDER_STATUS_CHANGED') {
-      if (orders.value[data.id]) {
-        orders.value[data.id].status = data.status;
-        if (data.waitDurationSec !== undefined) {
-          orders.value[data.id].waitDurationSec = data.waitDurationSec;
-        }
-      }
-      // 订单进入取完餐/配送阶段后不可改派：若正选中则清选中并解锁
-      if (data.status >= 2 && selectedOrderId.value === data.id) {
-        selectOrder(null);
-      }
-    } else if (type === 'ORDER_COMPLETED') {
-      if (data.completedCount !== undefined) {
-        completedOrderCount.value = data.completedCount;
-      } else {
-        completedOrderCount.value++;
-      }
-      delete orders.value[data.id];
-      if (selectedOrderId.value === data.id) selectOrder(null);
-    } else if (type === 'ORDER_EXPIRED') {
-      if (data.expiredCount !== undefined) {
-        expiredOrderCount.value = data.expiredCount;
-      } else {
-        expiredOrderCount.value++;
-      }
-      if (data.unassignedExpiredCount !== undefined) {
-        unassignedExpiredCount.value = data.unassignedExpiredCount;
-      }
-      if (data.mealTimeoutExpiredCount !== undefined) {
-        mealTimeoutExpiredCount.value = data.mealTimeoutExpiredCount;
-      }
-      delete orders.value[data.id];
-      if (selectedOrderId.value === data.id) selectOrder(null);
-    }
-  };
-
-  // 手动派单/调度失败轻提示
-  client.onManualAssignFailed = (data) => {
-    const reasonMap = {
-      'MODE_NOT_MANUAL': '当前为全自动派单模式，请先切换到全手动派单',
-      'ORDER_NOT_FOUND': '未找到该订单，请重试',
-      'ORDER_NOT_ASSIGNABLE': '该订单已进入配送流程，无法改派',
-      'RIDER_NOT_FOUND': '未找到该骑手，请重试',
-      'RIDER_NOT_IDLE': '该骑手已非空闲状态，请选择其他空闲骑手'
+    isSimulationStarted.value = false;
+    isStarting.value = false;
+    isPaused.value = false;
+    isBankrupt.value = false;
+    mapData.value = null;
+    guests.value = [];
+    npcStaff.value = [];
+    teamOrders.value = [];
+    rangeReport.value = null;
+    reportVisible.value = false;
+    eventLog.value = [];
+    prevBuildingCount = -1;
+    timeTick.value = null;
+    resortState.value = {
+      cash: 20000, reputation: 70, season: 'SPRING', seasonName: '春季', day: 1,
+      phase: 'RUNNING', standardRoomPrice: 280, luxuryRoomPrice: 680, adBudget: 0,
+      unlockedPlots: ['INITIAL'], buildings: [], staffList: [],
+      pendingCommands: [], scheduledOrders: []
     };
-    showManualTip(reasonMap[data && data.reason] || '操作失败，请重试');
+    syncPriceForm();
   };
-  
-  // ESC 取消"前往某地点"待选态；卸载时清理监听与计时器
-  window.addEventListener('keydown', handleEscKey);
-  onBeforeUnmount(() => {
-    window.removeEventListener('keydown', handleEscKey);
-    if (manualTipTimer) clearTimeout(manualTipTimer);
-  });
+
+  client.onResortState = (data) => {
+    isSimulationStarted.value = true;
+    isStarting.value = false;
+    applyResortState(data);
+  };
+
+  client.onDayStarted = (data) => {
+    if (data && data.day !== undefined) resortState.value.day = data.day;
+    if (data && data.season) resortState.value.season = data.season;
+    if (data && data.seasonName) resortState.value.seasonName = data.seasonName;
+  };
+
+  client.onTeamOrders = (data) => {
+    teamOrders.value = Array.isArray(data) ? data : [];
+  };
+
+  // 每日结算：不弹日报，只在事件日志追加一行换日提示
+  client.onDaySettled = (data) => {
+    if (!data) return;
+    const sign = (data.netProfit || 0) >= 0 ? '+' : '';
+    eventLog.value.unshift({
+      day: data.day,
+      description: `第 ${data.day} 天结算 · 净利润 ${sign}¥${Math.round(data.netProfit || 0).toLocaleString('en-US')} · 资金 ¥${Math.round(data.cash || 0).toLocaleString('en-US')}`
+    });
+    if (eventLog.value.length > 30) eventLog.value.pop();
+    if (data.cash !== undefined) resortState.value.cash = data.cash;
+    if (data.reputation !== undefined) resortState.value.reputation = data.reputation;
+  };
+
+  client.onRangeReport = (data) => {
+    rangeReport.value = data || null;
+  };
+
+  // 完整日志（玩家主动请求）：只回请求方
+  client.onDailyLog = (data) => {
+    dailyLogs.value = Array.isArray(data) ? data : [];
+    logTitle.value = '本局完整日志';
+    logVisible.value = true;
+  };
+
+  client.onEventTrigger = (data) => {
+    if (!data) return;
+    eventLog.value.unshift({ day: data.day || resortState.value.day, description: data.description || '' });
+    if (eventLog.value.length > 30) eventLog.value.pop();
+  };
+
+  client.onNpcUpdate = (data) => {
+    if (!data) return;
+    guests.value = Array.isArray(data.guests) ? data.guests : [];
+    npcStaff.value = Array.isArray(data.staff) ? data.staff : [];
+  };
+
+  // 当日时钟：收到推送即校准，两次推送之间由本地时钟平滑插值
+  client.onTimeTick = (data) => {
+    if (!data) return;
+    timeTick.value = data;
+    tickReceivedAt.value = Date.now();
+    if (data.day !== undefined) resortState.value.day = data.day;
+    if (data.phase !== undefined) resortState.value.phase = data.phase;
+    if (data.speed !== undefined && speed.value !== data.speed) speed.value = data.speed;
+    if (data.paused !== undefined) isPaused.value = data.paused;
+  };
+
+  client.onActionFailed = (data) => {
+    const reason = data && data.reason;
+    showTip(REASON_MAP[reason] || '操作失败，请重试');
+  };
+
+  client.onSpeedChanged = (s) => { speed.value = s; };
+  client.onSimulationPaused = () => { isPaused.value = true; };
+  client.onSimulationResumed = () => { isPaused.value = false; };
+
+  client.onBankruptcy = (data) => {
+    bankruptcy.value = {
+      daysSurvived: (data && data.daysSurvived) || 0,
+      finalCash: (data && data.finalCash) || 0,
+      endReason: (data && data.endReason) || '资金耗尽',
+      lastDay: data ? data.lastDay : undefined,
+      lastCashBefore: (data && data.lastCashBefore) || 0,
+      lastNetProfit: (data && data.lastNetProfit) || 0,
+      lastTotalRevenue: (data && data.lastTotalRevenue) || 0,
+      lastTotalExpense: (data && data.lastTotalExpense) || 0,
+      revenueDetail: (data && data.revenueDetail) || null,
+      expenseDetail: (data && data.expenseDetail) || null,
+      dailyReports: (data && Array.isArray(data.dailyReports)) ? data.dailyReports : []
+    };
+    if (data && data.finalCash !== undefined) resortState.value.cash = data.finalCash;
+    isStarting.value = false;
+    isBankrupt.value = true;
+    isSimulationStarted.value = false;
+  };
 
   client.connect();
+
+  clockTimer = setInterval(() => { clockNow.value = Date.now(); }, 250);
+
+  onBeforeUnmount(() => {
+    if (actionTipTimer) clearTimeout(actionTipTimer);
+    if (clockTimer) clearInterval(clockTimer);
+  });
 });
 
-// 选中订单 (地图或侧边栏)
-const selectOrder = (orderId) => {
-  selectedOrderId.value = orderId;
-};
-
-const onMapOrderSelected = (orderId) => { selectOrder(orderId); };
-
-// 切换派单模式 (顶部：全自动 / 全手动)。立即本地更新，由 DISPATCH_MODE_CHANGED 广播校正。
-const setDispatchMode = (mode) => {
-  if (!isSimulationStarted.value) return;
-  const normalized = mode === 'MANUAL' ? 'MANUAL' : 'AUTO';
-  client.send({ command: 'SET_DISPATCH_MODE', mode: normalized });
-  dispatchMode.value = normalized;
-  if (normalized === 'AUTO') movingRiderId.value = null;
-};
-
-// 点击空闲骑手 -> 派单 (成功结果通过 RIDER_ASSIGNED 广播回传后再清选中)
-const onRiderSelected = (riderId) => {
-  if (!selectedOrderId.value) return;
-  client.send({ command: 'MANUAL_ASSIGN', orderId: selectedOrderId.value, riderId });
-};
-
-// 点击空闲骑手 -> 进入/退出"前往某地点"待选态 (再点地图任意位置下发前往指令)
-const onRiderMoveSelected = (riderId) => {
-  movingRiderId.value = (movingRiderId.value === riderId) ? null : riderId;
-};
-
-// 点击地图目标点 -> 下发骑手前往指令
-const onRiderMoveTarget = (payload) => {
-  if (!payload || !payload.riderId) return;
-  client.send({ command: 'MOVE_RIDER', riderId: payload.riderId, x: payload.x, y: payload.y });
-  movingRiderId.value = null;
-};
-
-// ESC 取消"前往某地点"待选态
-const handleEscKey = (e) => {
-  if (e.key === 'Escape') movingRiderId.value = null;
-};
-
-const showManualTip = (text) => {
-  manualTip.value = text;
-  if (manualTipTimer) clearTimeout(manualTipTimer);
-  manualTipTimer = setTimeout(() => { manualTip.value = null; }, 2400);
-};
-
-const selectedOrder = computed(() => {
-  if (!selectedOrderId.value) return null;
-  return orders.value[selectedOrderId.value] || null;
-});
-
-const assignedRider = computed(() => {
-  if (!selectedOrderId.value || !riders.value.length) return null;
-  return riders.value.find(r => r.currentOrderId === selectedOrderId.value) || null;
-});
-
-const sortedOrders = computed(() => {
-  return Object.values(orders.value).sort((a, b) => b.createTime - a.createTime);
-});
-
-const idleRidersCount = computed(() => riders.value.filter(r => r.status === 0).length);
-const pickingRidersCount = computed(() => riders.value.filter(r => r.status === 1).length);
-const deliveringRidersCount = computed(() => riders.value.filter(r => r.status === 2).length);
-const pendingOrdersCount = computed(() => Object.values(orders.value).filter(o => o.status === 0).length);
-const dispatchedOrdersCount = computed(() => Object.values(orders.value).filter(o => o.status === 1).length);
-const mealWaitingOrdersCount = computed(() => Object.values(orders.value).filter(o => o.status === 2).length);
-const deliveringOrdersCount = computed(() => Object.values(orders.value).filter(o => o.status === 3).length);
-
-const getStatusText = (status) => {
-  switch(status) {
-    case 0: return '🍳 备餐待派';
-    case 1: return '🚴 骑手到店中';
-    case 2: return '⏳ 在店等餐中';
-    case 3: return '🚀 送餐配送中';
-    case 4: return '✅ 订单已送达';
-    case 5: return '⚠️ 等餐超时失效';
-    default: return '未知';
-  }
-};
-
-const getRiderStatusText = (status) => {
-  switch(status) {
-    case 0: return '空闲巡游';
-    case 1: return '前往商家';
-    case 2: return '送餐配送';
-    default: return '未知';
-  }
-};
-
-const getRiderStatusClass = (status) => {
-  switch(status) {
-    case 0: return 'rider-status-idle';
-    case 1: return 'rider-status-picking';
-    case 2: return 'rider-status-delivering';
-    default: return '';
-  }
+const guestCleanState = () => {
+  guests.value = [];
+  npcStaff.value = [];
 };
 </script>
 
 <style scoped>
-.dashboard-wrapper {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.dashboard {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  overflow: hidden;
-}
+.dashboard-wrapper { width: 100vw; height: 100vh; overflow: hidden; }
+.dashboard { display: flex; height: 100vh; width: 100vw; background-color: var(--bg-dark); color: var(--text-primary); overflow: hidden; }
 
 /* 启动弹窗 */
-.start-modal-overlay, .merchant-modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(10, 10, 14, 0.85);
-  backdrop-filter: blur(8px);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.start-modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 14, 0.85); backdrop-filter: blur(8px);
+  z-index: 9999; display: flex; align-items: center; justify-content: center;
 }
-
-.start-modal {
-  padding: 35px;
-  border-radius: 16px;
-  width: 420px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.start-modal h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); text-align: center; }
+.start-modal { padding: 35px; border-radius: 16px; width: 420px; display: flex; flex-direction: column; gap: 16px; border: 1px solid rgba(255,255,255,0.1); }
+.start-modal h2 { margin: 0; font-size: 1.5rem; color: var(--accent-color); text-align: center; }
 .modal-desc { text-align: center; color: #aaa; margin: 0 0 8px 0; font-size: 0.9rem; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group label { font-size: 0.9rem; font-weight: 500; }
-.form-group input, .map-dropdown { padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.3); color: #fff; font-size: 0.95rem; }
-.form-group input:focus, .map-dropdown:focus { outline: none; border-color: var(--primary-color); }
+.form-group input, .map-dropdown { padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: #fff; font-size: 0.95rem; }
 .map-dropdown option { background: #0f172a; color: #fff; }
 .modal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-
-.btn-start { padding: 12px; border-radius: 8px; background: var(--primary-color); color: #fff; border: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s; }
-.btn-start:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(100, 108, 255, 0.4); }
+.btn-start { padding: 12px; border-radius: 8px; background: var(--accent-color); color: #fff; border: none; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+.btn-start:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
 .btn-start:disabled { background: #555; cursor: not-allowed; opacity: 0.7; }
+.btn-open-editor { padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px dashed rgba(255,255,255,0.3); color: #93c5fd; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-open-editor:hover { background: rgba(59,130,246,0.2); border-color: #60a5fa; }
 
-.btn-open-editor {
-  padding: 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-  color: #93c5fd;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-open-editor:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #60a5fa;
-}
+.btn-editor-entry { padding: 6px 14px; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.4); color: #93c5fd; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.btn-editor-entry:hover { background: rgba(59,130,246,0.3); transform: translateY(-1px); }
 
-/* 商家配置弹窗 */
-.merchant-modal {
-  width: 480px;
-  max-width: 90vw;
-  padding: 24px;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  animation: fadeIn 0.2s ease;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 10px;
-}
-.modal-header h3 { margin: 0; color: #60a5fa; font-size: 16px; }
-.modal-close-btn { background: transparent; border: none; color: #94a3b8; font-size: 16px; cursor: pointer; }
-.modal-close-btn:hover { color: #fff; }
-
-.merchant-form-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 60vh;
-  overflow-y: auto;
-  padding-right: 6px;
-}
-.form-section-title { font-size: 13px; font-weight: 700; color: #93c5fd; margin-top: 4px; border-left: 3px solid #3b82f6; padding-left: 8px; }
-.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-field { display: flex; flex-direction: column; gap: 4px; }
-.form-field label { font-size: 11px; color: #cbd5e1; }
-.form-field input[type="number"] { padding: 8px 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #fff; font-family: monospace; font-size: 13px; }
-.form-field input[type="number"]:focus { outline: none; border-color: #3b82f6; }
-.slider-input { width: 100%; accent-color: #3b82f6; cursor: pointer; }
-.highlight-val { color: #38bdf8; font-weight: 700; }
-.field-tip { font-size: 10px; color: #64748b; line-height: 1.4; background: rgba(0, 0, 0, 0.2); padding: 4px 8px; border-radius: 4px; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px; }
-.btn-cancel { padding: 8px 16px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; color: #cbd5e1; cursor: pointer; }
-.btn-save { padding: 8px 18px; background: #2563eb; border: 1px solid #3b82f6; border-radius: 6px; color: #fff; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-.btn-save:hover { background: #1d4ed8; }
-
-.btn-editor-entry {
-  padding: 6px 14px;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  color: #93c5fd;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-editor-entry:hover { background: rgba(59, 130, 246, 0.3); transform: translateY(-1px); }
-
-.map-section {
-  flex: 3;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  min-width: 0;
-}
-
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 12px; }
+.map-section { flex: 3; display: flex; flex-direction: column; padding: 16px; min-width: 0; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px; }
 .header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .header h2 { font-size: 18px; font-weight: 600; margin: 0; }
+.header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-.game-time-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  color: #34d399;
-  transition: all 0.3s ease;
-}
-.game-time-badge.paused { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.3); color: #f87171; }
-.time-label { color: var(--text-secondary); font-size: 11px; }
-.time-val { font-weight: 700; font-size: 13px; letter-spacing: 0.5px; }
-.peak-badge { background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 6px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+/* 全局状态条 */
+.status-bar { display: flex; flex-direction: column; gap: 6px; }
+.sb-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sb-item { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1px solid var(--panel-border); background: rgba(255,255,255,0.05); }
+.sb-season { background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.4); color: #4ade80; }
+.sb-cash { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.4); color: #34d399; }
+.sb-rep { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.4); color: #fbbf24; }
+.sb-clock { background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.4); color: #7dd3fc; font-variant-numeric: tabular-nums; }
+.sb-clock-idle { opacity: 0.5; }
+.sb-progress { width: 100%; max-width: 560px; height: 6px; border-radius: 3px; background: rgba(148,163,184,0.22); overflow: hidden; }
+.sb-progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #22d3ee, #38bdf8); transition: width 250ms linear; }
+.sb-phase { padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+.phase-running { background: rgba(34,197,94,0.18); color: #4ade80; }
 
-.header-actions { display: flex; align-items: center; gap: 10px; }
-.btn-pause { padding: 6px 12px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
-.btn-pause:hover { background: rgba(245, 158, 11, 0.3); }
-.btn-stop { padding: 6px 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
-.btn-stop:hover { background: rgba(239, 68, 68, 0.3); color: #fff; }
-.dispatch-mode-control { display: flex; align-items: center; gap: 2px; padding: 2px; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 6px; }
-.btn-mode { padding: 4px 10px; background: transparent; border: none; color: #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
-.btn-mode:hover { background: rgba(148, 163, 184, 0.2); }
-.btn-mode.active { background: rgba(34, 197, 94, 0.35); color: #fff; box-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
+.btn-report { padding: 6px 12px; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-report:hover { background: rgba(34,197,94,0.3); color: #fff; }
+.btn-log { padding: 6px 12px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.4); color: #c084fc; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-log:hover { background: rgba(168,85,247,0.3); color: #fff; }
 
-.manual-tip-toast {
-  position: fixed;
-  top: 84px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
-  padding: 10px 18px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-  z-index: 9998;
-}
-.tip-enter-active, .tip-leave-active { transition: all 0.3s ease; }
-.tip-enter-from, .tip-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-.speed-control { display: flex; align-items: center; gap: 2px; padding: 2px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; }
-.btn-speed { padding: 4px 8px; background: transparent; border: none; color: #7dd3fc; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
-.btn-speed:hover { background: rgba(56, 189, 248, 0.2); }
-.btn-speed.active { background: rgba(56, 189, 248, 0.35); color: #fff; box-shadow: 0 0 6px rgba(56, 189, 248, 0.5); }
+.btn-pause { padding: 6px 12px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #fbbf24; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-pause:hover { background: rgba(245,158,11,0.3); }
+.btn-stop { padding: 6px 12px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-stop:hover { background: rgba(239,68,68,0.3); color: #fff; }
+.btn-fitview { padding: 6px 12px; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.4); color: #7dd3fc; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-fitview:hover { background: rgba(56,189,248,0.3); color: #fff; }
+.speed-control { display: flex; align-items: center; gap: 2px; padding: 2px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; }
+.btn-speed { padding: 4px 8px; background: transparent; border: none; color: #7dd3fc; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-speed:hover { background: rgba(56,189,248,0.2); }
+.btn-speed.active { background: rgba(56,189,248,0.35); color: #fff; box-shadow: 0 0 6px rgba(56,189,248,0.5); }
 
 .status-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 6px var(--danger); }
@@ -1343,208 +1017,141 @@ const getRiderStatusClass = (status) => {
 .map-wrapper { flex: 1; min-height: 0; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
 
 /* 控制面板 */
-.control-panel { width: 440px; padding: 12px; display: flex; flex-direction: column; gap: 10px; height: 100vh; box-sizing: border-box; overflow-y: auto; }
-.stats-card, .detail-card, .tabs-container { padding: 12px; border-radius: 12px; display: flex; flex-direction: column; }
-.panel-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; }
-.panel-header-row h3 { font-size: 14px; margin: 0 !important; }
-.btn-config-toggle { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-.btn-config-toggle:hover, .btn-config-toggle.active { background: rgba(59, 130, 246, 0.35); border-color: #60a5fa; color: #fff; }
+.control-panel { width: 460px; padding: 12px; display: flex; flex-direction: column; gap: 10px; height: 100vh; box-sizing: border-box; overflow-y: auto; }
+.stats-card { padding: 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; }
+.panel-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; }
+.panel-header-row h3 { font-size: 14px; margin: 0; }
+.phase-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.phase-tag.ok { background: rgba(34,197,94,0.18); color: #4ade80; }
+.phase-tag.lock { background: rgba(148,163,184,0.18); color: #94a3b8; }
 
-.rate-config-drawer { background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 8px; margin-bottom: 8px; animation: fadeIn 0.2s ease; }
-.config-title { font-size: 11px; font-weight: 700; color: #93c5fd; margin-bottom: 6px; }
-.config-form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
-.config-field { display: flex; flex-direction: column; gap: 2px; }
-.config-field label { font-size: 10px; color: #94a3b8; white-space: nowrap; }
-.input-unit-wrap { display: flex; align-items: center; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; padding: 2px 4px; }
-.input-unit-wrap input { width: 100%; background: transparent; border: none; color: #fff; font-size: 12px; font-weight: 700; font-family: monospace; outline: none; }
-.input-unit-wrap .unit { font-size: 10px; color: #94a3b8; margin-left: 2px; }
-.field-hint { font-size: 9px; color: #64748b; }
-.config-action-row { display: flex; align-items: center; justify-content: space-between; }
-.btn-save-config { padding: 4px 10px; background: #2563eb; border: 1px solid #3b82f6; border-radius: 4px; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
-.save-success-tip { font-size: 11px; color: #34d399; font-weight: 600; }
+.panel-section { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-border); border-radius: 8px; }
+.section-title { font-size: 12px; font-weight: 700; color: #93c5fd; }
+.sub-title { margin-top: 4px; color: #4ade80; }
+.plot-select-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #94a3b8; }
+.mini-select { padding: 3px 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: #fff; font-size: 11px; }
+.mini-select:disabled { opacity: 0.5; }
 
-.financial-panel { background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(59, 130, 246, 0.3); }
-.financial-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-.realtime-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.fin-item { background: rgba(0, 0, 0, 0.35); padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
-.fin-item .value { font-size: 16px !important; font-family: monospace; font-weight: 700; margin: 1px 0; }
-.sub-label { font-size: 9px; color: #64748b; }
-.text-revenue { color: #22c55e; }
-.text-expense { color: #f59e0b; }
-.text-fines { color: #ef4444; }
-.text-profit-pos { color: #10b981; font-weight: 800; }
-.text-profit-neg { color: #f87171; font-weight: 800; }
+.building-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.building-card { background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.bc-name { font-size: 12px; font-weight: 700; color: #fff; }
+.bc-meta { display: flex; flex-direction: column; gap: 1px; font-size: 10px; color: #94a3b8; font-family: monospace; }
 
-.stat-item { display: flex; flex-direction: column; background: rgba(0,0,0,0.2); padding: 6px 4px; border-radius: 6px; text-align: center; }
-.stat-item .label { font-size: 10px; color: var(--text-secondary); margin-bottom: 2px; white-space: nowrap; }
-.stat-item .value { font-size: 15px; font-weight: 700; }
+.btn-op { padding: 4px 8px; background: rgba(59,130,246,0.18); border: 1px solid rgba(59,130,246,0.4); color: #93c5fd; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.btn-op:hover:not(:disabled) { background: rgba(59,130,246,0.35); color: #fff; }
+.btn-op:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.text-accent { color: var(--accent-color); }
-.text-warning { color: var(--warning); }
-.text-success { color: var(--success); }
-.text-danger { color: var(--danger); }
-.text-picking { color: #38bdf8; }
-.text-meal-wait { color: #fb923c; font-weight: 700; }
-.text-delivering { color: #3b82f6; }
-.text-completed { color: #10b981; }
-.text-sub-expire { color: #f87171; font-weight: 700; }
-.stat-item-danger { background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3); }
-.stat-item-sub-fail { background: rgba(244, 63, 94, 0.08) !important; border: 1px dashed rgba(244, 63, 94, 0.25); }
+.hire-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.hire-name { font-weight: 700; color: #fff; width: 32px; }
+.hire-base { color: #94a3b8; font-family: monospace; flex: 1; }
 
-/* 详情卡片 */
-.detail-card { border: 1px solid rgba(59, 130, 246, 0.3); animation: fadeIn 0.3s ease; }
-.detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; }
-.detail-header h3 { font-size: 13px; margin: 0; }
-.close-btn { width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 11px; cursor: pointer; }
-.detail-body { display: flex; flex-direction: column; gap: 6px; }
-.detail-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-.highlight-row { background: rgba(239, 68, 68, 0.1); padding: 4px 6px; border-radius: 4px; border: 1px dashed rgba(239, 68, 68, 0.3); }
+.staff-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.staff-item { display: flex; align-items: center; gap: 8px; font-size: 11px; background: rgba(255,255,255,0.03); padding: 4px 6px; border-radius: 5px; }
+.staff-type { font-weight: 700; color: #38bdf8; }
+.staff-salary { color: #e2e8f0; font-family: monospace; }
+.staff-mode { color: #94a3b8; margin-left: auto; }
+.btn-fire { padding: 2px 8px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 4px; font-size: 10px; font-weight: 700; cursor: pointer; }
+.btn-fire:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Tab页签与内容 */
-.tabs-container { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px; }
-.tabs-header { display: flex; gap: 6px; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; margin-bottom: 8px; }
-.tab-btn { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid transparent; color: #94a3b8; padding: 6px 4px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-.tab-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
-.tab-btn.active { background: rgba(59, 130, 246, 0.25); border-color: rgba(59, 130, 246, 0.5); color: #93c5fd; }
-.tab-body { flex: 1; min-height: 0; overflow-y: auto; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.form-field { display: flex; flex-direction: column; gap: 3px; }
+.form-field label { font-size: 10px; color: #cbd5e1; }
+.form-field input { padding: 6px 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: #fff; font-family: monospace; font-size: 12px; }
+.form-field input:focus { outline: none; border-color: #3b82f6; }
+.form-field input:disabled { opacity: 0.5; }
+.btn-primary-op { padding: 6px; background: #2563eb; border: 1px solid #3b82f6; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-primary-op:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.merchant-list, .order-list, .rider-list { display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
-.merchant-item, .order-item, .rider-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--panel-border); border-radius: 8px; padding: 10px; transition: all 0.2s; }
-.merchant-item:hover, .order-item:hover, .rider-item:hover { background: rgba(255, 255, 255, 0.06); }
+.unlock-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; }
+.unlock-name { color: #cbd5e1; }
 
-.merchant-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.m-title-group { display: flex; align-items: center; gap: 8px; }
-.merchant-name { font-weight: 700; color: #f97316; font-size: 13px; }
-.merchant-rating { font-size: 12px; color: #fbbf24; font-weight: 600; }
-.btn-edit-m { padding: 3px 8px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.btn-edit-m:hover { background: rgba(59, 130, 246, 0.35); color: #fff; }
+.team-order-list { display: flex; flex-direction: column; gap: 6px; }
+.team-order-card { background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 3px; }
+.team-order-card.to-accepted { border-color: rgba(34,197,94,0.5); }
+.team-order-card.to-rejected { opacity: 0.55; }
+.to-head { display: flex; justify-content: space-between; align-items: center; }
+.to-size { font-weight: 700; color: #fbbf24; font-size: 12px; }
+.to-status { font-size: 10px; color: #94a3b8; }
+.to-meta { display: flex; gap: 10px; font-size: 11px; color: #cbd5e1; }
+.to-req { font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.req-tag { background: rgba(56,189,248,0.15); color: #7dd3fc; padding: 1px 6px; border-radius: 4px; }
+.req-tag.none { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.to-actions { display: flex; gap: 6px; margin-top: 2px; }
+.btn-accept { flex: 1; padding: 4px; background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.5); color: #4ade80; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.btn-accept:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-reject { flex: 1; padding: 4px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.btn-reject:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.merchant-param-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
-.m-tag { background: rgba(255, 255, 255, 0.06); color: #cbd5e1; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-family: monospace; }
-.merchant-financial-row, .rider-salary-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
-.fin-tag, .salary-tag { font-size: 10px; padding: 2px 5px; border-radius: 4px; font-weight: 600; font-family: monospace; }
+/* 进行中（施工中 / 入职中 / 开垦中 / 其它排队）列表 */
+.pending-list { display: flex; flex-direction: column; gap: 4px; }
+.pending-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25); border-radius: 5px; padding: 4px 8px; font-size: 11px; }
+.pending-summary { color: #e2e8f0; }
+.pending-day { color: #7dd3fc; white-space: nowrap; font-size: 10px; }
 
-.tag-rev { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
-.tag-take { background: rgba(245, 158, 11, 0.1); color: #fbbf24; }
-.tag-mat { background: rgba(168, 85, 247, 0.1); color: #c084fc; }
-.tag-fixed { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
-.tag-ad { background: rgba(236, 72, 153, 0.1); color: #f472b6; }
-.tag-comm { background: rgba(234, 179, 8, 0.1); color: #facc15; }
-.tag-fines { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-.tag-income { background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); }
+.empty-inline { font-size: 11px; color: #64748b; text-align: center; padding: 6px; }
 
-.tag-ongoing { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
-.tag-completed { background: rgba(34, 197, 94, 0.15); color: #86efac; }
-.merchant-coord { font-size: 10px; color: #64748b; margin-left: auto; }
-.merchant-details { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.event-row { display: flex; gap: 6px; font-size: 11px; color: #cbd5e1; padding: 2px 0; }
+.event-type { color: #fbbf24; font-weight: 700; white-space: nowrap; }
+.event-desc { color: #e2e8f0; }
 
-/* 订单卡片 */
-.order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.order-id { font-size: 12px; font-weight: 700; color: #fff; }
-.order-status-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
-.badge-status-0 { background: rgba(244, 63, 94, 0.15); color: #fda4af; }
-.badge-status-1 { background: rgba(251, 191, 36, 0.15); color: #fcd34d; }
-.badge-status-2 { background: rgba(249, 115, 22, 0.2); color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.4); }
-.badge-status-3 { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
-.badge-status-4 { background: rgba(34, 197, 94, 0.15); color: #86efac; }
-.badge-status-5 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-
-.order-meta-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; font-size: 11px; }
-.order-price-badge { color: #4ade80; font-weight: 700; font-family: monospace; }
-.order-mat-badge { color: #c084fc; font-family: monospace; }
-.order-prep-badge { color: #fca5a5; font-size: 10px; }
-.order-wait-badge { color: #f97316; font-weight: 700; font-size: 11px; }
-.order-detail { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; }
-
-/* 骑手卡片 */
-.rider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.rider-id { font-weight: 700; color: #38bdf8; font-size: 12px; }
-.rider-details { display: flex; gap: 8px; font-size: 10px; color: #94a3b8; flex-wrap: wrap; }
-.status-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
-.rider-status-idle { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
-.rider-status-picking { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
-.rider-status-delivering { background: rgba(59, 130, 246, 0.2); color: #93c5fd; font-weight: 700; }
-.salary-tag { background: rgba(255, 255, 255, 0.05); color: #e2e8f0; }
-.tag-bonus { background: rgba(56, 189, 248, 0.12); color: #38bdf8; }
-.tag-total { background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 700; }
-.empty-state { text-align: center; color: #64748b; font-size: 12px; padding: 20px; }
 .text-green { color: #34d399; }
 .text-red { color: #f87171; }
-.font-bold { font-weight: 700; }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* 操作提示 */
+.tip-toast { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); background: rgba(15,23,42,0.95); border: 1px solid rgba(239,68,68,0.5); color: #fca5a5; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0,0,0,0.5); z-index: 9998; }
+.tip-enter-active, .tip-leave-active { transition: all 0.3s ease; }
+.tip-enter-from, .tip-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 
-/* === 公司现金栏 === */
-.cash-bar {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 700;
-  border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.04);
-  transition: all 0.3s;
-  position: relative;
-}
-.cash-normal { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.35); }
-.cash-normal .cash-value { color: #34d399; }
-.cash-warning { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.55); }
-.cash-warning .cash-value { color: #fbbf24; }
-.cash-danger { background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.6); }
-.cash-danger .cash-value { color: #f87171; }
-.cash-label { color: #cbd5e1; font-weight: 600; }
-.cash-value { font-size: 15px; letter-spacing: 0.5px; }
-.cash-warn-tag { font-size: 10px; color: #fbbf24; }
-.cash-danger-tag { font-size: 10px; color: #f87171; }
-
-.cash-float-text {
-  position: absolute;
-  left: 50%;
-  top: -22px;
-  transform: translateX(-50%);
-  font-size: 13px;
-  font-weight: 800;
-  pointer-events: none;
-  white-space: nowrap;
-}
-.cash-float-text.up { color: #34d399; }
-.cash-float-text.down { color: #f87171; }
-.cash-float-enter-active, .cash-float-leave-active { transition: all 0.5s ease; }
-.cash-float-enter-from, .cash-float-leave-to { opacity: 0; transform: translateX(-50%) translateY(10px); }
-
-/* === 破产结算画面 === */
-.bankrupt-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(10, 10, 14, 0.9);
-  backdrop-filter: blur(10px);
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.bankrupt-panel {
-  padding: 36px;
-  border-radius: 18px;
-  width: 420px;
-  max-width: 90vw;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  box-shadow: 0 0 40px rgba(239, 68, 68, 0.25);
-  background: rgba(15, 23, 42, 0.96);
-  animation: fadeIn 0.3s ease;
-}
+/* 破产结算画面 */
+.bankrupt-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,10,14,0.9); backdrop-filter: blur(10px); z-index: 10000; display: flex; align-items: center; justify-content: center; }
+.bankrupt-panel { padding: 36px; border-radius: 18px; width: 480px; max-width: 90vw; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; border: 1px solid rgba(239,68,68,0.5); box-shadow: 0 0 40px rgba(239,68,68,0.25); background: rgba(15,23,42,0.96); }
 .bankrupt-panel h2 { margin: 0; text-align: center; color: #f87171; font-size: 1.6rem; }
 .bankrupt-sub { text-align: center; color: #cbd5e1; margin: 0; font-size: 0.9rem; }
 .bankrupt-stats { display: flex; flex-direction: column; gap: 12px; }
-.bs-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border-radius: 10px; }
+.bs-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 10px; }
 .bs-label { color: #94a3b8; font-size: 13px; }
 .bs-value { color: #fff; font-size: 14px; font-weight: 700; }
+.bankrupt-breakdown { margin-top: 12px; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }
+.bb-title { font-size: 13px; font-weight: 700; color: #fbbf24; margin-bottom: 10px; }
+.bb-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bb-col { display: flex; flex-direction: column; gap: 4px; }
+.bb-head { font-size: 12px; font-weight: 700; color: #93c5fd; margin-bottom: 2px; }
+.bb-row { display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; }
+.bb-row span:last-child { color: #e2e8f0; }
+.bb-total { margin-top: 4px; padding-top: 4px; border-top: 1px dashed rgba(255,255,255,0.15); font-weight: 700; color: #fff; }
+.bb-net { margin-top: 10px; font-size: 12px; color: #94a3b8; text-align: center; }
+
+/* 已建造建筑详情列表 */
+.built-list { display: flex; flex-direction: column; gap: 4px; }
+.built-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 12px; }
+.built-name { flex: 1; font-weight: 600; color: #e2e8f0; }
+.built-plot { color: #93c5fd; }
+.built-meta { color: #94a3b8; white-space: nowrap; }
+
+/* 破产弹窗内嵌的每日结算日志 */
+.bankrupt-log { margin-top: 4px; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }
+.bankrupt-log-body { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.blog-row { display: flex; align-items: center; gap: 10px; padding: 4px 8px; font-size: 12px; border-radius: 6px; background: rgba(255,255,255,0.02); }
+.blog-day { flex: 1; color: #cbd5e1; font-weight: 600; }
+.blog-cash { color: #94a3b8; }
+.blog-rep { color: #fbbf24; }
+
+/* 完整日志弹窗 */
+.log-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,10,14,0.88); backdrop-filter: blur(8px); z-index: 10001; display: flex; align-items: center; justify-content: center; }
+.log-panel { width: 760px; max-width: 92vw; max-height: 86vh; display: flex; flex-direction: column; border-radius: 14px; border: 1px solid rgba(168,85,247,0.45); background: rgba(15,23,42,0.97); overflow: hidden; }
+.log-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.log-head h3 { margin: 0; font-size: 15px; color: #c084fc; }
+.log-close { background: transparent; border: none; color: #94a3b8; font-size: 16px; cursor: pointer; padding: 2px 8px; border-radius: 6px; }
+.log-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.log-body { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.log-day { padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; }
+.log-day-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }
+.ld-day { font-weight: 700; color: #e2e8f0; }
+.ld-season { color: #4ade80; }
+.ld-net { font-weight: 700; }
+.ld-cash { color: #34d399; }
+.ld-rep { color: #fbbf24; }
+.log-day-detail { margin-top: 4px; font-size: 11px; color: #94a3b8; line-height: 1.5; }
+.log-day-lines { margin-top: 3px; }
+.log-line { font-size: 11px; color: #cbd5e1; line-height: 1.5; }
 </style>

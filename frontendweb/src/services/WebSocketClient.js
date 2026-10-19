@@ -3,23 +3,36 @@ export default class WebSocketClient {
         this.url = 'ws://localhost:8080/game';
         this.ws = null;
         this.isConnected = false;
-        
-        // 事件回调
-        this.onMapData = null;
-        this.onRiderUpdate = null;
-        this.onOrderEvent = null; // 合并订单状态变化的事件
-        this.onOrdersSync = null; // 批量同步活跃订单
+
+        // 连接状态回调
         this.onStatusChange = null;
-        this.onBankruptcy = null; // 破产结算事件
-        this.onSpeedChanged = null; // 全局倍速变更
-        this.onManualAssignFailed = null; // 手动派单失败
-        this.onDispatchModeChanged = null; // 派单模式变更 (全自动 / 全手动)
+
+        // 游戏局生命周期
+        this.onGameStarted = null;   // GAME_STARTED
+        this.onGameStopped = null;   // GAME_STOPPED
+        this.onBankruptcy = null;    // BANKRUPTCY
+        this.onSpeedChanged = null;  // SIMULATION_SPEED_CHANGED（顶层 speed）
+        this.onSimulationPaused = null;
+        this.onSimulationResumed = null;
+
+        // 地图与经营状态
+        this.onMapData = null;       // MAP_DATA
+        this.onResortState = null;   // RESORT_STATE（全量经营状态，含 pendingCommands/scheduledOrders）
+        this.onDayStarted = null;    // DAY_STARTED {day, season, seasonName}
+        this.onTeamOrders = null;    // TEAM_ORDERS_OFFERED（GuestOrder[]，今日待决）
+        this.onDaySettled = null;    // DAY_SETTLED {day, netProfit, cash, reputation}
+        this.onRangeReport = null;   // RANGE_REPORT（区间报告，只回请求方）
+        this.onDailyLog = null;      // DAILY_LOG（本局全部每日结算日志，只回请求方）
+        this.onEventTrigger = null;  // EVENT_TRIGGER（GameEvent）
+        this.onNpcUpdate = null;     // NPC_UPDATE {guests, staff}
+        this.onTimeTick = null;      // TIME_TICK {day, phase, virtualTimeMs, virtualMsPerRealSecond, speed, paused}
+        this.onActionFailed = null;  // ACTION_FAILED {action, reason}
     }
 
     connect() {
         console.log("[WS] 尝试连接...", this.url);
         this.ws = new WebSocket(this.url);
-        
+
         this.ws.onopen = () => {
             console.log("[WS] 连接成功！");
             this.isConnected = true;
@@ -53,6 +66,10 @@ export default class WebSocketClient {
         }
     }
 
+    requestDailyLog() {
+        this.send({ command: 'REQUEST_DAILY_LOG' });
+    }
+
     send(data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(data));
@@ -63,19 +80,28 @@ export default class WebSocketClient {
 
     handleMessage(msg) {
         if (!msg || !msg.type) return;
-        
-        switch(msg.type) {
+
+        switch (msg.type) {
             case 'MAP_DATA':
                 if (this.onMapData) this.onMapData(msg.data);
                 break;
-            case 'RIDER_UPDATE':
-                if (this.onRiderUpdate) this.onRiderUpdate(msg.data);
+            case 'GAME_STARTED':
+                if (this.onGameStarted) this.onGameStarted(msg.data);
                 break;
-            case 'MERCHANT_UPDATE':
-                if (this.onMerchantUpdate) this.onMerchantUpdate(msg.data);
+            case 'GAME_STOPPED':
+                if (this.onGameStopped) this.onGameStopped(msg.data);
                 break;
-            case 'SIMULATION_STARTED':
-                if (this.onSimulationStarted) this.onSimulationStarted();
+            case 'RESORT_STATE':
+                if (this.onResortState) this.onResortState(msg.data);
+                break;
+            case 'DAY_STARTED':
+                if (this.onDayStarted) this.onDayStarted(msg.data);
+                break;
+            case 'TEAM_ORDERS_OFFERED':
+                if (this.onTeamOrders) this.onTeamOrders(msg.data);
+                break;
+            case 'SIMULATION_SPEED_CHANGED':
+                if (this.onSpeedChanged) this.onSpeedChanged(msg.speed);
                 break;
             case 'SIMULATION_PAUSED':
                 if (this.onSimulationPaused) this.onSimulationPaused();
@@ -83,33 +109,29 @@ export default class WebSocketClient {
             case 'SIMULATION_RESUMED':
                 if (this.onSimulationResumed) this.onSimulationResumed();
                 break;
-            case 'SIMULATION_SPEED_CHANGED':
-                if (this.onSpeedChanged) this.onSpeedChanged(msg.speed);
+            case 'DAY_SETTLED':
+                if (this.onDaySettled) this.onDaySettled(msg.data);
                 break;
-            case 'MANUAL_ASSIGN_FAILED':
-                if (this.onManualAssignFailed) this.onManualAssignFailed(msg.data);
+            case 'RANGE_REPORT':
+                if (this.onRangeReport) this.onRangeReport(msg.data);
                 break;
-            case 'DISPATCH_MODE_CHANGED':
-                if (this.onDispatchModeChanged) this.onDispatchModeChanged(msg.mode);
+            case 'DAILY_LOG':
+                if (this.onDailyLog) this.onDailyLog(msg.data);
                 break;
-            case 'SIMULATION_STOPPED':
-                if (this.onSimulationStopped) this.onSimulationStopped();
+            case 'EVENT_TRIGGER':
+                if (this.onEventTrigger) this.onEventTrigger(msg.data);
                 break;
-            case 'FINANCIAL_UPDATE':
-                if (this.onFinancialUpdate) this.onFinancialUpdate(msg.data);
+            case 'NPC_UPDATE':
+                if (this.onNpcUpdate) this.onNpcUpdate(msg.data);
+                break;
+            case 'TIME_TICK':
+                if (this.onTimeTick) this.onTimeTick(msg.data);
+                break;
+            case 'ACTION_FAILED':
+                if (this.onActionFailed) this.onActionFailed(msg.data);
                 break;
             case 'BANKRUPTCY':
                 if (this.onBankruptcy) this.onBankruptcy(msg.data);
-                break;
-            case 'ORDERS_SYNC':
-                if (this.onOrdersSync) this.onOrdersSync(msg.data);
-                break;
-            case 'ORDER_CREATED':
-            case 'RIDER_ASSIGNED':
-            case 'ORDER_STATUS_CHANGED':
-            case 'ORDER_COMPLETED':
-            case 'ORDER_EXPIRED':
-                if (this.onOrderEvent) this.onOrderEvent(msg.type, msg.data);
                 break;
         }
     }

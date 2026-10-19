@@ -6,32 +6,50 @@ import threading
 import redis
 from pathfinding import AStarRouter
 
-class SimulationEngine:
-    def __init__(self, map_data, rider_count=10, redis_host="localhost", redis_port=6379):
+# ================= 可视化可配置参数 (集中管理) =================
+TICK_INTERVAL = 0.1          # 10Hz tick 周期 (秒)
+NPC_DWELL_MIN = 2.0          # NPC 到达目的地后的驻留下限 (秒)
+NPC_DWELL_MAX = 4.0          # NPC 到达目的地后的驻留上限 (秒)
+POOL_ALIGN_INTERVAL = 1.0    # NPC 池每秒对齐一次的周期 (秒)
+ENTRANCE_SEARCH_RADIUS = 8   # 园区入口附近出生点的搜索半径 (格)
+
+# 员工岗位 → 关联建筑类型 (员工优先在这些建筑附近往返；无相关建筑则随机)
+STAFF_BUILDING_PREFERENCE = {
+    "FRONT_DESK": {"STANDARD_ROOM", "LUXURY_SUITE"},
+    "CLEANING": {"STANDARD_ROOM", "LUXURY_SUITE"},
+    "CHEF": {"RESTAURANT"},
+    "MAINTENANCE": {"SPA", "VIEWPOINT", "PARKING"},
+}
+# Java 尚未下发足量员工时用于补齐的默认岗位
+DEFAULT_STAFF_TYPES = ["FRONT_DESK", "CLEANING", "CHEF", "MAINTENANCE"]
+
+
+class ResortEngine:
+    """
+    度假村可视化引擎：仅驱动游客/员工沿园区路网走动并输出坐标，纯动画。
+    不产生任何业务事件，也不读写任何业务 Redis 键。
+    """
+
+    def __init__(self, map_data, redis_host="localhost", redis_port=6379):
         self.map_data = map_data
         self.grid = map_data["grid"]
         self.grid_min = map_data.get("min", -100)
         self.router = AStarRouter(self.grid, self.grid_min)
-        self.rider_count = rider_count
         self.running = False
         self.paused = False
-        # 派单模式: AUTO = 全自动派单 (空闲骑手自动寻热巡游) / MANUAL = 全手动派单 (不巡游, 由玩家手动调度)
-        self.dispatch_mode = "AUTO"
-        
-        # 提取地图中的商家及其就近道路坐标，供空闲寻热巡游使用
-        self.merchants = map_data.get("merchants", [])
-        self.merchant_road_points = []
-        for m in self.merchants:
-            mi, mj = self.router.find_nearest_road_idx(
-                self.router._coord_to_idx(m["x"], m["y"])[0],
-                self.router._coord_to_idx(m["x"], m["y"])[1]
-            )
-            rx, ry = self.router._idx_to_coord(mi, mj)
-            self.merchant_road_points.append({
-                "merchantId": m.get("id"),
-                "x": rx,
-                "y": ry
-            })
+
+        # NPC 池: id -> state (游客 / 员工)
+        self.guests = {}
+        self.staff = {}
+        self._guest_seq = 0
+        self._last_align = 0.0
+
+        # 目的地候选点 (每 tick 从 Redis 刷新)
+        self._building_points = []   # [{"type":..., "x":..., "y":...}]
+        self._staff_points = []      # [{"x":..., "y":...}]
+
+        # 园区入口 (距 (0,0) 最近的道路格) 及其附近的出生点集合
+        self.spawn_cells = self._build_spawn_cells()
 
         # Redis 客户端
         try:
@@ -41,68 +59,52 @@ class SimulationEngine:
             print(f"[Engine] Redis 连接失败: {e}. 请确保 Redis 已启动。")
             self.redis_client = None
 
-        # 收集所有合法的马路格子作为可选出生点 (随机分散出生)
-        road_cells = list(self.router.road_set)
-        if not road_cells:
-            spawn_i, spawn_j = self.router.find_nearest_road_idx(
-                self.router._coord_to_idx(0, 0)[0],
-                self.router._coord_to_idx(0, 0)[1]
-            )
-            road_cells = [(spawn_i, spawn_j)]
+    # ================= 出生点 =================
+    def _build_spawn_cells(self):
+        """园区入口 = 距 (0,0) 最近的道路格；出生点在入口附近随机分布。"""
+        ei, ej = self.router.find_nearest_road_idx(
+            *self.router._coord_to_idx(0, 0)
+        )
+        cells = []
+        for (i, j) in self.router.road_set:
+            if abs(i - ei) + abs(j - ej) <= ENTRANCE_SEARCH_RADIUS:
+                cells.append(self.router._idx_to_coord(i, j))
+        if cells:
+            return cells
+        return [self.router._idx_to_coord(ei, ej)]
 
-        # 初始骑手状态 (随机分散出生在马路上)
-        self.riders = {}
-        for i in range(1, self.rider_count + 1):
-            rider_id = f"rider-{i:03d}"
-            spawn_i, spawn_j = random.choice(road_cells)
-            spawn_x, spawn_y = self.router._idx_to_coord(spawn_i, spawn_j)
-            spawn_speed = self.router.get_road_speed_by_coord(spawn_x, spawn_y)
-            
-            self.riders[rider_id] = {
-                "id": rider_id,
-                "currentPosition": {"x": spawn_x, "y": spawn_y},
-                "targetPosition": None,
-                "plannedTarget": None, # 记录当前已规划路径的目标
-                "path": [],            # 关键拐点路径序列
-                "speed": spawn_speed,  # 初始道路速度
-                "status": 0,
-                "currentOrderId": None,
-                # === 玩家手动调度目标 (全手动派单模式下的"前往某地点"一次性指令) ===
-                "manualTarget": None,
-                # === 空闲主动寻热巡游字段 ===
-                "isCruising": False,
-                "cruiseTarget": None,
-                "idleWaitUntil": time.time() + random.uniform(1.0, 3.0)
-            }
+    def _random_spawn(self):
+        x, y = random.choice(self.spawn_cells)
+        return {"x": float(x), "y": float(y)}
 
+    # ================= 生命周期 =================
     def start(self):
         self.running = True
         self.paused = False
-        
-        # ★ 启动前彻底清空旧的 Redis 残留键，防止跨次启动的状态污染与死锁
+        self._last_align = 0.0
+
+        # 启动前清空旧的 NPC 状态键，避免跨次启动残留
         if self.redis_client:
             try:
-                keys_to_clean = ["game:state:riders", "game:rider:status", "game:rider:orders", "game:rider:targets", "game:rider:manual_targets", "game:events:reach_target"]
-                self.redis_client.delete(*keys_to_clean)
+                self.redis_client.delete("game:state:npc")
             except Exception as e:
                 print(f"[Engine] 启动清空 Redis 异常: {e}")
 
-            riders_list = self._get_riders_export()
-            self.redis_client.set("game:state:riders", json.dumps(riders_list))
-            print(f"[Engine] 已重置 Redis 并写入 {self.rider_count} 个骑手的初始状态")
-        
+        self._align_pools()
+        self._write_state()
+
         self.thread = threading.Thread(target=self._tick_loop)
         self.thread.daemon = True
         self.thread.start()
-        print("[Engine] 物理模拟引擎已启动 (10Hz)")
+        print("[Engine] 度假村可视化引擎已启动 (10Hz)")
 
     def pause(self):
         self.paused = True
-        print("[Engine] 物理模拟引擎已暂停")
+        print("[Engine] 度假村可视化引擎已暂停")
 
     def resume(self):
         self.paused = False
-        print("[Engine] 物理模拟引擎已继续")
+        print("[Engine] 度假村可视化引擎已继续")
 
     def stop(self):
         self.running = False
@@ -111,301 +113,238 @@ class SimulationEngine:
             self.thread.join(timeout=1.0)
         if self.redis_client:
             try:
-                keys_to_clean = ["game:state:riders", "game:rider:status", "game:rider:orders", "game:rider:targets", "game:rider:manual_targets", "game:events:reach_target"]
-                self.redis_client.delete(*keys_to_clean)
-                print("[Engine] 已清理模拟相关 Redis Key")
+                self.redis_client.delete("game:state:npc")
             except Exception as e:
                 print(f"[Engine] 清理 Redis Key 异常: {e}")
-        print("[Engine] 物理模拟引擎已停止")
+        print("[Engine] 度假村可视化引擎已停止")
 
-    def _get_riders_export(self):
-        """导出精简的骑手状态供前端和 Java 使用"""
-        export_list = []
-        for r in self.riders.values():
-            export_list.append({
-                "id": r["id"],
-                "currentPosition": {"x": r["currentPosition"]["x"], "y": r["currentPosition"]["y"]},
-                "targetPosition": r["targetPosition"] or r.get("manualTarget"),
-                "speed": r["speed"],
-                "status": r["status"],
-                "currentOrderId": r["currentOrderId"]
-            })
-        return export_list
-
+    # ================= 主 tick 循环 =================
     def _tick_loop(self):
         while self.running:
             if self.paused:
-                time.sleep(0.1)
+                time.sleep(TICK_INTERVAL)
                 continue
 
             # 全局倍速: 从 Redis 读取 Java 下发的倍速, 缩放物理步长 dt (0.1s * speed)
-            dt = 0.1
+            spd = 1.0
             if self.redis_client:
                 try:
                     spd = float(self.redis_client.get("game:simulation:speed") or "1.0")
-                    dt = 0.1 * spd
                 except Exception:
-                    dt = 0.1
+                    spd = 1.0
+            if spd <= 0:
+                spd = 1.0
+            dt = TICK_INTERVAL * spd
 
             start_time = time.time()
-            self._sync_dispatch_mode()
-            self._update_riders(dt)
-            
-            # 同步到 Redis 供 Java 读取
-            if self.redis_client:
-                riders_list = self._get_riders_export()
-                self.redis_client.set("game:state:riders", json.dumps(riders_list))
+
+            # 对齐周期随倍速缩放: 高倍速下更频繁补齐/裁剪 NPC，避免数量长期落后；下限 0.2s
+            align_interval = max(POOL_ALIGN_INTERVAL / spd, 0.2)
+            if not self._last_align or (start_time - self._last_align) >= align_interval:
+                self._align_pools()
+                self._last_align = start_time
+
+            # 目的地候选点每 tick 从 Redis 刷新一次 (子步复用，避免高倍速下重复读 Redis)
+            self._refresh_points()
+
+            # 子步拆分: 单个子步不超过 TICK_INTERVAL，避免高倍速下单步过大导致 NPC 瞬移
+            steps = max(1, int(math.ceil(dt / TICK_INTERVAL)))
+            sub_dt = dt / steps
+            for _ in range(steps):
+                self._update_npcs(sub_dt)
+
+            self._write_state()
 
             # 保持 10Hz
             elapsed = time.time() - start_time
-            sleep_time = max(0.1 - elapsed, 0)
-            time.sleep(sleep_time)
+            time.sleep(max(TICK_INTERVAL - elapsed, 0))
 
-    def _sync_dispatch_mode(self):
-        """同步 Java 下发的派单模式；切为全手动时立即取消所有骑手在途的自动巡游。"""
+    # ================= NPC 池对齐 =================
+    def _align_pools(self):
+        """按 game:resort:npc_plan 对齐游客/员工数量：不足从园区入口附近补齐，超出则移除多余。"""
+        plan = {"guests": 0, "staff": 0}
+        if self.redis_client:
+            try:
+                raw = self.redis_client.get("game:resort:npc_plan")
+                if raw:
+                    d = json.loads(raw)
+                    plan["guests"] = max(0, int(d.get("guests", 0)))
+                    plan["staff"] = max(0, int(d.get("staff", 0)))
+            except Exception:
+                pass
+
+        # ---- 游客: 全量对齐 (有多少渲染多少，禁止设上限) ----
+        target_g = plan["guests"]
+        while len(self.guests) < target_g:
+            self._guest_seq += 1
+            gid = f"g-{self._guest_seq:03d}"
+            self.guests[gid] = self._new_npc(gid, None)
+        while len(self.guests) > target_g:
+            self.guests.popitem()  # 移除最近加入的多余游客
+
+        # ---- 员工: 优先采用 Java 下发的员工 id/岗位，不足则补齐 ----
+        target_s = plan["staff"]
+        meta = self._read_staff_meta()
+        desired = list(meta.items())
+        k = 0
+        while len(desired) < target_s:
+            sid = f"s-{k + 1:03d}"
+            if sid not in meta:
+                desired.append((sid, {"type": DEFAULT_STAFF_TYPES[k % len(DEFAULT_STAFF_TYPES)]}))
+            k += 1
+        desired = desired[:target_s]
+
+        desired_ids = set()
+        for sid, info in desired:
+            desired_ids.add(sid)
+            if sid not in self.staff:
+                self.staff[sid] = self._new_npc(sid, info.get("type"))
+            else:
+                self.staff[sid]["type"] = info.get("type")
+        for sid in list(self.staff.keys()):
+            if sid not in desired_ids:
+                del self.staff[sid]
+
+    def _new_npc(self, npc_id, npc_type):
+        return {
+            "id": npc_id,
+            "type": npc_type,
+            "currentPosition": self._random_spawn(),
+            "path": [],
+            "status": 0,
+            "dwellUntil": time.time() + random.uniform(0.0, NPC_DWELL_MAX),
+        }
+
+    # ================= 候选点读取 =================
+    def _read_building_points(self):
+        """从 Redis 读取 Java 下发的建筑锚点 (含类型)，作为可视化目的地候选。"""
+        pts = []
+        if not self.redis_client:
+            return pts
+        try:
+            for v in self.redis_client.hgetall("game:resort:buildings").values():
+                d = json.loads(v)
+                if "x" in d and "y" in d:
+                    pts.append({"type": d.get("type"), "x": float(d["x"]), "y": float(d["y"])})
+        except Exception:
+            pass
+        return pts
+
+    def _read_staff_points(self):
+        """从 Redis 读取 Java 下发的员工岗位锚点，作为可视化目的地候选。"""
+        return [{"x": p["x"], "y": p["y"]} for p in self._read_staff_meta().values()
+                if "x" in p and "y" in p]
+
+    def _read_staff_meta(self):
+        """读取 game:resort:staff → {staffId: {"type":..., "x":..., "y":...}}"""
+        meta = {}
+        if not self.redis_client:
+            return meta
+        try:
+            for sid, v in self.redis_client.hgetall("game:resort:staff").items():
+                d = json.loads(v)
+                item = {"type": d.get("type")}
+                if "x" in d and "y" in d:
+                    item["x"] = float(d["x"])
+                    item["y"] = float(d["y"])
+                meta[sid] = item
+        except Exception:
+            pass
+        return meta
+
+    # ================= NPC 移动 =================
+    def _refresh_points(self):
+        """每 tick 从 Redis 刷新一次目的地候选点 (供所有子步复用)。"""
+        self._building_points = self._read_building_points()
+        self._staff_points = self._read_staff_points()
+
+    def _update_npcs(self, dt):
+        now = time.time()
+
+        # 候选点集合：建筑锚点 + 员工岗位锚点
+        all_points = [{"x": p["x"], "y": p["y"]} for p in self._building_points] + self._staff_points
+
+        for npc in list(self.guests.values()):
+            self._advance_npc(npc, dt, now, all_points)
+
+        for npc in list(self.staff.values()):
+            pool = self._staff_target_pool(npc) or all_points
+            self._advance_npc(npc, dt, now, pool)
+
+    def _staff_target_pool(self, npc):
+        """员工优先在与其岗位相关的建筑附近往返。"""
+        pref = STAFF_BUILDING_PREFERENCE.get(npc.get("type"))
+        if not pref:
+            return []
+        return [{"x": p["x"], "y": p["y"]} for p in self._building_points if p.get("type") in pref]
+
+    def _advance_npc(self, npc, dt, now, pool):
+        # 1. 无路径且已过驻留时间 → 从候选点随机挑一个目标并 A* 寻路
+        if not npc["path"]:
+            if now < npc["dwellUntil"]:
+                npc["status"] = 0
+                return
+            if not pool:
+                npc["status"] = 0
+                npc["dwellUntil"] = now + random.uniform(NPC_DWELL_MIN, NPC_DWELL_MAX)
+                return
+            tgt = random.choice(pool)
+            npc["path"] = self.router.find_path(npc["currentPosition"], tgt)
+            npc["status"] = 1
+
+        # 2. 沿路点匀速前进
+        if npc["path"]:
+            self._move_along_path(npc, dt)
+            if not npc["path"]:
+                # 到达 (距离 < 0.05 由移动逻辑保证) → 驻留 2~4 秒
+                npc["status"] = 0
+                npc["dwellUntil"] = now + random.uniform(NPC_DWELL_MIN, NPC_DWELL_MAX)
+
+    def _move_along_path(self, npc, dt):
+        curr_x = npc["currentPosition"]["x"]
+        curr_y = npc["currentPosition"]["y"]
+
+        # 按当前所在道路类型决定速度 (沿用道路速度)
+        speed = self.router.get_road_speed_by_coord(curr_x, curr_y)
+        budget = speed * dt
+
+        while budget > 0 and npc["path"]:
+            nxt = npc["path"][0]
+            nx, ny = nxt["x"], nxt["y"]
+            dx = nx - curr_x
+            dy = ny - curr_y
+            seg_dist = math.sqrt(dx * dx + dy * dy)
+
+            if seg_dist <= budget or seg_dist < 0.05:
+                curr_x, curr_y = nx, ny
+                budget -= seg_dist
+                npc["path"].pop(0)
+            else:
+                curr_x += (dx / seg_dist) * budget
+                curr_y += (dy / seg_dist) * budget
+                budget = 0
+
+        npc["currentPosition"]["x"] = float(curr_x)
+        npc["currentPosition"]["y"] = float(curr_y)
+
+    # ================= 状态输出 =================
+    def _npc_export(self):
+        guests = [
+            {"id": n["id"], "x": round(n["currentPosition"]["x"], 2),
+             "y": round(n["currentPosition"]["y"], 2), "status": n["status"]}
+            for n in self.guests.values()
+        ]
+        staff = [
+            {"id": n["id"], "type": n["type"], "x": round(n["currentPosition"]["x"], 2),
+             "y": round(n["currentPosition"]["y"], 2)}
+            for n in self.staff.values()
+        ]
+        return {"guests": guests, "staff": staff}
+
+    def _write_state(self):
         if not self.redis_client:
             return
         try:
-            mode = self.redis_client.get("game:dispatch:mode") or "AUTO"
-        except Exception:
-            return
-        if mode == self.dispatch_mode:
-            return
-        self.dispatch_mode = mode
-        if mode == "MANUAL":
-            for rider in self.riders.values():
-                if rider["isCruising"]:
-                    rider["isCruising"] = False
-                    rider["cruiseTarget"] = None
-                    rider["path"] = []
-                    rider["plannedTarget"] = None
-            print("[Engine] 已切换为全手动派单: 空闲骑手停止自动巡游, 等待玩家调度")
-
-    def _update_idle_cruising(self):
-        """
-        空闲骑手主动寻热巡游调度算法：
-        根据商圈出单期望、通行距离及周边骑手竞争惩罚，为停滞的空闲骑手规划前往热点商圈的巡航路径。
-        """
-        # 全手动派单模式下不自动巡游：空闲骑手原地待命，由玩家点击调度其前往指定地点
-        if self.dispatch_mode != "AUTO":
-            return
-
-        if not self.merchant_road_points:
-            return
-
-        now = time.time()
-
-        # 统计当前各个商圈周边或正在前往该商圈的空闲骑手数量 (用于防扎堆惩罚)
-        merchant_crowd = {idx: 0 for idx in range(len(self.merchant_road_points))}
-        for r in self.riders.values():
-            if r["status"] == 0:
-                rx = r["currentPosition"]["x"]
-                ry = r["currentPosition"]["y"]
-                for idx, mp in enumerate(self.merchant_road_points):
-                    dist = math.hypot(rx - mp["x"], ry - mp["y"])
-                    if dist < 15.0 or (r["isCruising"] and r.get("cruiseMerchantIdx") == idx):
-                        merchant_crowd[idx] += 1
-
-        # 遍历需要巡游调度的空闲骑手
-        for rider in self.riders.values():
-            # 只有当骑手处于空闲状态、无业务订单、且当前没有任务在身时
-            if rider["status"] == 0 and rider["currentOrderId"] is None and rider["targetPosition"] is None:
-                # 检查待命驻留冷却
-                if now < rider["idleWaitUntil"] or rider["path"]:
-                    continue
-
-                rx = rider["currentPosition"]["x"]
-                ry = rider["currentPosition"]["y"]
-
-                # 计算各个商家的吸引力效用得分
-                scores = []
-                for idx, mp in enumerate(self.merchant_road_points):
-                    dist = math.hypot(rx - mp["x"], ry - mp["y"])
-                    crowd = merchant_crowd[idx]
-                    # 效用函数: 距离衰减 + 竞争惩罚 (避免全城骑手挤在同一家店)
-                    attractiveness = 1.0 / (max(dist, 2.0) * (1.0 + 0.8 * crowd))
-                    scores.append(attractiveness)
-
-                total_score = sum(scores)
-                if total_score > 0:
-                    chosen_idx = random.choices(range(len(scores)), weights=scores, k=1)[0]
-                    chosen_point = self.merchant_road_points[chosen_idx]
-
-                    # 规划巡游路径
-                    target_pos = {"x": chosen_point["x"], "y": chosen_point["y"]}
-                    path = self.router.find_path(rider["currentPosition"], target_pos)
-
-                    if len(path) > 1:
-                        rider["isCruising"] = True
-                        rider["cruiseMerchantIdx"] = chosen_idx
-                        rider["cruiseTarget"] = target_pos
-                        rider["plannedTarget"] = target_pos
-                        rider["path"] = path
-                        merchant_crowd[chosen_idx] += 1
-                    else:
-                        # 骑手已经在该商圈路口，进入 2~4 秒驻留
-                        rider["idleWaitUntil"] = now + random.uniform(2.0, 4.0)
-
-    def _update_riders(self, dt):
-        # 1. 从 Redis 读取 Java 下发的控制指令 (例如目标点变更)
-        if self.redis_client:
-            try:
-                targets = self.redis_client.hgetall("game:rider:targets")
-                status_updates = self.redis_client.hgetall("game:rider:status")
-                orders = self.redis_client.hgetall("game:rider:orders")
-                manual_targets = self.redis_client.hgetall("game:rider:manual_targets")
-                
-                for r_id, rider in self.riders.items():
-                    # 更新状态
-                    if r_id in status_updates:
-                        new_status = int(status_updates[r_id])
-                        if new_status != rider["status"]:
-                            rider["status"] = new_status
-                            # 如果状态变为非空闲(如被派单 Status 1/2)，立即打断空闲巡游
-                            if new_status != 0 and rider["isCruising"]:
-                                rider["isCruising"] = False
-                                rider["path"] = []
-                                rider["plannedTarget"] = None
-                            # 转为业务任务后，玩家手动调度目标作废
-                            if new_status != 0 and rider.get("manualTarget") is not None:
-                                rider["manualTarget"] = None
-                                if self.redis_client:
-                                    self.redis_client.hdel("game:rider:manual_targets", r_id)
-                    
-                    if r_id in orders:
-                        new_order = orders[r_id] if orders[r_id] != "null" else None
-                        if new_order != rider["currentOrderId"]:
-                            rider["currentOrderId"] = new_order
-                            if new_order is not None and rider["isCruising"]:
-                                rider["isCruising"] = False
-                                rider["path"] = []
-                                rider["plannedTarget"] = None
-                            # 接到业务订单后，玩家手动调度目标作废
-                            if new_order is not None and rider.get("manualTarget") is not None:
-                                rider["manualTarget"] = None
-                                if self.redis_client:
-                                    self.redis_client.hdel("game:rider:manual_targets", r_id)
-
-                    # 更新目标坐标
-                    if r_id in targets:
-                        target_str = targets[r_id]
-                        if target_str and target_str != "null":
-                            target = json.loads(target_str)
-                            # 只有真正下发了新的有效业务目标点时才更新并打断巡游
-                            if (rider["targetPosition"] is None or 
-                                abs(rider["targetPosition"]["x"] - target["x"]) > 0.1 or 
-                                abs(rider["targetPosition"]["y"] - target["y"]) > 0.1):
-                                if rider["isCruising"]:
-                                    rider["isCruising"] = False
-                                    rider["path"] = []
-                                    rider["plannedTarget"] = None
-                                rider["targetPosition"] = target
-                        else:
-                            # 目标为 null 表示骑手当前无业务目标
-                            if rider["targetPosition"] is not None:
-                                rider["targetPosition"] = None
-                                rider["plannedTarget"] = None
-
-                    # 玩家手动调度目标 (全手动派单模式)：仅在骑手空闲且无业务任务时采纳为一次性目标
-                    if r_id in manual_targets:
-                        mt_str = manual_targets[r_id]
-                        if mt_str and mt_str != "null":
-                            try:
-                                mt = json.loads(mt_str)
-                            except Exception:
-                                mt = None
-                            if (mt is not None and rider["status"] == 0 and
-                                rider["currentOrderId"] is None and rider["targetPosition"] is None):
-                                cur_mt = rider.get("manualTarget")
-                                if (cur_mt is None or
-                                    abs(cur_mt["x"] - mt["x"]) > 0.1 or
-                                    abs(cur_mt["y"] - mt["y"]) > 0.1):
-                                    rider["manualTarget"] = mt
-                                    rider["isCruising"] = False
-                                    rider["cruiseTarget"] = None
-                                    rider["path"] = []
-                                    rider["plannedTarget"] = None
-                            
-            except Exception as e:
-                pass # 忽略 Redis 偶发读取错误
-
-        # 2. 调度空闲骑手主动寻热巡游
-        self._update_idle_cruising()
-
-        # 3. 寻路与沿道路网移动
-        for rider in self.riders.values():
-            # 业务目标优先；无业务目标时采用玩家手动调度目标
-            tar = rider["targetPosition"]
-            if tar is None:
-                tar = rider.get("manualTarget")
-            
-            # 若有业务目标点，优先响应业务订单目标
-            if tar is not None:
-                if (rider["plannedTarget"] is None or 
-                    abs(rider["plannedTarget"]["x"] - tar["x"]) > 0.1 or 
-                    abs(rider["plannedTarget"]["y"] - tar["y"]) > 0.1):
-                    
-                    # 重新规划道路路径
-                    rider["path"] = self.router.find_path(rider["currentPosition"], tar)
-                    rider["plannedTarget"] = {"x": tar["x"], "y": tar["y"]}
-            elif not rider["isCruising"]:
-                # 如果没有业务目标也不是巡游状态，清空路径
-                rider["path"] = []
-                rider["plannedTarget"] = None
-
-            # 执行沿路物理移动
-            if rider["path"]:
-                curr_x = rider["currentPosition"]["x"]
-                curr_y = rider["currentPosition"]["y"]
-                
-                # 根据当前所在道路类型动态调整速度 (主干道 12.0, 大路 6.0, 小路 3.0)
-                # 若为空闲巡游，以正常道路速度巡航移动
-                rider["speed"] = self.router.get_road_speed_by_coord(curr_x, curr_y)
-                
-                budget = rider["speed"] * dt
-                
-                while budget > 0 and rider["path"]:
-                    next_wp = rider["path"][0]
-                    nx, ny = next_wp["x"], next_wp["y"]
-                    dx = nx - curr_x
-                    dy = ny - curr_y
-                    seg_dist = math.sqrt(dx * dx + dy * dy)
-                    
-                    if seg_dist <= budget or seg_dist < 0.05:
-                        curr_x, curr_y = nx, ny
-                        budget -= seg_dist
-                        rider["path"].pop(0)
-                    else:
-                        curr_x += (dx / seg_dist) * budget
-                        curr_y += (dy / seg_dist) * budget
-                        budget = 0
-                
-                rider["currentPosition"]["x"] = float(curr_x)
-                rider["currentPosition"]["y"] = float(curr_y)
-                
-                # 路径消耗完毕，到达终点
-                if not rider["path"]:
-                    if rider["isCruising"]:
-                        # 到达空闲巡游商圈点，进入 3~5 秒商圈待命驻留
-                        rider["isCruising"] = False
-                        rider["cruiseTarget"] = None
-                        rider["plannedTarget"] = None
-                        rider["idleWaitUntil"] = time.time() + random.uniform(3.0, 5.0)
-                    elif rider["targetPosition"] is None and rider.get("manualTarget") is not None:
-                        # 玩家手动调度到达目的地：清空一次性目标，不推送业务到达事件
-                        rider["manualTarget"] = None
-                        rider["plannedTarget"] = None
-                        if self.redis_client:
-                            self.redis_client.hdel("game:rider:manual_targets", rider["id"])
-                    else:
-                        # 业务订单到达
-                        rider["targetPosition"] = None
-                        rider["plannedTarget"] = None
-                        
-                        # 通过 Redis 发送到达事件通知 Java
-                        if self.redis_client:
-                            self.redis_client.lpush("game:events:reach_target", json.dumps({
-                                "riderId": rider["id"],
-                                "status": rider["status"],
-                                "orderId": rider["currentOrderId"]
-                            }))
+            self.redis_client.set("game:state:npc", json.dumps(self._npc_export()))
+        except Exception as e:
+            print(f"[Engine] 写入 game:state:npc 异常: {e}")

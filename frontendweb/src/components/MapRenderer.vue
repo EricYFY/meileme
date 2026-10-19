@@ -1,25 +1,34 @@
 <template>
   <div class="map-container" ref="container">
     <canvas ref="canvasEl"></canvas>
-    
+
     <!-- 图例 -->
     <div class="legend glass-panel">
       <h4>🎨 色彩图例</h4>
       <div class="legend-item"><span class="box bg-road-main"></span>主干道 (白色)</div>
       <div class="legend-item"><span class="box bg-road-big"></span>大路 (灰色)</div>
-      <div class="legend-item"><span class="box bg-road-small"></span>小路 (深灰色)</div>
-      <div class="legend-item"><span class="circle bg-merchant"></span>商家 (橘色)</div>
-      <div class="legend-item"><span class="box bg-com-high"></span>高密商业区 (深紫)</div>
-      <div class="legend-item"><span class="box bg-com-low"></span>低密商业区 (浅紫)</div>
-      <div class="legend-item"><span class="box bg-res-high"></span>高密住宅区 (深绿)</div>
-      <div class="legend-item"><span class="box bg-res-low"></span>低密住宅区 (浅绿)</div>
+      <div class="legend-item"><span class="box bg-road-small"></span>小路/山路 (深灰色)</div>
+      <div class="legend-item"><span class="box bg-tile-ground"></span>草地 (山脚)</div>
+      <div class="legend-item"><span class="box bg-tile-lake"></span>湖面</div>
+      <div class="legend-item"><span class="box bg-tile-mountain"></span>山体 (山腰)</div>
       <div class="divider"></div>
-      <div class="legend-item"><span class="circle bg-rider-idle"></span>骑手: 空闲 (绿色)</div>
-      <div class="legend-item"><span class="circle bg-rider-pickup"></span>骑手: 接单中 (浅蓝)</div>
-      <div class="legend-item"><span class="circle bg-rider-delivery"></span>骑手: 配送中 (深蓝)</div>
-      <div class="legend-item"><span class="box bg-order-new"></span>新订单 (红色)</div>
+      <div class="legend-item"><span class="box bg-plot-initial"></span>山脚地块</div>
+      <div class="legend-item"><span class="box bg-plot-mountain"></span>山腰地块</div>
+      <div class="legend-item"><span class="box bg-plot-lakeside"></span>湖畔地块</div>
       <div class="divider"></div>
-      <div class="legend-item hint">💡 点击订单查看详情</div>
+      <div class="legend-item"><span class="box bg-b-room"></span>普通客房</div>
+      <div class="legend-item"><span class="box bg-b-lux"></span>豪华套房</div>
+      <div class="legend-item"><span class="box bg-b-rest"></span>餐厅</div>
+      <div class="legend-item"><span class="box bg-b-spa"></span>温泉池</div>
+      <div class="legend-item"><span class="box bg-b-view"></span>观景台</div>
+      <div class="legend-item"><span class="box bg-b-park"></span>停车场</div>
+      <div class="divider"></div>
+      <div class="legend-item"><span class="circle bg-guest"></span>游客</div>
+      <div class="legend-item"><span class="box bg-staff-front"></span>前台员工</div>
+      <div class="legend-item"><span class="box bg-staff-clean"></span>保洁员工</div>
+      <div class="legend-item"><span class="box bg-staff-chef"></span>厨师员工</div>
+      <div class="legend-item"><span class="box bg-staff-maint"></span>维修员工</div>
+      <div class="divider"></div>
       <div class="legend-item hint">🖱️ 滚轮缩放 / 拖拽平移</div>
     </div>
   </div>
@@ -31,14 +40,11 @@ import CanvasEngine from '../utils/CanvasEngine';
 
 const props = defineProps({
   mapData: Object,
-  riders: Array,
-  orders: Object,
-  selectedOrderId: String,
-  manualMode: Boolean,
-  movingRiderId: String
+  guests: Array,
+  staff: Array,
+  buildings: Array,
+  plots: Array
 });
-
-const emit = defineEmits(['orderSelected', 'riderSelected', 'riderMoveSelected', 'riderMoveTarget']);
 
 const container = ref(null);
 const canvasEl = ref(null);
@@ -46,26 +52,7 @@ let engine = null;
 
 onMounted(() => {
   engine = new CanvasEngine(canvasEl.value);
-  
-  // 当地图上点击订单时，通知父组件
-  engine.onOrderSelected = (orderId) => {
-    emit('orderSelected', orderId);
-  };
-  // 手动派单：点击空闲骑手时通知父组件
-  engine.onRiderSelected = (riderId) => {
-    emit('riderSelected', riderId);
-  };
-  // 手动调度：点击空闲骑手进入"前往某地点"待选态
-  engine.onRiderMoveSelected = (riderId) => {
-    emit('riderMoveSelected', riderId);
-  };
-  // 手动调度：点击地图目标点下发前往指令
-  engine.onRiderMoveTarget = (riderId, x, y) => {
-    emit('riderMoveTarget', { riderId, x, y });
-  };
-  engine.setManualMode(props.manualMode);
-  engine.setMovingRider(props.movingRiderId);
-  
+
   const resize = () => {
     if (container.value) {
       engine.resize(container.value.clientWidth, container.value.clientHeight);
@@ -75,6 +62,10 @@ onMounted(() => {
   resize();
 
   if (props.mapData) engine.setMap(props.mapData);
+  if (props.guests) engine.setGuests(props.guests);
+  if (props.staff) engine.setStaff(props.staff);
+  if (props.buildings) engine.setBuildings(props.buildings);
+  if (props.plots) engine.setPlots(props.plots);
 });
 
 onBeforeUnmount(() => {
@@ -85,32 +76,26 @@ watch(() => props.mapData, (newMap) => {
   if (engine) engine.setMap(newMap);
 });
 
-watch(() => props.riders, (newRiders) => {
-  if (engine && newRiders) engine.updateRiders(newRiders);
+watch(() => props.guests, (newGuests) => {
+  if (engine) engine.setGuests(newGuests);
 }, { deep: true });
 
-watch(() => props.orders, (newOrders) => {
-  if (engine) {
-    Object.values(newOrders).forEach(o => engine.addOrder(o));
-    engine.orders.forEach((_, id) => {
-      if (!newOrders[id]) engine.removeOrder(id);
-    });
-  }
+watch(() => props.staff, (newStaff) => {
+  if (engine) engine.setStaff(newStaff);
 }, { deep: true });
 
-// 从侧边栏点击订单时，同步高亮到 Canvas
-watch(() => props.selectedOrderId, (newId) => {
-  if (engine) engine.selectOrder(newId);
-});
+watch(() => props.buildings, (newBuildings) => {
+  if (engine) engine.setBuildings(newBuildings);
+}, { deep: true });
 
-// 手动派单开关变化时同步到 Canvas
-watch(() => props.manualMode, (enabled) => {
-  if (engine) engine.setManualMode(enabled);
-});
+watch(() => props.plots, (newPlots) => {
+  if (engine) engine.setPlots(newPlots);
+}, { deep: true });
 
-// 移动待选骑手变化时同步到 Canvas
-watch(() => props.movingRiderId, (riderId) => {
-  if (engine) engine.setMovingRider(riderId);
+// 暴露给父组件：建造成功后定位新建筑 / 回到整图
+defineExpose({
+  focusOn: (x, y) => { if (engine) engine.focusOn(x, y); },
+  resetView: () => { if (engine) engine.resetView(); }
 });
 </script>
 
@@ -167,13 +152,21 @@ canvas {
 .bg-road-main { background: #ffffff; border: 1px solid #cbd5e1; }
 .bg-road-big { background: #94a3b8; }
 .bg-road-small { background: #475569; }
-.bg-merchant { background: #f97316; box-shadow: 0 0 6px #f97316; }
-.bg-com-high { background: #6b21a8; }
-.bg-com-low { background: #c084fc; }
-.bg-res-high { background: #15803d; }
-.bg-res-low { background: #86efac; border: 1px solid #22c55e; }
-.bg-rider-idle { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
-.bg-rider-pickup { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
-.bg-rider-delivery { background: #1d4ed8; box-shadow: 0 0 6px #1d4ed8; }
-.bg-order-new { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.bg-tile-ground { background: #31402a; }
+.bg-tile-lake { background: #1e5b78; }
+.bg-tile-mountain { background: #7a5c34; }
+.bg-plot-initial { background: rgba(34, 197, 94, 0.5); border: 1px solid #22c55e; }
+.bg-plot-mountain { background: rgba(180, 83, 9, 0.7); border: 1px solid #b45309; }
+.bg-plot-lakeside { background: rgba(14, 116, 144, 0.7); border: 1px solid #06b6d4; }
+.bg-b-room { background: #4ade80; }
+.bg-b-lux { background: #fbbf24; }
+.bg-b-rest { background: #fb923c; }
+.bg-b-spa { background: #22d3ee; }
+.bg-b-view { background: #a78bfa; }
+.bg-b-park { background: #94a3b8; }
+.bg-guest { background: #e2e8f0; box-shadow: 0 0 6px #e2e8f0; }
+.bg-staff-front { background: #38bdf8; }
+.bg-staff-clean { background: #f472b6; }
+.bg-staff-chef { background: #fb923c; }
+.bg-staff-maint { background: #a78bfa; }
 </style>
