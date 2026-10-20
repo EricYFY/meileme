@@ -1,0 +1,206 @@
+package com.meileme.resort.service;
+
+import com.meileme.resort.config.AbilityType;
+import com.meileme.resort.config.BuildingForm;
+import com.meileme.resort.config.EvolutionLine;
+import com.meileme.resort.config.PositionType;
+import com.meileme.resort.config.SkillEffectKey;
+import com.meileme.resort.model.BuildingInstance;
+import com.meileme.resort.model.DailyPreview;
+import com.meileme.resort.model.DailySettle;
+import com.meileme.resort.model.DemandResult;
+import com.meileme.resort.model.GameState;
+import com.meileme.resort.model.StaffInstance;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 财务结算：住宿收入（按间计价）+ 配套收入；支出 = 建筑维护费 + 员工薪资。
+ */
+@Service
+public class FinanceService {
+
+    private final StaffService staffService;
+    private final ComfortService comfortService;
+    private final SkillTreeService skillTree;
+
+    public FinanceService(StaffService staffService, ComfortService comfortService, SkillTreeService skillTree) {
+        this.staffService = staffService;
+        this.comfortService = comfortService;
+        this.skillTree = skillTree;
+    }
+
+    /** 今日预计纯投影：复用结算公式但不扣减资金、不修改累计统计 */
+    public DailyPreview projection(GameState state, DemandResult demand) {
+        DailyPreview p = new DailyPreview();
+        p.setTotalRooms(demand.getTotalRooms());
+        p.setOccupiedRooms(demand.getOccupiedRooms());
+        p.setOccupancyRate(demand.getTotalRooms() <= 0 ? 0
+                : (double) demand.getOccupiedRooms() / demand.getTotalRooms());
+        p.setExpectedGuests(demand.getTotalServed());
+
+        double roomPriceMult = skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
+        double mergeBonus = skillTree.flat(state, SkillEffectKey.MERGE_BONUS);
+        double supportPriceMult = skillTree.multiplier(state, SkillEffectKey.SUPPORT_PRICE_MULT);
+        double maintenanceDiscount = skillTree.discount(state, SkillEffectKey.MAINTENANCE_COST_DISCOUNT);
+
+        // —— 住宿收入（按间计价） ——
+        double accommodationRevenue = 0;
+        for (BuildingInstance b : state.aliveAccommodationBuildings()) {
+            int sold = demand.getSoldRoomsByBuilding().getOrDefault(b.getId(), 0);
+            BuildingForm f = b.getForm();
+            double price = f.pricePerRoomOf(b.getFormLevel()) * roomPriceMult;
+            if (f.getLine() == EvolutionLine.MERGE) {
+                price *= (1 + mergeBonus);
+            }
+            accommodationRevenue += sold * price;
+        }
+
+        // —— 配套收入 ——
+        double supportRevenue = 0;
+        for (BuildingInstance b : state.aliveSupportBuildings()) {
+            double count = demand.getSupportServiceByBuilding().getOrDefault(b.getId(), 0d);
+            BuildingForm f = b.getForm();
+            supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * supportPriceMult;
+        }
+
+        // —— 每日运营成本（仅两项） ——
+        double maintenance = 0;
+        for (BuildingInstance b : state.aliveBuildings()) {
+            maintenance += b.getForm().maintenanceOf(b.getFormLevel());
+        }
+        maintenance *= maintenanceDiscount;
+        double salary = staffService.totalSalary(state);
+
+        double totalRevenue = accommodationRevenue + supportRevenue;
+        double totalExpense = maintenance + salary;
+
+        p.setAccommodationRevenue(accommodationRevenue);
+        p.setSupportRevenue(supportRevenue);
+        p.setRevenue(totalRevenue);
+        p.setMaintenance(maintenance);
+        p.setSalary(salary);
+        p.setExpense(totalExpense);
+        p.setNetProfit(totalRevenue - totalExpense);
+        return p;
+    }
+
+    /** 按当日客流分配结果完成资金结算，返回填满数值的日结快照 */
+    public DailySettle settle(GameState state, DemandResult demand) {
+        DailySettle settle = new DailySettle();
+        settle.setDay(state.getDay());
+        settle.setDateDisplay(state.currentDateDisplay());
+
+        settle.setPotentialBySegment(new java.util.EnumMap<>(demand.getPotentialBySegment()));
+        settle.setConversionBySegment(new java.util.EnumMap<>(demand.getConversionBySegment()));
+        settle.setIntentBySegment(new java.util.EnumMap<>(demand.getIntentBySegment()));
+        settle.setServedBySegment(new java.util.EnumMap<>(demand.getServedBySegment()));
+        settle.setTotalPotential(demand.getTotalPotential());
+        settle.setTotalIntent(demand.getTotalIntent());
+        settle.setTotalServed(demand.getTotalServed());
+        settle.setOverflowGuests(demand.getOverflowGuests());
+        settle.setTotalRooms(demand.getTotalRooms());
+        settle.setOccupiedRooms(demand.getOccupiedRooms());
+        settle.setOccupancyRate(demand.getTotalRooms() <= 0 ? 0
+                : (double) demand.getOccupiedRooms() / demand.getTotalRooms());
+
+        double roomPriceMult = skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
+        double mergeBonus = skillTree.flat(state, SkillEffectKey.MERGE_BONUS);
+        double supportPriceMult = skillTree.multiplier(state, SkillEffectKey.SUPPORT_PRICE_MULT);
+        double maintenanceDiscount = skillTree.discount(state, SkillEffectKey.MAINTENANCE_COST_DISCOUNT);
+
+        // —— 住宿收入（按间计价：售出间数 × 该形态固定房价） ——
+        double accommodationRevenue = 0;
+        Map<String, Double> roomRevenueById = new HashMap<>();
+        for (BuildingInstance b : state.aliveAccommodationBuildings()) {
+            int sold = demand.getSoldRoomsByBuilding().getOrDefault(b.getId(), 0);
+            BuildingForm f = b.getForm();
+            double price = f.pricePerRoomOf(b.getFormLevel()) * roomPriceMult;
+            if (f.getLine() == EvolutionLine.MERGE) {
+                price *= (1 + mergeBonus);
+            }
+            double revenue = sold * price;
+            roomRevenueById.put(b.getId(), revenue);
+            accommodationRevenue += revenue;
+        }
+
+        // —— 配套收入（服务人次 × 该形态固定基准消费单价） ——
+        double supportRevenue = 0;
+        for (BuildingInstance b : state.aliveSupportBuildings()) {
+            double count = demand.getSupportServiceByBuilding().getOrDefault(b.getId(), 0d);
+            BuildingForm f = b.getForm();
+            supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * supportPriceMult;
+        }
+
+        // —— 每日运营成本（仅两项） ——
+        double maintenance = 0;
+        for (BuildingInstance b : state.aliveBuildings()) {
+            maintenance += b.getForm().maintenanceOf(b.getFormLevel());
+        }
+        maintenance *= maintenanceDiscount;
+        double salary = staffService.totalSalary(state);
+
+        double totalRevenue = accommodationRevenue + supportRevenue;
+        double totalExpense = maintenance + salary;
+        double netProfit = totalRevenue - totalExpense;
+
+        settle.setAccommodationRevenue(accommodationRevenue);
+        settle.setSupportRevenue(supportRevenue);
+        settle.setTotalRevenue(totalRevenue);
+        settle.setMaintenanceCost(maintenance);
+        settle.setSalaryCost(salary);
+        settle.setTotalExpense(totalExpense);
+        settle.setNetProfit(netProfit);
+
+        state.setFunds(state.getFunds() + netProfit);
+        settle.setFundsAfter(state.getFunds());
+
+        // —— 累计统计（成就判定） ——
+        state.getStats().setCumulativeIncome(state.getStats().getCumulativeIncome() + totalRevenue);
+        state.getStats().setTotalAssets(state.getFunds());
+        state.getStats().setTotalGuests(state.getStats().getTotalGuests() + demand.getTotalServed());
+        for (com.meileme.resort.config.CustomerSegment seg : com.meileme.resort.config.CustomerSegment.values()) {
+            state.getStats().addSegmentGuests(seg, demand.getServedBySegment().getOrDefault(seg, 0d));
+        }
+
+        // —— 人力供给提示（便于复盘） ——
+        Map<AbilityType, Double> ratios = comfortService.supplyRatios(state);
+        StringBuilder shortage = new StringBuilder();
+        for (Map.Entry<AbilityType, Double> e : ratios.entrySet()) {
+            if (e.getValue() < 1.0) {
+                if (shortage.length() > 0) {
+                    shortage.append("、");
+                }
+                shortage.append(e.getKey().getDisplayName())
+                        .append(String.format("%.0f%%", e.getValue() * 100));
+            }
+        }
+        if (shortage.length() > 0) {
+            settle.getEvents().add("人力供给不足：" + shortage + "（仅降低相关建筑舒适度）");
+        }
+
+        // —— 员工概况 ——
+        int staffCount = state.aliveStaffs().size();
+        if (staffCount == 0) {
+            settle.getEvents().add("当前无在册员工，相关建筑舒适度将降至保底值");
+        } else {
+            StringBuilder sb = new StringBuilder("在册员工 " + staffCount + " 人：");
+            for (PositionType p : PositionType.values()) {
+                int n = 0;
+                for (StaffInstance s : state.aliveStaffs()) {
+                    if (s.getPosition() == p) {
+                        n++;
+                    }
+                }
+                if (n > 0) {
+                    sb.append(p.getDisplayName()).append("×").append(n).append(" ");
+                }
+            }
+            settle.getEvents().add(sb.toString().trim());
+        }
+
+        return settle;
+    }
+}

@@ -1,0 +1,61 @@
+package com.meileme.resort.model;
+
+import com.meileme.resort.config.BuildingForm;
+import com.meileme.resort.config.EvolutionLine;
+import com.meileme.resort.config.MotherBuildingType;
+import lombok.Data;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 建筑实例。
+ *
+ * <p>住宿类建筑实例语义为<b>一间房</b>：容量 = 每间可接待人数（+ 承载型内装附加容量），
+ * 分配人数 > 0 即视为该间售出，收入 = 售出间数 × 该形态固定房价。</p>
+ */
+@Data
+public class BuildingInstance {
+
+    /** 建筑唯一 ID */
+    private String id;
+
+    /** 所属母本 */
+    private MotherBuildingType mother;
+
+    /** 当前形态 */
+    private BuildingForm form;
+
+    /** 当前形态等级（Lv1~Lv3） */
+    private int formLevel = 1;
+
+    /** 所属地块 ID */
+    private String plotId;
+
+    /** 是否存活（合并进化的源建筑会被逻辑删除，保留墓碑记录） */
+    private boolean alive = true;
+
+    /** 内装列表 */
+    private List<InteriorInstance> interiors = new ArrayList<>();
+
+    /** 合并进化来源建筑 ID（非合并产物则为空列表） */
+    private List<String> mergeSourceIds = new ArrayList<>();
+
+    /** 建成 / 形态变更生效的游戏日 */
+    private int builtDay;
+
+    /** 进化线（由形态推导） */
+    public EvolutionLine line() {
+        return form == null ? EvolutionLine.BASE : form.getLine();
+    }
+
+    /** 查找指定内装类型的实例 */
+    public InteriorInstance findInterior(com.meileme.resort.config.InteriorType type) {
+        for (InteriorInstance it : interiors) {
+            if (it.getInteriorType() == type) {
+                return it;
+            }
+        }
+        return null;
+    }
+}
