@@ -121,6 +121,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             } else if ("UNLOCK_PLOT".equals(cmd)) {
                 String plotId = jsonNode.has("plotId") ? jsonNode.get("plotId").asText() : "";
                 resortEngineService.unlockPlot(plotId);
+            } else if ("TOGGLE_BUILDING_DISABLE".equals(cmd)) {
+                String buildingId = jsonNode.has("buildingId") ? jsonNode.get("buildingId").asText() : "";
+                resortEngineService.toggleBuildingDisable(buildingId);
+            } else if ("DEMOLISH_BUILDING".equals(cmd)) {
+                String buildingId = jsonNode.has("buildingId") ? jsonNode.get("buildingId").asText() : "";
+                resortEngineService.demolishBuilding(buildingId);
             } else {
                 System.out.println(">>> [来自 Client] 未知指令: " + cmd);
             }

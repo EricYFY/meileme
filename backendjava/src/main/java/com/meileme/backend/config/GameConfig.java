@@ -48,8 +48,7 @@ public final class GameConfig {
     public static final double BASE_GUESTS_PER_DAY   = 60.0;
     public static final double REP_BASELINE          = 70.0; // 口碑基准(该点客流系数=1.0)
     public static final double REP_TRAFFIC_PER_POINT = 0.01; // 口碑每 ±1 点 → 客流 ±1%
-    public static final double LOW_REP_THRESHOLD     = 50.0; // 口碑低于该值"大幅衰减"
-    public static final double LOW_REP_DECAY_FACTOR  = 0.50;
+    public static final double REP_FACTOR_MIN        = 0.30; // 口碑客流系数保底（平滑衰减下限，避免口碑死亡螺旋）
     public static final double AD_TRAFFIC_PER_1000   = 0.15; // 每 1000 元广告 +15%
     public static final double AD_TRAFFIC_CAP        = 0.80; // 广告加成上限 +80%
     public static final double LUX_GUEST_PREFERENCE  = 0.30; // 过夜客中 30% 偏好豪华套房
@@ -69,6 +68,7 @@ public final class GameConfig {
     // ===== 团建大单每日数量 =====
     public static final int TEAM_ORDER_MIN_PER_DAY = 0; // 每日最少团建单数
     public static final int TEAM_ORDER_MAX_PER_DAY = 2; // 每日最多团建单数
+    public static final double TEAM_SUCCESS_REPUTATION_BONUS = 3.0; // 当日已生效团建单全部履约成功 → 口碑 +3
 
     // ===== 员工负面事件效果 =====
     public static final double STAFF_NEG_FRONT_OCCUPANCY_PENALTY = 0.10; // 前台失误：当日入住率 -10%
@@ -128,6 +128,10 @@ public final class GameConfig {
         if (PLOT_LAKESIDE.equals(plotId)) return LAND_LAKESIDE_LIMIT;
         return LAND_INITIAL_LIMIT;
     }
+
+    // ===== 建筑停用 / 启用 / 拆除 =====
+    public static final double REBUILD_RATIO           = 0.3; // 手动启用经费 = 建造成本 × 该比例（次日生效时才扣）
+    public static final double DEMOLISH_RESIDUAL_RATIO = 0.3; // 拆除返还残值 = 建造成本 × 该比例
 
     /** 第 day 天的季节：1~30 春 → 31~60 夏 → 61~90 秋 → 91~120 冬 → 循环 */
     public static Season seasonOfDay(int day) {

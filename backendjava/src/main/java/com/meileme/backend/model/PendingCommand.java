@@ -21,7 +21,9 @@ public class PendingCommand {
         SET_AD_BUDGET,       // 调整广告预算
         ACCEPT_TEAM_ORDER,   // 接受团建单
         REJECT_TEAM_ORDER,   // 拒绝团建单
-        UNLOCK_PLOT          // 解锁地块
+        UNLOCK_PLOT,         // 解锁地块
+        TOGGLE_BUILDING_DISABLE, // 停用/启用建筑（玩家手动）
+        DEMOLISH_BUILDING    // 拆除建筑
     }
 
     private String id;
@@ -37,6 +39,8 @@ public class PendingCommand {
     //   UNLOCK_PLOT             -> text1=地块ID
     //   SET_ROOM_PRICE          -> num1=普通房价, num2=豪华房价
     //   SET_AD_BUDGET           -> num1=广告预算
+    //   TOGGLE_BUILDING_DISABLE -> text1=建筑ID, text2=动作(DISABLE 停用 / ENABLE 启用)
+    //   DEMOLISH_BUILDING       -> text1=建筑ID
     private String text1;
     private String text2;
     private double num1;

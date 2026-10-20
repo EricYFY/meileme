@@ -385,9 +385,12 @@ public class ResortEngineService {
         // 1. 季节（每 30 游戏天切换）
         resort.setSeason(GameConfig.seasonOfDay(resort.getDay()));
 
-        // 2. 修复上一日遗留的停用建筑
+        // 2. 修复上一日遗留的自动停用建筑（水管爆裂 AUTO → 次日自动恢复）；玩家手动停用 MANUAL 保持不变
         for (Building b : resort.getBuildings()) {
-            if (b.getStatus() == Building.STATUS_DISABLED) b.setStatus(Building.STATUS_AVAILABLE);
+            if (b.getStatus() == Building.STATUS_DISABLED && !b.isManuallyDisabled()) {
+                b.setStatus(Building.STATUS_AVAILABLE);
+                b.setDisableSource(null);
+            }
         }
 
         // 3. 生成今日 0~2 笔团建大单（当天有效：接受次日生效，不操作次日自动拒绝）
@@ -595,6 +598,8 @@ public class ResortEngineService {
                         resort.getUnlockedPlots().add(c.getText1());
                     }
                 }
+                case TOGGLE_BUILDING_DISABLE -> applyToggleDisable(c);
+                case DEMOLISH_BUILDING -> applyDemolish(c);
             }
         }
         resort.getPendingCommands().clear();
@@ -628,6 +633,82 @@ public class ResortEngineService {
         int[] cell = randomCell();
         s.setPosition(new Coordinate((float) cell[0], (float) cell[1]));
         resort.getStaffList().add(s);
+    }
+
+    /**
+     * 停用/启用指令生效：
+     *   停用：仅当建筑当前仍为正式运营（status=0）时生效 → status=2, disableSource=MANUAL；
+     *   启用：仅当建筑当前为「手动停用」时生效 → 扣启用经费(建造成本×REBUILD_RATIO)，恢复 status=0 并清空 disableSource；
+     *   期间状态已变化（如被拆除/被水管爆裂）则跳过并记日志。
+     */
+    private void applyToggleDisable(PendingCommand c) {
+        Resort resort = resortRepository.get();
+        Building b = findBuilding(c.getText1());
+        if (b == null) {
+            logToFile("    ⚠️ 建筑操作跳过：建筑已不存在 [" + c.getText1() + "]");
+            return;
+        }
+        boolean enable = "ENABLE".equals(c.getText2());
+        if (enable) {
+            if (!b.isManuallyDisabled()) {
+                logToFile("    ⚠️ 启用跳过：" + b.getType().getLabel() + " 当前非手动停用状态");
+                return;
+            }
+            double fee = GameConfig.round2(b.getType().getBuildCost() * GameConfig.REBUILD_RATIO);
+            if (resort.getCash() < fee) {
+                logToFile("    ⚠️ 启用失败：资金不足。" + b.getType().getLabel()
+                        + " 需启用经费 " + y(fee) + "，当前资金 " + y(resort.getCash()) + " —— 第 " + resort.getDay() + " 天");
+                return;
+            }
+            resort.setCash(GameConfig.round2(resort.getCash() - fee));
+            b.setStatus(Building.STATUS_AVAILABLE);
+            b.setDisableSource(null);
+            logToFile("    🔧 手动启用：" + b.getType().getLabel() + " 恢复运营，扣启用经费 " + y(fee)
+                    + "，资金 " + y(resort.getCash()) + " —— 第 " + resort.getDay() + " 天");
+        } else {
+            if (b.getStatus() != Building.STATUS_AVAILABLE) {
+                logToFile("    ⚠️ 停用跳过：" + b.getType().getLabel() + " 当前非正式运营状态");
+                return;
+            }
+            b.setStatus(Building.STATUS_DISABLED);
+            b.setDisableSource(Building.DisableSource.MANUAL);
+            logToFile("    ⛔ 手动停用：" + b.getType().getLabel() + " 停止运营（不产生容量/收入，且不再扣每日维护费）"
+                    + " —— 第 " + resort.getDay() + " 天");
+        }
+    }
+
+    /**
+     * 拆除指令生效：仅当建筑当前仍为正式运营（status=0）时生效 → 返还残值(建造成本×DEMOLISH_RESIDUAL_RATIO)，
+     * 从建筑列表移除并释放占用格子与地块建筑数量上限。
+     */
+    private void applyDemolish(PendingCommand c) {
+        Resort resort = resortRepository.get();
+        Building b = findBuilding(c.getText1());
+        if (b == null) {
+            logToFile("    ⚠️ 拆除跳过：建筑已不存在 [" + c.getText1() + "]");
+            return;
+        }
+        if (b.getStatus() != Building.STATUS_AVAILABLE) {
+            logToFile("    ⚠️ 拆除跳过：" + b.getType().getLabel() + " 当前非正式运营状态（施工中/停用禁止拆除）");
+            return;
+        }
+        double refund = GameConfig.round2(b.getType().getBuildCost() * GameConfig.DEMOLISH_RESIDUAL_RATIO);
+        resort.setCash(GameConfig.round2(resort.getCash() + refund));
+        resort.getBuildings().remove(b);
+        if (b.getPosition() != null) {
+            occupiedCells.remove((int) b.getPosition().getX() + "," + (int) b.getPosition().getY()); // 释放格子
+        }
+        logToFile("    🧨 拆除：" + b.getType().getLabel() + "（" + plotLabel(b.getPlotId()) + "）返还残值 " + y(refund)
+                + "，资金 " + y(resort.getCash()) + "，地块建筑数上限已释放 —— 第 " + resort.getDay() + " 天");
+    }
+
+    private Building findBuilding(String buildingId) {
+        Resort resort = resortRepository.get();
+        if (resort == null || buildingId == null) return null;
+        for (Building b : resort.getBuildings()) {
+            if (buildingId.equals(b.getId())) return b;
+        }
+        return null;
     }
 
     /** 把当日接受的团建单转入「已接单·待生效」，并设定生效日 */
@@ -895,6 +976,61 @@ public class ResortEngineService {
         enqueue(PendingCommand.Type.FIRE_STAFF, "解雇员工 " + staffId, staffId, null, 0, 0);
     }
 
+    /**
+     * 停用 / 启用建筑（次日 0 点生效）：
+     *   status=0        → 手动停用（status=2, disableSource=MANUAL）
+     *   status=2 MANUAL → 手动启用（扣启用经费，恢复 status=0）
+     *   status=1 施工中 / status=2 AUTO → 不允许，返回 ACTION_FAILED
+     */
+    public void toggleBuildingDisable(String buildingId) {
+        if (guard("TOGGLE_BUILDING_DISABLE")) return;
+        Building b = findBuilding(buildingId);
+        if (b == null) { fail("TOGGLE_BUILDING_DISABLE", "BUILDING_NOT_FOUND"); return; }
+        if (hasQueuedBuildingOp(buildingId)) { fail("TOGGLE_BUILDING_DISABLE", "ALREADY_QUEUED"); return; }
+        if (b.getStatus() == Building.STATUS_UNDER_CONSTRUCTION) { fail("TOGGLE_BUILDING_DISABLE", "BUILDING_UNDER_CONSTRUCTION"); return; }
+
+        if (b.getStatus() == Building.STATUS_AVAILABLE) {
+            enqueue(PendingCommand.Type.TOGGLE_BUILDING_DISABLE,
+                    "停用 " + b.getType().getLabel() + "（" + plotLabel(b.getPlotId()) + "）",
+                    buildingId, "DISABLE", 0, 0);
+        } else if (b.isManuallyDisabled()) {
+            double fee = GameConfig.round2(b.getType().getBuildCost() * GameConfig.REBUILD_RATIO);
+            enqueue(PendingCommand.Type.TOGGLE_BUILDING_DISABLE,
+                    "启用 " + b.getType().getLabel() + "（启用经费 ¥" + (long) fee + "）",
+                    buildingId, "ENABLE", 0, 0);
+        } else {
+            // status=2 且为水管爆裂自动停用：玩家不能手动启用，等系统次日自动恢复
+            fail("TOGGLE_BUILDING_DISABLE", "BUILDING_AUTO_DISABLED");
+        }
+    }
+
+    /** 拆除建筑（次日 0 点生效）：仅允许正式运营（status=0）建筑；施工中/停用一律拒绝 */
+    public void demolishBuilding(String buildingId) {
+        if (guard("DEMOLISH_BUILDING")) return;
+        Building b = findBuilding(buildingId);
+        if (b == null) { fail("DEMOLISH_BUILDING", "BUILDING_NOT_FOUND"); return; }
+        if (hasQueuedBuildingOp(buildingId)) { fail("DEMOLISH_BUILDING", "ALREADY_QUEUED"); return; }
+        if (b.getStatus() == Building.STATUS_UNDER_CONSTRUCTION) { fail("DEMOLISH_BUILDING", "BUILDING_UNDER_CONSTRUCTION"); return; }
+        if (b.getStatus() != Building.STATUS_AVAILABLE) { fail("DEMOLISH_BUILDING", "BUILDING_NOT_OPERATING"); return; }
+
+        double refund = GameConfig.round2(b.getType().getBuildCost() * GameConfig.DEMOLISH_RESIDUAL_RATIO);
+        enqueue(PendingCommand.Type.DEMOLISH_BUILDING,
+                "拆除 " + b.getType().getLabel() + "（返还残值 ¥" + (long) refund + "）",
+                buildingId, null, 0, 0);
+    }
+
+    /** 同一建筑同一时刻只允许一条停用/启用/拆除指令，避免互相冲突 */
+    private boolean hasQueuedBuildingOp(String buildingId) {
+        Resort resort = resortRepository.get();
+        if (resort == null) return false;
+        for (PendingCommand c : resort.getPendingCommands()) {
+            if ((c.getType() == PendingCommand.Type.TOGGLE_BUILDING_DISABLE
+                    || c.getType() == PendingCommand.Type.DEMOLISH_BUILDING)
+                    && buildingId != null && buildingId.equals(c.getText1())) return true;
+        }
+        return false;
+    }
+
     public void setRoomPrice(double standardPrice, double luxuryPrice) {
         if (guard("SET_ROOM_PRICE")) return;
         if (standardPrice <= 0 && luxuryPrice <= 0) { fail("SET_ROOM_PRICE", "INVALID_PRICE"); return; }
@@ -1086,7 +1222,8 @@ public class ResortEngineService {
         double maintenance = 0.0;
         for (Building b : resort.getBuildings()) {
             if (b.getStatus() == Building.STATUS_UNDER_CONSTRUCTION) continue; // 施工中不计维护费
-            maintenance += b.getType().getDailyMaintenance();
+            if (b.isManuallyDisabled()) continue; // 玩家手动停用：不产生容量/收入，且不扣每日维护费
+            maintenance += b.getType().getDailyMaintenance(); // 自动停用(水管爆裂)仍照扣，保持旧逻辑
         }
         double eventCost = sumEventCosts(events) + (maintErr ? GameConfig.STAFF_NEG_MAINT_FAULT_COST : 0.0);
 
@@ -1117,6 +1254,17 @@ public class ResortEngineService {
             pe.put("repDelta", passiveRep);
             events.add(new GameEvent("ev-" + UUID.randomUUID().toString().substring(0, 8), EventType.PASSIVE_REP,
                     day, "口碑自然提升：+" + (long) passiveRep + "（" + String.join("、", why) + "）", pe));
+        }
+
+        // 团建履约奖励：当日所有已生效团建单全部履约成功 → 口碑 +TEAM_SUCCESS_REPUTATION_BONUS
+        boolean allTeamSatisfied = !teamResults.isEmpty()
+                && teamResults.stream().allMatch(t -> "SATISFIED".equals(t.getStatus()));
+        if (allTeamSatisfied) {
+            Map<String, Object> te = new HashMap<>();
+            te.put("repDelta", GameConfig.TEAM_SUCCESS_REPUTATION_BONUS);
+            events.add(new GameEvent("ev-" + UUID.randomUUID().toString().substring(0, 8), EventType.TEAM_SUCCESS,
+                    day, "团建全部履约成功：口碑 +" + (long) GameConfig.TEAM_SUCCESS_REPUTATION_BONUS
+                            + "（当日 " + teamResults.size() + " 单全部达标）", te));
         }
 
         double repDelta = 0.0;
@@ -1163,9 +1311,9 @@ public class ResortEngineService {
         double season = resort.getSeason().getTrafficCoefficient();
         double adFactor = 1.0 + Math.min(GameConfig.AD_TRAFFIC_CAP,
                 (resort.getAdBudget() / 1000.0) * GameConfig.AD_TRAFFIC_PER_1000);
-        double repFactor = Math.max(0.2,
+        // 口碑系数：max(0.3, 1 + (口碑 − 70) × 0.01)；平滑衰减、保底 0.3，避免口碑死亡螺旋
+        double repFactor = Math.max(GameConfig.REP_FACTOR_MIN,
                 1.0 + (resort.getReputation() - GameConfig.REP_BASELINE) * GameConfig.REP_TRAFFIC_PER_POINT);
-        if (resort.getReputation() < GameConfig.LOW_REP_THRESHOLD) repFactor *= GameConfig.LOW_REP_DECAY_FACTOR;
         double frontFactor = hasStaff(StaffType.FRONT_DESK) ? 1.0 : GameConfig.NO_FRONT_DESK_FACTOR;
         return GameConfig.BASE_GUESTS_PER_DAY * season * adFactor * repFactor * frontFactor
                 * priceFactor(resort);
@@ -1203,7 +1351,10 @@ public class ResortEngineService {
             }
             Collections.shuffle(rooms, random);
             int k = Math.min(GameConfig.PIPE_BURST_DISABLED_ROOMS, rooms.size());
-            for (int i = 0; i < k; i++) rooms.get(i).setStatus(Building.STATUS_DISABLED);
+            for (int i = 0; i < k; i++) {
+                rooms.get(i).setStatus(Building.STATUS_DISABLED);
+                rooms.get(i).setDisableSource(Building.DisableSource.AUTO); // 系统自动停用：次日自动恢复，仍扣维护费
+            }
             Map<String, Object> e = new HashMap<>();
             e.put("cost", GameConfig.PIPE_BURST_COST);
             e.put("disabledRooms", k);
@@ -1398,6 +1549,7 @@ public class ResortEngineService {
             for (Building b : resort.getBuildings()) {
                 if (b.getPosition() == null) continue;
                 if (b.getStatus() == Building.STATUS_UNDER_CONSTRUCTION) continue; // 施工中不做寻路锚点
+                if (b.isManuallyDisabled()) continue; // 玩家手动停用：不再作为 NPC 目的地
                 Map<String, Object> v = new HashMap<>();
                 v.put("type", b.getType().name());
                 v.put("x", b.getPosition().getX());

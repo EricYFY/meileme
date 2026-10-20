@@ -11,6 +11,7 @@ public enum EventType {
     POSITIVE_REVIEW ("好评如潮"),
     RETURNING_GUEST ("回头客推荐"),
     PASSIVE_REP ("口碑自然提升"),
+    TEAM_SUCCESS ("团建履约成功"),
     STAFF_ERROR("员工失误");
 
     private final String label;

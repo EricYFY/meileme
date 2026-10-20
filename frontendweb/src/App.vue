@@ -196,15 +196,26 @@
             </div>
           </div>
 
-          <!-- 已建造建筑详情：逐座列出（所在地块 + 容量 + 维护费） -->
+          <!-- 已建造建筑详情：逐座列出（所在地块 + 容量 + 维护费）并可停用/启用/拆除 -->
           <div class="panel-section">
             <div class="section-title">🏘️ 已建造建筑 ({{ buildings.length }})</div>
             <div class="built-list">
-              <div v-for="b in buildings" :key="b.id" class="built-item">
-                <span class="built-name">{{ buildingIcon(b.type) }} {{ b.typeName || buildingName(b.type) }}</span>
-                <span class="built-plot">{{ plotName(b.plotId) }}</span>
-                <span class="built-meta">容量 {{ buildingCapacity(b.type) }}</span>
-                <span class="built-meta">维护 ¥{{ fmtMoney(buildingMaintenance(b.type)) }}/天</span>
+              <div v-for="b in buildings" :key="b.id" class="built-item" :class="{ 'built-off': buildingStatus(b) !== 'operating' }">
+                <div class="built-line">
+                  <span class="built-name">{{ buildingIcon(b.type) }} {{ b.typeName || buildingName(b.type) }}</span>
+                  <span class="built-plot">{{ plotName(b.plotId) }}</span>
+                  <span class="built-status" :class="'bs-' + buildingStatus(b)">{{ buildingStatusLabel(b) }}</span>
+                </div>
+                <div class="built-line built-line-sub">
+                  <span class="built-meta">容量 {{ buildingStatus(b) === 'operating' ? buildingCapacity(b.type) : 0 }}</span>
+                  <span class="built-meta">{{ buildingStatus(b) === 'manual-off' ? '免维护' : '维护 ¥' + fmtMoney(buildingMaintenance(b.type)) + '/天' }}</span>
+                  <span class="built-ops">
+                    <button v-if="buildingStatus(b) === 'operating'" class="btn-op" :disabled="!canOperate || isQueuedBuilding(b.id)" @click="toggleBuilding(b)">停用</button>
+                    <button v-if="buildingStatus(b) === 'manual-off'" class="btn-op" :disabled="!canOperate || isQueuedBuilding(b.id) || resortState.cash < rebuildFee(b)" @click="toggleBuilding(b)">启用 ¥{{ fmtMoney(rebuildFee(b)) }}</button>
+                    <button v-if="buildingStatus(b) === 'operating'" class="btn-fire" :disabled="!canOperate || isQueuedBuilding(b.id)" @click="demolishBuildingRow(b)">拆除</button>
+                    <span v-if="isQueuedBuilding(b.id)" class="built-queued">⏳ 已排队</span>
+                  </span>
+                </div>
               </div>
               <div v-if="buildings.length === 0" class="empty-inline">暂无建筑</div>
             </div>
@@ -480,7 +491,11 @@ const REASON_MAP = {
   UNKNOWN_PLOT: '未知地块',
   ORDER_NOT_FOUND: '未找到该团建订单',
   ORDER_NOT_PENDING: '该团建订单已处理',
-  STAFF_NOT_FOUND: '未找到该员工'
+  STAFF_NOT_FOUND: '未找到该员工',
+  BUILDING_NOT_FOUND: '未找到该建筑',
+  BUILDING_UNDER_CONSTRUCTION: '施工中的建筑不可停用/拆除',
+  BUILDING_NOT_OPERATING: '仅正式运营中的建筑可拆除',
+  BUILDING_AUTO_DISABLED: '该建筑为临时停用（水管爆裂），次日自动恢复，不能手动启用'
 };
 
 // ===== 视图与连接 =====
@@ -641,6 +656,39 @@ const buildingName = (t) => buildingMeta(t).name || t;
 const buildingIcon = (t) => buildingMeta(t).icon || '🏗️';
 const buildingCapacity = (t) => { const m = buildingMeta(t); return m.capacity != null ? m.capacity : '-'; };
 const buildingMaintenance = (t) => { const m = buildingMeta(t); return m.maintenance != null ? m.maintenance : 0; };
+// 与后端 GameConfig 对应：启用经费比例（启用按钮标注 ¥费用）
+const REBUILD_RATIO = 0.3;
+const rebuildFee = (b) => Math.round((buildingMeta(b && b.type).cost || 0) * REBUILD_RATIO);
+
+// ===== 建筑停用/启用/拆除 =====
+// 建筑状态：operating 正式运营 / manual-off 玩家手动停用 / auto-off 水管爆裂自动停用 / building 施工中
+const buildingStatus = (b) => {
+  if (!b) return 'operating';
+  if (b.status === 1) return 'building';
+  if (b.status === 2) return b.disableSource === 'MANUAL' ? 'manual-off' : 'auto-off';
+  return 'operating';
+};
+const buildingStatusLabel = (b) => ({
+  operating: '运营中', building: '施工中', 'manual-off': '已停用', 'auto-off': '临时停用'
+}[buildingStatus(b)]);
+// 该建筑是否已有排队中的停用/启用/拆除指令
+const isQueuedBuilding = (id) => pendingCommands.value.some(c =>
+  (c.type === 'TOGGLE_BUILDING_DISABLE' || c.type === 'DEMOLISH_BUILDING') && c.text1 === id);
+
+const toggleBuilding = (b) => {
+  const s = buildingStatus(b);
+  if (s !== 'operating' && s !== 'manual-off') {
+    // 施工中 / 水管爆裂临时停用 → 不可手动操作
+    showTip(s === 'building' ? '施工中的建筑不可停用/启用' : '该建筑为临时停用，次日将自动恢复');
+    return;
+  }
+  client.send({ command: 'TOGGLE_BUILDING_DISABLE', buildingId: b.id });
+};
+
+const demolishBuildingRow = (b) => {
+  if (buildingStatus(b) !== 'operating') { showTip('仅正式运营中的建筑可拆除'); return; }
+  client.send({ command: 'DEMOLISH_BUILDING', buildingId: b.id });
+};
 // 该团建单是否已有排队中的接受指令
 const isQueuedOrder = (orderId, kind) => {
   const t = kind === 'ACCEPT' ? 'ACCEPT_TEAM_ORDER' : 'REJECT_TEAM_ORDER';
@@ -1123,10 +1171,20 @@ const guestCleanState = () => {
 
 /* 已建造建筑详情列表 */
 .built-list { display: flex; flex-direction: column; gap: 4px; }
-.built-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 12px; }
+.built-item { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 6px 10px; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 12px; }
+.built-off { opacity: 0.68; }
+.built-line { display: flex; align-items: center; gap: 8px; }
+.built-line-sub { flex-wrap: wrap; }
 .built-name { flex: 1; font-weight: 600; color: #e2e8f0; }
 .built-plot { color: #93c5fd; }
 .built-meta { color: #94a3b8; white-space: nowrap; }
+.built-status { padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.bs-operating { background: rgba(34,197,94,0.18); color: #4ade80; }
+.bs-building { background: rgba(56,189,248,0.18); color: #38bdf8; }
+.bs-manual-off { background: rgba(239,68,68,0.18); color: #f87171; }
+.bs-auto-off { background: rgba(251,191,36,0.18); color: #fbbf24; }
+.built-ops { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.built-queued { font-size: 10px; font-weight: 700; color: #38bdf8; white-space: nowrap; }
 
 /* 破产弹窗内嵌的每日结算日志 */
 .bankrupt-log { margin-top: 4px; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }
