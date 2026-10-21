@@ -35,19 +35,9 @@ public class StaffService {
         return base * skillTree.discount(state, SkillEffectKey.FIRE_COMPENSATION_DISCOUNT);
     }
 
-    /** 员工每日薪资合计（含技能减免） */
-    public double totalSalary(GameState state) {
-        double mult = skillTree.discount(state, SkillEffectKey.STAFF_SALARY_DISCOUNT);
-        double sum = 0;
-        for (StaffInstance s : state.aliveStaffs()) {
-            sum += s.getPosition().salaryOf(s.getLevel());
-        }
-        return sum * mult;
-    }
-
     /** 校验招聘；返回 null 表示可执行 */
     public String validateHire(GameState state, PositionType position, int level) {
-        if (state == null || state.isGameOver()) {
+        if (state == null) {
             return "GAME_NOT_RUNNING";
         }
         if (position == null) {
@@ -57,6 +47,20 @@ public class StaffService {
             return "INVALID_STAFF_LEVEL";
         }
         if (state.getFunds() < hireCost(state, position, level)) {
+            return "INSUFFICIENT_FUNDS";
+        }
+        return null;
+    }
+
+    /** 校验解雇；返回 null 表示可执行 */
+    public String validateFire(GameState state, StaffInstance staff) {
+        if (state == null) {
+            return "GAME_NOT_RUNNING";
+        }
+        if (staff == null) {
+            return "STAFF_NOT_FOUND";
+        }
+        if (state.getFunds() < fireCompensation(state, staff)) {
             return "INSUFFICIENT_FUNDS";
         }
         return null;

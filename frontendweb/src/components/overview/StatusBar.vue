@@ -3,8 +3,7 @@ import { computed } from 'vue';
 import { store, api } from '../../services/store.js';
 import { fmtMoney } from '../../utils/format.js';
 
-const scenicName = computed(() => store.config?.scenic?.name || '山间民宿度假村');
-const running = computed(() => store.state?.running === true && !store.state?.gameOver);
+const running = computed(() => store.state?.running === true);
 const paused = computed(() => store.tick?.paused === true);
 const speed = computed(() => store.tick?.speed ?? 1);
 const day = computed(() => store.tick.day ?? store.state?.day ?? 1);
@@ -45,7 +44,7 @@ function setSpeed(v) { api.setSpeed(v); }
             <button v-else class="primary" @click="api.resume()">继续</button>
         </div>
 
-        <button v-if="!running && !store.gameOver" class="primary" @click="api.startGame()">开始对局</button>
+        <button v-if="!running" class="primary" @click="api.startGame()">开始对局</button>
         <button v-if="running" class="danger" @click="api.stopGame()">结束</button>
     </div>
 </template>

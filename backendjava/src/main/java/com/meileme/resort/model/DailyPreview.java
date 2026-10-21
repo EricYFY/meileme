@@ -23,24 +23,15 @@ public class DailyPreview {
     /** 预计接待人数 */
     private double expectedGuests;
 
-    /** 预计住宿收入 */
+    /** 预计房屋收益 */
     private double accommodationRevenue;
 
-    /** 预计配套收入 */
+    /** 预计配套收益 */
     private double supportRevenue;
 
     /** 预计总收入 */
     private double revenue;
 
-    /** 预计建筑维护费 */
-    private double maintenance;
-
-    /** 预计员工薪资 */
-    private double salary;
-
-    /** 预计总支出 */
-    private double expense;
-
-    /** 预计净利润 */
+    /** 预计净利润（无固定支出，等于总收入） */
     private double netProfit;
 }

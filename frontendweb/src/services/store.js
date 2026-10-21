@@ -11,7 +11,6 @@ export const store = reactive({
     state: null,            // RESORT_STATE 全量
     tick: { day: 1, date: '', progress: 0, speed: 1, paused: false, funds: 0 },
     lastSettle: null,       // 最近一次日结快照
-    gameOver: null,         // GAME_OVER 载荷
     dailyLog: null,         // DAILY_LOG 载荷（结算日志弹窗）
     rangeReport: null,      // RANGE_REPORT 载荷
     toasts: [],
@@ -37,6 +36,7 @@ export const api = {
     hire: (position, level) => sendCommand('HIRE_STAFF', { position, level }),
     fire: (staffId) => sendCommand('FIRE_STAFF', { staffId }),
     unlockSkill: (skillId) => sendCommand('UNLOCK_SKILL', { skillId }),
+    unlockPlot: (plotId) => sendCommand('UNLOCK_PLOT', { plotId }),
     requestDailyLog: () => sendCommand('REQUEST_DAILY_LOG'),
     requestRangeReport: (rangeDays) => sendCommand('REQUEST_RANGE_REPORT', { rangeDays }),
 };
@@ -61,6 +61,10 @@ const REASONS = {
     STAFF_NOT_FOUND: '员工不存在',
     INVALID_STAFF_LEVEL: '员工等级不合法',
     PLOT_LOCKED: '地块未解锁',
+    PLOT_NOT_FOUND: '地块不存在',
+    PLOT_ALREADY_UNLOCKED: '地块已解锁',
+    PREVIOUS_PLOT_LOCKED: '上一地块未解锁',
+    ACHIEVEMENTS_UNMET: '解锁成就未达成',
     PLOT_FULL: '地块建筑数已满',
     MOTHER_NOT_BUILDABLE: '该母本当前不可建造',
     FORM_NOT_BUILDABLE: '该形态当前不可建造',
@@ -82,6 +86,8 @@ function translateReason(reason) {
 
 function indexConfig(cfg) {
     if (!cfg) return null;
+    cfg.regions = cfg.regions || [];
+    cfg.regionsById = Object.fromEntries(cfg.regions.map((x) => [x.id, x]));
     cfg.formsById = Object.fromEntries((cfg.buildingForms || []).map((x) => [x.id, x]));
     cfg.plotsById = Object.fromEntries((cfg.plots || []).map((x) => [x.id, x]));
     cfg.achievementsById = Object.fromEntries((cfg.achievements || []).map((x) => [x.id, x]));
@@ -124,12 +130,7 @@ ws.onDaySettled = (msg) => {
     store.lastSettle = msg.settle || null;
 };
 
-ws.onGameOver = (msg) => {
-    store.gameOver = msg;
-};
-
 ws.onGameStopped = () => {
-    store.gameOver = null;
     store.booting = false;
 };
 

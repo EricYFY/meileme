@@ -11,9 +11,11 @@ import lombok.Getter;
 public enum SkillEffectKey {
 
     // —— 建筑进化类 ——
+    /** 新建建筑费用减免 */
+    BUILD_COST_DISCOUNT("新建建筑费用"),
     /** 建筑形态进化（分支进化）费用减免 */
     EVOLVE_COST_DISCOUNT("形态进化费用"),
-    /** 合并进化专属加成（合并产物房价加成） */
+    /** 合并进化专属加成（合并产物房屋收益加成） */
     MERGE_BONUS("合并专属加成"),
     /** 合并进化消耗减免 */
     MERGE_COST_DISCOUNT("合并进化消耗"),
@@ -43,16 +45,12 @@ public enum SkillEffectKey {
     HIRE_COST_DISCOUNT("招聘消耗"),
     /** 解雇补偿减免 */
     FIRE_COMPENSATION_DISCOUNT("解雇补偿"),
-    /** 员工每日薪资减免 */
-    STAFF_SALARY_DISCOUNT("员工每日薪资"),
 
     // —— 财务结算类 ——
-    /** 房晚基准单价加成 */
-    ROOM_PRICE_MULT("房晚基准单价"),
-    /** 配套基准单价加成 */
-    SUPPORT_PRICE_MULT("配套基准单价"),
-    /** 建筑维护成本减免 */
-    MAINTENANCE_COST_DISCOUNT("建筑维护成本"),
+    /** 房屋收益基准加成 */
+    ROOM_PRICE_MULT("房屋收益基准"),
+    /** 配套收益基准加成 */
+    SUPPORT_PRICE_MULT("配套收益基准"),
 
     // —— 区块解锁类 ——
     /** 区块解锁所需成就门槛减免 */

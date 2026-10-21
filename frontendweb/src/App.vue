@@ -1,7 +1,6 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { store, connect, api } from './services/store.js';
-import { fmtMoney } from './utils/format.js';
+import { ref, onMounted } from 'vue';
+import { store, connect } from './services/store.js';
 
 import StatusBar from './components/overview/StatusBar.vue';
 import PlotMapView from './components/overview/PlotMapView.vue';
@@ -34,13 +33,6 @@ const showLog = ref(false);
 
 function openBuild(plot) { buildPlot.value = plot; }
 function openBuilding(b) { detailBuilding.value = b; }
-
-const gameOver = computed(() => store.gameOver);
-
-function restart() {
-    store.gameOver = null;
-    api.startGame();
-}
 </script>
 
 <template>
@@ -96,26 +88,6 @@ function restart() {
         <BuildModal v-if="buildPlot" :plot="buildPlot" @close="buildPlot = null" />
         <BuildingDetailModal v-if="detailBuilding" :building="detailBuilding" @close="detailBuilding = null" />
         <SettlementLogModal v-if="showLog" @close="showLog = false" />
-
-        <div v-if="gameOver" class="over-mask">
-            <div class="panel" style="max-width: 480px; width: 100%">
-                <div class="panel-head"><span class="title neg">对局结束</span></div>
-                <div class="panel-body">
-                    <p>{{ gameOver.reason }}</p>
-                    <p class="dim">结束于第 {{ gameOver.day }} 天</p>
-                    <div v-if="gameOver.lastSettle">
-                        <div class="kv"><span class="k">住宿收入</span><span class="v num pos">+{{ fmtMoney(gameOver.lastSettle.accommodationRevenue) }}</span></div>
-                        <div class="kv"><span class="k">配套收入</span><span class="v num pos">+{{ fmtMoney(gameOver.lastSettle.supportRevenue) }}</span></div>
-                        <div class="kv"><span class="k">建筑维护费</span><span class="v num neg">-{{ fmtMoney(gameOver.lastSettle.maintenanceCost) }}</span></div>
-                        <div class="kv"><span class="k">员工薪资</span><span class="v num neg">-{{ fmtMoney(gameOver.lastSettle.salaryCost) }}</span></div>
-                        <div class="kv total"><span class="k">当日净利润</span><span class="v num" :class="gameOver.lastSettle.netProfit >= 0 ? 'pos' : 'neg'">{{ fmtMoney(gameOver.lastSettle.netProfit) }}</span></div>
-                    </div>
-                </div>
-                <div class="panel-body" style="padding-top: 0; display: flex; gap: 10px; justify-content: flex-end">
-                    <button class="primary" @click="restart">重开一局</button>
-                </div>
-            </div>
-        </div>
 
         <Toast />
     </div>

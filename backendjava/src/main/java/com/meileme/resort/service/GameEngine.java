@@ -9,7 +9,9 @@ import com.meileme.resort.config.GameConfig;
 import com.meileme.resort.config.InteriorType;
 import com.meileme.resort.config.MotherBuildingType;
 import com.meileme.resort.config.PendingCommandType;
+import com.meileme.resort.config.Plot;
 import com.meileme.resort.config.PositionType;
+import com.meileme.resort.config.Region;
 import com.meileme.resort.model.BuildingInstance;
 import com.meileme.resort.model.DailySettle;
 import com.meileme.resort.model.DemandResult;
@@ -33,9 +35,10 @@ import java.util.Map;
 /**
  * 游戏引擎（挂机经营主循环编排）。
  *
- * <p>每日循环 8 步：①刷新景区每日基础客流 ②算全局吸引力并生成各客群意向客流 ③权重分配客流至各房型
- * ④床位容量截断得最终入住人数 ⑤算配套当日服务人次 ⑥结算住宿 + 配套收入 ⑦结算当日运营成本
- * ⑧更新资金池 / 员工在岗时长 / 建筑状态，完成当日挂机结算。</p>
+ * <p>每日循环 6 步：①按区域生成各客群潜在客流 ②算吸引力并生成各客群意向客流 ③权重分配客流至各房型
+ * ④床位容量截断得最终入住人数 ⑤算配套当日服务人次并结算房屋收益 + 配套收益
+ * ⑥更新资金池 / 员工在岗时长 / 建筑状态，完成当日挂机结算。</p>
+ * <p>日常运营<b>无固定支出</b>，当日净利润 = 当日总收入，因此不存在破产。</p>
  *
  * <p>所有玩家操作统一进入「待生效指令队列」，于<b>次日 0 点</b>统一生效并二次校验。</p>
  */
@@ -92,7 +95,7 @@ public class GameEngine {
 
     public boolean isRunning() {
         GameState s = repository.get();
-        return s != null && s.isRunning() && !s.isGameOver();
+        return s != null && s.isRunning();
     }
 
     /** 开新局：清空上一局残留（直接重建 GameState），并初始化区域 / 地块 */
@@ -104,8 +107,6 @@ public class GameEngine {
         state.setSpeed(GameConfig.DEFAULT_SPEED);
         state.setPaused(false);
         state.setRunning(true);
-        state.setGameOver(false);
-        state.setEndReason(null);
         state.setStartDateDisplay(GameConfig.DEFAULT_START_DATE);
         state.setStartDate(LocalDate.parse(GameConfig.DEFAULT_START_DATE));
 
@@ -140,7 +141,7 @@ public class GameEngine {
 
     public void resumeGame() {
         GameState s = repository.get();
-        if (s != null && !s.isGameOver()) {
+        if (s != null) {
             s.setPaused(false);
             broadcast("TIME_TICK", tickPayload(s));
         }
@@ -160,25 +161,23 @@ public class GameEngine {
     @Scheduled(fixedRate = GameConfig.TICK_INTERVAL_MS)
     public void scheduledLoop() {
         GameState s = repository.get();
-        if (s == null || !s.isRunning() || s.isGameOver() || s.isPaused()) {
+        if (s == null || !s.isRunning() || s.isPaused()) {
             return;
         }
         double seconds = GameConfig.TICK_INTERVAL_MS / 1000.0;
         s.setDayProgress(s.getDayProgress() + seconds * s.getSpeed() / GameConfig.REAL_SECONDS_PER_GAME_DAY);
         int guard = 0;
-        while (s.getDayProgress() >= 1.0 && !s.isGameOver() && guard++ < 64) {
+        while (s.getDayProgress() >= 1.0 && guard++ < 64) {
             s.setDayProgress(s.getDayProgress() - 1.0);
             closeDay();
-            if (!s.isGameOver()) {
-                beginDay();
-            }
+            beginDay();
         }
     }
 
     @Scheduled(fixedRate = 200)
     public void tickBroadcastLoop() {
         GameState s = repository.get();
-        if (s == null || !s.isRunning() || s.isGameOver()) {
+        if (s == null || !s.isRunning()) {
             return;
         }
         broadcast("TIME_TICK", tickPayload(s));
@@ -202,28 +201,16 @@ public class GameEngine {
         // 员工在岗时长累计与自动升级
         settle.getEvents().addAll(staffService.advanceOneDay(s));
 
-        // 统计刷新 → 成就解锁 → 区块解锁
+        // 统计刷新 → 成就解锁（地块需玩家付费解锁）
         statsService.rebuild(s);
         for (Achievement a : achievementService.evaluateAndUnlock(s)) {
             settle.getUnlocks().add("🏆 成就达成：" + a.getDisplayName());
         }
-        settle.getUnlocks().addAll(regionService.checkAndUnlock(s));
 
         s.appendHistory(settle);
         s.setLastSettle(settle);
 
         broadcast("DAY_SETTLED", Map.of("settle", settle, "funds", s.getFunds(), "day", s.getDay()));
-
-        if (s.getFunds() <= 0) {
-            s.setGameOver(true);
-            s.setRunning(false);
-            s.setEndReason("资金耗尽（资金池 ≤ 0）");
-            broadcast("GAME_OVER", Map.of(
-                    "reason", s.getEndReason(),
-                    "day", s.getDay(),
-                    "lastSettle", settle,
-                    "historySize", s.getDailyHistory().size()));
-        }
     }
 
     /** 开启新的一天：推进日期并统一应用「待生效指令」 */
@@ -236,7 +223,6 @@ public class GameEngine {
         for (Achievement a : achievementService.evaluateAndUnlock(s)) {
             unlocks.add("🏆 成就达成：" + a.getDisplayName());
         }
-        unlocks.addAll(regionService.checkAndUnlock(s));
         refreshPreview();
         broadcast("DAY_STARTED", Map.of("day", s.getDay(), "date", s.currentDateDisplay(), "unlocks", unlocks));
         broadcastState();
@@ -360,12 +346,9 @@ public class GameEngine {
     public void requestFire(WebSocketSession session, String staffId) {
         GameState s = repository.get();
         StaffInstance staff = s == null ? null : s.findAliveStaff(staffId);
-        if (s == null || s.isGameOver()) {
-            fail(session, "FIRE_STAFF", "GAME_NOT_RUNNING");
-            return;
-        }
-        if (staff == null) {
-            fail(session, "FIRE_STAFF", "STAFF_NOT_FOUND");
+        String reason = staffService.validateFire(s, staff);
+        if (reason != null) {
+            fail(session, "FIRE_STAFF", reason);
             return;
         }
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -385,6 +368,20 @@ public class GameEngine {
         payload.put("skillId", skillId);
         enqueue(session, PendingCommandType.SKILL_UNLOCK, payload,
                 "解锁技能 " + registry.skill(skillId).getDisplayName());
+    }
+
+    public void requestUnlockPlot(WebSocketSession session, String plotId) {
+        GameState s = repository.get();
+        Plot plot = registry.plot(plotId);
+        String reason = regionService.validateUnlock(s, plot);
+        if (reason != null) {
+            fail(session, "UNLOCK_PLOT", reason);
+            return;
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("plotId", plotId);
+        enqueue(session, PendingCommandType.UNLOCK_PLOT, payload,
+                "解锁地块 " + plot.getDisplayName() + "（花费 " + (long) plot.getUnlockCost() + "）");
     }
 
     private void enqueue(WebSocketSession session, PendingCommandType type,
@@ -468,11 +465,9 @@ public class GameEngine {
                 }
                 case FIRE_STAFF: {
                     StaffInstance staff = s.findAliveStaff(cmd.str("staffId"));
-                    if (staff == null) {
-                        reason = "STAFF_NOT_FOUND";
-                    } else {
+                    reason = staffService.validateFire(s, staff);
+                    if (reason == null) {
                         staffService.fire(s, staff);
-                        reason = null;
                     }
                     break;
                 }
@@ -481,6 +476,14 @@ public class GameEngine {
                     reason = skillTree.validateUnlock(s, skillId);
                     if (reason == null) {
                         skillTree.unlock(s, skillId);
+                    }
+                    break;
+                }
+                case UNLOCK_PLOT: {
+                    Plot plot = registry.plot(cmd.str("plotId"));
+                    reason = regionService.validateUnlock(s, plot);
+                    if (reason == null) {
+                        regionService.unlock(s, plot);
                     }
                     break;
                 }
@@ -540,14 +543,12 @@ public class GameEngine {
         List<DailySettle> slice = new ArrayList<>(history.subList(from, history.size()));
 
         double revenue = 0;
-        double expense = 0;
         double guests = 0;
         double overflow = 0;
         int rooms = 0;
         int occupied = 0;
         for (DailySettle d : slice) {
             revenue += d.getTotalRevenue();
-            expense += d.getTotalExpense();
             guests += d.getTotalServed();
             overflow += d.getOverflowGuests();
             rooms += d.getTotalRooms();
@@ -557,8 +558,7 @@ public class GameEngine {
         payload.put("rangeDays", rangeDays);
         payload.put("days", slice.size());
         payload.put("totalRevenue", revenue);
-        payload.put("totalExpense", expense);
-        payload.put("netProfit", revenue - expense);
+        payload.put("netProfit", revenue);
         payload.put("totalGuests", guests);
         payload.put("overflowGuests", overflow);
         payload.put("avgOccupancyRate", rooms <= 0 ? 0 : (double) occupied / rooms);
@@ -586,8 +586,6 @@ public class GameEngine {
         m.put("date", s.currentDateDisplay());
         m.put("startDate", s.getStartDateDisplay());
         m.put("running", s.isRunning());
-        m.put("gameOver", s.isGameOver());
-        m.put("endReason", s.getEndReason());
         m.put("dayProgress", s.getDayProgress());
         m.put("speed", s.getSpeed());
         m.put("paused", s.isPaused());
@@ -618,7 +616,7 @@ public class GameEngine {
 
     private Map<String, Object> configPayload() {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("scenic", registry.scenic());
+        m.put("regions", regionList());
         m.put("buildingForms", registry.allForms());
         m.put("mergeRecipes", registry.allRecipes());
         m.put("plots", registry.allPlots());
@@ -633,6 +631,23 @@ public class GameEngine {
         m.put("formMaxLevel", GameConfig.FORM_MAX_LEVEL);
         m.put("staffMaxLevel", GameConfig.STAFF_MAX_LEVEL);
         return m;
+    }
+
+    private List<Map<String, Object>> regionList() {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Region r : Region.values()) {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("id", r.name());
+            x.put("displayName", r.getDisplayName());
+            x.put("baseDailyFlow", r.getBaseDailyFlow());
+            Map<String, Double> ratios = new LinkedHashMap<>();
+            for (CustomerSegment seg : CustomerSegment.values()) {
+                ratios.put(seg.name(), r.getSegmentRatios().get(seg));
+            }
+            x.put("segmentRatios", ratios);
+            list.add(x);
+        }
+        return list;
     }
 
     private List<Map<String, Object>> motherList() {
@@ -681,7 +696,6 @@ public class GameEngine {
                 abilities.add(a.name());
             }
             x.put("abilities", abilities);
-            x.put("salaryByLevel", p.getSalaryByLevel());
             x.put("abilityValueByLevel", p.getAbilityValueByLevel());
             x.put("hireCost", p.getHireCost());
             x.put("upgradeDaysLv1ToLv2", p.getUpgradeDaysLv1ToLv2());

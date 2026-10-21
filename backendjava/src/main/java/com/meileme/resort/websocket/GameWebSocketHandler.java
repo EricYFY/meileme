@@ -116,6 +116,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     gameEngine.requestSkillUnlock(session,
                             node.has("skillId") ? node.get("skillId").asText() : "");
                     break;
+                case "UNLOCK_PLOT":
+                    gameEngine.requestUnlockPlot(session,
+                            node.has("plotId") ? node.get("plotId").asText() : "");
+                    break;
                 case "REQUEST_DAILY_LOG":
                     gameEngine.sendDailyLog(session);
                     break;

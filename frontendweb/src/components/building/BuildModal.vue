@@ -46,8 +46,7 @@ function confirm() {
         <div v-if="baseForm" class="panel" style="margin-top: 14px">
             <div class="panel-body">
                 <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ baseForm.capacityPerRoom }} 人</span></div>
-                <div class="kv"><span class="k">基础房价（Lv1）</span><span class="v num">{{ fmtMoney(baseForm.pricePerRoomByLevel?.[0] || 0) }}</span></div>
-                <div class="kv"><span class="k">每日维护费（Lv1）</span><span class="v num">{{ fmtMoney(baseForm.maintenanceByLevel?.[0] || 0) }}</span></div>
+                <div class="kv"><span class="k">基础房屋收益（Lv1）</span><span class="v num">{{ fmtMoney(baseForm.pricePerRoomByLevel?.[0] || 0) }}</span></div>
                 <div class="kv total">
                     <span class="k">一次性建造花费</span>
                     <span class="v num" :class="canAfford ? 'pos' : 'neg'">{{ fmtMoney(cost) }}</span>

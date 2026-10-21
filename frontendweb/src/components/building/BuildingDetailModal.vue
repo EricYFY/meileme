@@ -21,7 +21,6 @@ const plot = computed(() => store.config?.plotsById?.[props.building.plotId]);
 const lineLabel = computed(() => LINE_LABEL[form.value.line] || form.value.line || '');
 const lineClass = computed(() => LINE_CLASS[form.value.line] || 'base');
 const pricePerRoom = computed(() => form.value.pricePerRoomByLevel?.[level.value - 1] ?? 0);
-const maintenance = computed(() => form.value.maintenanceByLevel?.[level.value - 1] ?? 0);
 const capacity = computed(() => form.value.capacityPerRoom ?? 0);
 const baseComfort = computed(() => form.value.baseComfort ?? 0);
 
@@ -61,8 +60,7 @@ function branchMeta(t) {
         <div class="panel" style="margin-top: 12px">
             <div class="panel-body">
                 <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ capacity }} 人</span></div>
-                <div class="kv"><span class="k">当前房价（每间）</span><span class="v num gold">{{ fmtMoney(pricePerRoom) }}</span></div>
-                <div class="kv"><span class="k">每日维护费</span><span class="v num neg">{{ fmtMoney(maintenance) }}</span></div>
+                <div class="kv"><span class="k">当前房屋收益（每间）</span><span class="v num gold">{{ fmtMoney(pricePerRoom) }}</span></div>
                 <div class="kv"><span class="k">基础舒适度</span><span class="v num">{{ baseComfort }}</span></div>
             </div>
         </div>
@@ -82,7 +80,7 @@ function branchMeta(t) {
         <div v-for="t in branchTargets" :key="t.id" class="bld-row">
             <div class="main">
                 <div class="title">{{ t.displayName }}</div>
-                <div class="sub">每间 {{ t.capacityPerRoom }} 人 · 房价 Lv1 {{ fmtMoney(t.pricePerRoomByLevel?.[0] || 0) }}</div>
+                <div class="sub">每间 {{ t.capacityPerRoom }} 人 · 房屋收益 Lv1 {{ fmtMoney(t.pricePerRoomByLevel?.[0] || 0) }}</div>
             </div>
             <button class="gold" :disabled="!branchMeta(t).can" @click="api.branchEvolve(building.id, t.id)">
                 进化 {{ fmtMoney(branchMeta(t).cost) }}

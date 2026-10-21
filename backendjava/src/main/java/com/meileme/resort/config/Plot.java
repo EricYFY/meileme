@@ -10,7 +10,7 @@ import java.util.Set;
  * 地块：每个大区域下划分多个地块。
  *
  * <p>每个地块独立配置：可建造住宿母本白名单、可建造配套母本白名单、地块内分支进化进阶上限。
- * 开局仅开放 A 村乡间地块；达成指定成就后依次解锁同区域后续地块。</p>
+ * 开局仅开放史东薇尔城；后续地块须「上一地块已解锁 + 达成对应成就」后，再<b>支付解锁费用</b>方可解锁。</p>
  */
 @Getter
 @AllArgsConstructor
@@ -26,6 +26,8 @@ public class Plot {
     private final int orderInRegion;
     /** 地块内建筑数量上限 */
     private final int buildLimit;
+    /** 解锁该地块需支付的一次性费用（0 = 免费，仅默认地块） */
+    private final double unlockCost;
     /** 可建造住宿母本白名单 */
     private final Set<MotherBuildingType> accommodationWhitelist;
     /** 可建造配套母本白名单 */

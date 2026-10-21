@@ -185,17 +185,17 @@ button.ghost:hover { color: var(--text); border-color: var(--text-faint); }
 .plot-card .plot-meta { font-size: 12px; color: var(--text-faint); margin-bottom: 10px; }
 .plot-card.locked .lock-msg { font-size: 12px; color: var(--text-faint); }
 
-.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.slot { aspect-ratio: 1; border-radius: 8px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-faint); background: var(--bg-soft); }
+.slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.slot { aspect-ratio: 1; min-width: 0; overflow: hidden; border-radius: 8px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-faint); background: var(--bg-soft); }
 .slot.filled { border-style: solid; cursor: pointer; }
 .slot .plus { font-size: 20px; }
 .slot.buildable { border-color: var(--accent); color: var(--accent); cursor: pointer; }
 .slot.buildable:hover { background: var(--accent-soft); }
 
 /* 建筑图标 */
-.building-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; }
+.building-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; min-width: 0; max-width: 100%; }
 .building-tile .ico { font-size: 20px; }
-.building-tile .nm { color: var(--text-dim); }
+.building-tile .nm { color: var(--text-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 游客动画层 */
 .guest-field { position: relative; overflow: hidden; border-radius: var(--radius-sm); height: 140px; background: linear-gradient(180deg, #101a30, #121d36); border: 1px solid var(--border-soft); }
@@ -265,9 +265,6 @@ button.ghost:hover { color: var(--text); border-color: var(--text-faint); }
 .toast.queued { border-color: var(--accent); }
 .toast.error { border-color: var(--neg); }
 @keyframes slidein { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
-
-/* 破产 / 对局结束遮罩 */
-.over-mask { position: fixed; inset: 0; background: rgba(4, 8, 18, .8); display: flex; align-items: center; justify-content: center; z-index: 150; padding: 24px; }
 
 /* 空状态 */
 .empty { text-align: center; color: var(--text-faint); padding: 40px 0; }

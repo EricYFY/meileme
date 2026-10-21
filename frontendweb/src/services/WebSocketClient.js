@@ -15,7 +15,6 @@ export default class WebSocketClient {
         this.onTimeTick = null;      // TIME_TICK：时钟推进
         this.onDayStarted = null;    // DAY_STARTED {day, date, unlocks}
         this.onDaySettled = null;    // DAY_SETTLED {settle, funds, day}
-        this.onGameOver = null;      // GAME_OVER {reason, day, lastSettle, historySize}
         this.onGameStopped = null;   // GAME_STOPPED {reason}
         this.onActionQueued = null;  // ACTION_QUEUED {action, commandId, description, effectiveDay}
         this.onActionFailed = null;  // ACTION_FAILED {action, reason, ...}
@@ -81,9 +80,6 @@ export default class WebSocketClient {
                 break;
             case 'DAY_SETTLED':
                 if (this.onDaySettled) this.onDaySettled(msg);
-                break;
-            case 'GAME_OVER':
-                if (this.onGameOver) this.onGameOver(msg);
                 break;
             case 'GAME_STOPPED':
                 if (this.onGameStopped) this.onGameStopped(msg);

@@ -11,7 +11,6 @@ import com.meileme.resort.config.MergeRecipe;
 import com.meileme.resort.config.MotherBuildingType;
 import com.meileme.resort.config.Plot;
 import com.meileme.resort.config.Region;
-import com.meileme.resort.config.ScenicConfig;
 import com.meileme.resort.config.SkillCategory;
 import com.meileme.resort.config.SkillEffectKey;
 import com.meileme.resort.config.SkillEffectType;
@@ -33,7 +32,6 @@ import java.util.Set;
 @Component
 public class ConfigRegistry {
 
-    private final ScenicConfig scenic;
     private final Map<String, BuildingForm> formsById = new LinkedHashMap<>();
     private final List<MergeRecipe> mergeRecipes = new ArrayList<>();
     private final Map<String, Plot> plotsById = new LinkedHashMap<>();
@@ -45,7 +43,7 @@ public class ConfigRegistry {
         BuildingForm standardRoom = BuildingForm.builder("STANDARD_ROOM", "标准客房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.BASE).tier(0).capacityPerRoom(2)
                 .pricePerRoom(280, 330, 380).buildCost(3000).evolveCost(0)
-                .formLevelUpCost(1500, 2500).maintenance(120, 140, 160).baseComfort(50)
+                .formLevelUpCost(1500, 2500).baseComfort(50)
                 .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
                 .affinity(CustomerSegment.ROMANTIC, 0.8).affinity(CustomerSegment.WELLNESS, 0.8)
                 .maxInteriorLevel(1, 2, 3)
@@ -55,7 +53,7 @@ public class ConfigRegistry {
         BuildingForm familyRoom = BuildingForm.builder("FAMILY_ROOM", "家庭亲子房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.FAMILY).tier(1).capacityPerRoom(4)
                 .pricePerRoom(500, 580, 660).evolveCost(6000)
-                .formLevelUpCost(3000, 5000).maintenance(180, 210, 240).baseComfort(62)
+                .formLevelUpCost(3000, 5000).baseComfort(62)
                 .affinity(CustomerSegment.FAMILY, 1.8).affinity(CustomerSegment.BUSINESS, 0.5)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -65,7 +63,7 @@ public class ConfigRegistry {
         BuildingForm familySuite = BuildingForm.builder("FAMILY_SUITE", "亲子套房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.FAMILY).tier(2).capacityPerRoom(6)
                 .pricePerRoom(760, 880, 1000).evolveCost(15000)
-                .formLevelUpCost(7000, 11000).maintenance(260, 300, 340).baseComfort(76)
+                .formLevelUpCost(7000, 11000).baseComfort(76)
                 .affinity(CustomerSegment.FAMILY, 2.2).affinity(CustomerSegment.BUSINESS, 0.4)
                 .affinity(CustomerSegment.ROMANTIC, 1.1).affinity(CustomerSegment.WELLNESS, 1.0)
                 .maxInteriorLevel(2, 3, 3)
@@ -75,7 +73,7 @@ public class ConfigRegistry {
         BuildingForm businessRoom = BuildingForm.builder("BUSINESS_ROOM", "商务行政房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.BUSINESS).tier(1).capacityPerRoom(2)
                 .pricePerRoom(620, 720, 820).evolveCost(7000)
-                .formLevelUpCost(3200, 5200).maintenance(200, 230, 260).baseComfort(64)
+                .formLevelUpCost(3200, 5200).baseComfort(64)
                 .affinity(CustomerSegment.BUSINESS, 1.9).affinity(CustomerSegment.FAMILY, 0.5)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -85,7 +83,7 @@ public class ConfigRegistry {
         BuildingForm businessSuite = BuildingForm.builder("BUSINESS_SUITE", "行政套房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.BUSINESS).tier(2).capacityPerRoom(3)
                 .pricePerRoom(950, 1100, 1250).evolveCost(17000)
-                .formLevelUpCost(7500, 12000).maintenance(280, 320, 360).baseComfort(80)
+                .formLevelUpCost(7500, 12000).baseComfort(80)
                 .affinity(CustomerSegment.BUSINESS, 2.3).affinity(CustomerSegment.FAMILY, 0.4)
                 .affinity(CustomerSegment.ROMANTIC, 1.2).affinity(CustomerSegment.WELLNESS, 1.1)
                 .maxInteriorLevel(2, 3, 3)
@@ -95,7 +93,7 @@ public class ConfigRegistry {
         BuildingForm mergedFamilyVilla = BuildingForm.builder("MERGED_FAMILY_VILLA", "亲子合院", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.MERGE).tier(3).capacityPerRoom(10)
                 .pricePerRoom(1500, 1750, 2000)
-                .formLevelUpCost(9000, 14000).maintenance(420, 480, 540).baseComfort(95)
+                .formLevelUpCost(9000, 14000).baseComfort(95)
                 .affinity(CustomerSegment.FAMILY, 2.6).affinity(CustomerSegment.BUSINESS, 0.6)
                 .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.WELLNESS, 1.3)
                 .maxInteriorLevel(3, 3, 3)
@@ -105,7 +103,7 @@ public class ConfigRegistry {
         BuildingForm mergedBusinessHall = BuildingForm.builder("MERGED_BUSINESS_HALL", "商务行政馆", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.MERGE).tier(3).capacityPerRoom(8)
                 .pricePerRoom(1600, 1850, 2100)
-                .formLevelUpCost(9500, 15000).maintenance(440, 500, 560).baseComfort(98)
+                .formLevelUpCost(9500, 15000).baseComfort(98)
                 .affinity(CustomerSegment.BUSINESS, 2.6).affinity(CustomerSegment.FAMILY, 0.6)
                 .affinity(CustomerSegment.ROMANTIC, 1.5).affinity(CustomerSegment.WELLNESS, 1.4)
                 .maxInteriorLevel(3, 3, 3)
@@ -115,7 +113,7 @@ public class ConfigRegistry {
         // —— 其余住宿母本基础形态（仅登记，第一期不可建） ——
         BuildingForm luxuryRoom = BuildingForm.builder("LUXURY_ROOM", "豪华客房", MotherBuildingType.LUXURY_ROOM)
                 .tier(0).capacityPerRoom(4).pricePerRoom(680, 780, 880).buildCost(8000)
-                .formLevelUpCost(3000, 5000).maintenance(350, 390, 430).baseComfort(70)
+                .formLevelUpCost(3000, 5000).baseComfort(70)
                 .affinity(CustomerSegment.FAMILY, 1.1).affinity(CustomerSegment.BUSINESS, 1.4)
                 .affinity(CustomerSegment.ROMANTIC, 1.2).affinity(CustomerSegment.WELLNESS, 1.1)
                 .maxInteriorLevel(2, 3, 3)
@@ -124,7 +122,7 @@ public class ConfigRegistry {
 
         BuildingForm woodenCabin = BuildingForm.builder("WOODEN_CABIN", "独栋木屋", MotherBuildingType.WOODEN_CABIN)
                 .tier(0).capacityPerRoom(4).pricePerRoom(720, 820, 920).buildCost(12000)
-                .formLevelUpCost(4000, 6500).maintenance(500, 550, 600).baseComfort(72)
+                .formLevelUpCost(4000, 6500).baseComfort(72)
                 .affinity(CustomerSegment.FAMILY, 1.3).affinity(CustomerSegment.BUSINESS, 0.8)
                 .affinity(CustomerSegment.ROMANTIC, 1.5).affinity(CustomerSegment.WELLNESS, 1.2)
                 .maxInteriorLevel(2, 3, 3)
@@ -133,7 +131,7 @@ public class ConfigRegistry {
 
         BuildingForm duplexLoft = BuildingForm.builder("DUPLEX_LOFT", "复式LOFT", MotherBuildingType.DUPLEX_LOFT)
                 .tier(0).capacityPerRoom(5).pricePerRoom(860, 960, 1060).buildCost(10000)
-                .formLevelUpCost(3500, 6000).maintenance(420, 460, 500).baseComfort(68)
+                .formLevelUpCost(3500, 6000).baseComfort(68)
                 .affinity(CustomerSegment.BUSINESS, 1.5).affinity(CustomerSegment.FAMILY, 1.2)
                 .affinity(CustomerSegment.ROMANTIC, 1.3).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -142,7 +140,7 @@ public class ConfigRegistry {
 
         BuildingForm courtyardHouse = BuildingForm.builder("COURTYARD_HOUSE", "庭院小院", MotherBuildingType.COURTYARD_HOUSE)
                 .tier(0).capacityPerRoom(6).pricePerRoom(1100, 1250, 1400).buildCost(15000)
-                .formLevelUpCost(5000, 8000).maintenance(600, 660, 720).baseComfort(82)
+                .formLevelUpCost(5000, 8000).baseComfort(82)
                 .affinity(CustomerSegment.WELLNESS, 1.6).affinity(CustomerSegment.FAMILY, 1.5)
                 .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.BUSINESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -151,7 +149,7 @@ public class ConfigRegistry {
 
         BuildingForm multiBedroomHouse = BuildingForm.builder("MULTI_BEDROOM_HOUSE", "多卧平房", MotherBuildingType.MULTI_BEDROOM_HOUSE)
                 .tier(0).capacityPerRoom(8).pricePerRoom(1250, 1400, 1550).buildCost(11000)
-                .formLevelUpCost(4000, 6500).maintenance(450, 500, 550).baseComfort(66)
+                .formLevelUpCost(4000, 6500).baseComfort(66)
                 .affinity(CustomerSegment.FAMILY, 1.7).affinity(CustomerSegment.BUSINESS, 0.5)
                 .affinity(CustomerSegment.ROMANTIC, 0.9).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -161,7 +159,7 @@ public class ConfigRegistry {
         // —— 配套母本基础形态（9 种，仅登记） ——
         BuildingForm restaurant = BuildingForm.builder("RESTAURANT", "餐厅", MotherBuildingType.RESTAURANT)
                 .tier(0).serviceCapacity(40).unitPrice(80, 95, 110).buildCost(6000)
-                .formLevelUpCost(2500, 4200).maintenance(220, 260, 300).baseComfort(40)
+                .formLevelUpCost(2500, 4200).baseComfort(40)
                 .affinity(CustomerSegment.FAMILY, 1.2).affinity(CustomerSegment.BUSINESS, 1.0)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.8)
                 .maxInteriorLevel(2, 3, 3)
@@ -170,7 +168,7 @@ public class ConfigRegistry {
 
         BuildingForm hotSpringPool = BuildingForm.builder("HOT_SPRING_POOL", "温泉泡池", MotherBuildingType.HOT_SPRING_POOL)
                 .tier(0).serviceCapacity(20).unitPrice(60, 75, 90).buildCost(7500)
-                .formLevelUpCost(2800, 4600).maintenance(280, 320, 360).baseComfort(45)
+                .formLevelUpCost(2800, 4600).baseComfort(45)
                 .affinity(CustomerSegment.WELLNESS, 1.8).affinity(CustomerSegment.ROMANTIC, 1.3)
                 .affinity(CustomerSegment.FAMILY, 0.9).affinity(CustomerSegment.BUSINESS, 0.7)
                 .maxInteriorLevel(2, 3, 3)
@@ -179,7 +177,7 @@ public class ConfigRegistry {
 
         BuildingForm viewingPlatform = BuildingForm.builder("VIEWING_PLATFORM", "观景台", MotherBuildingType.VIEWING_PLATFORM)
                 .tier(0).serviceCapacity(30).unitPrice(40, 50, 60).buildCost(4000)
-                .formLevelUpCost(1800, 3000).maintenance(150, 180, 210).baseComfort(35)
+                .formLevelUpCost(1800, 3000).baseComfort(35)
                 .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.WELLNESS, 1.2)
                 .affinity(CustomerSegment.FAMILY, 1.1).affinity(CustomerSegment.BUSINESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -187,7 +185,7 @@ public class ConfigRegistry {
 
         BuildingForm receptionLobby = BuildingForm.builder("RECEPTION_LOBBY", "接待大堂", MotherBuildingType.RECEPTION_LOBBY)
                 .tier(0).serviceCapacity(0).unitPrice(0, 0, 0).buildCost(5000)
-                .formLevelUpCost(2000, 3400).maintenance(180, 210, 240).baseComfort(30)
+                .formLevelUpCost(2000, 3400).baseComfort(30)
                 .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 1.0)
                 .maxInteriorLevel(2, 3, 3)
@@ -195,7 +193,7 @@ public class ConfigRegistry {
 
         BuildingForm teaLibrary = BuildingForm.builder("TEA_LIBRARY", "茶室书吧", MotherBuildingType.TEA_LIBRARY)
                 .tier(0).serviceCapacity(15).unitPrice(50, 60, 70).buildCost(4500)
-                .formLevelUpCost(1900, 3200).maintenance(160, 190, 220).baseComfort(38)
+                .formLevelUpCost(1900, 3200).baseComfort(38)
                 .affinity(CustomerSegment.WELLNESS, 1.4).affinity(CustomerSegment.ROMANTIC, 1.2)
                 .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
                 .maxInteriorLevel(2, 3, 3)
@@ -203,7 +201,7 @@ public class ConfigRegistry {
 
         BuildingForm cultureWorkshop = BuildingForm.builder("CULTURE_WORKSHOP", "文创工坊", MotherBuildingType.CULTURE_WORKSHOP)
                 .tier(0).serviceCapacity(12).unitPrice(55, 65, 80).buildCost(5500)
-                .formLevelUpCost(2200, 3600).maintenance(200, 230, 260).baseComfort(36)
+                .formLevelUpCost(2200, 3600).baseComfort(36)
                 .affinity(CustomerSegment.FAMILY, 1.3).affinity(CustomerSegment.ROMANTIC, 1.1)
                 .affinity(CustomerSegment.WELLNESS, 1.0).affinity(CustomerSegment.BUSINESS, 0.8)
                 .maxInteriorLevel(2, 3, 3)
@@ -211,7 +209,7 @@ public class ConfigRegistry {
 
         BuildingForm logisticsWarehouse = BuildingForm.builder("LOGISTICS_WAREHOUSE", "后勤库房", MotherBuildingType.LOGISTICS_WAREHOUSE)
                 .tier(0).serviceCapacity(0).unitPrice(0, 0, 0).buildCost(3500)
-                .formLevelUpCost(1500, 2500).maintenance(140, 160, 180).baseComfort(20)
+                .formLevelUpCost(1500, 2500).baseComfort(20)
                 .affinity(CustomerSegment.FAMILY, 0.8).affinity(CustomerSegment.BUSINESS, 0.8)
                 .affinity(CustomerSegment.ROMANTIC, 0.8).affinity(CustomerSegment.WELLNESS, 0.8)
                 .maxInteriorLevel(2, 3, 3)
@@ -219,7 +217,7 @@ public class ConfigRegistry {
 
         BuildingForm outdoorCamp = BuildingForm.builder("OUTDOOR_CAMP", "户外营地", MotherBuildingType.OUTDOOR_CAMP)
                 .tier(0).serviceCapacity(25).unitPrice(35, 45, 55).buildCost(3000)
-                .formLevelUpCost(1400, 2400).maintenance(120, 140, 160).baseComfort(34)
+                .formLevelUpCost(1400, 2400).baseComfort(34)
                 .affinity(CustomerSegment.FAMILY, 1.4).affinity(CustomerSegment.ROMANTIC, 1.2)
                 .affinity(CustomerSegment.WELLNESS, 1.1).affinity(CustomerSegment.BUSINESS, 0.6)
                 .maxInteriorLevel(2, 3, 3)
@@ -227,7 +225,7 @@ public class ConfigRegistry {
 
         BuildingForm parentChildPark = BuildingForm.builder("PARENT_CHILD_PARK", "亲子乐园", MotherBuildingType.PARENT_CHILD_PARK)
                 .tier(0).serviceCapacity(35).unitPrice(45, 55, 65).buildCost(6500)
-                .formLevelUpCost(2600, 4400).maintenance(240, 280, 320).baseComfort(42)
+                .formLevelUpCost(2600, 4400).baseComfort(42)
                 .affinity(CustomerSegment.FAMILY, 1.8).affinity(CustomerSegment.ROMANTIC, 0.9)
                 .affinity(CustomerSegment.WELLNESS, 0.8).affinity(CustomerSegment.BUSINESS, 0.5)
                 .maxInteriorLevel(2, 3, 3)
@@ -249,113 +247,114 @@ public class ConfigRegistry {
         mergeRecipes.add(new MergeRecipe("MERGE_CROSS_LINE_HALL", "跨线合并：商务行政馆",
                 familySuite, 3, businessSuite, 3, mergedBusinessHall, 1, 40000));
 
-        // ===================== 地块 =====================
+        // ===================== 地块（按注册顺序构成解锁链） =====================
+        // 规则：每一地块必须先解锁「上一地块」（跨区域同样成立），再达成自身成就条件后解锁；
+        // 区域内首个地块解锁即视为该区域解锁。开局仅默认解锁「史东薇尔城」。
         registerPlot(
-                new Plot("A_COUNTRYSIDE", "A村·乡间地块", Region.VILLAGE_A, 1, 8,
+                new Plot("STORMVEIL_CASTLE", "史东薇尔城", Region.LIMGRAVE, 1, 8, 0,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.VIEWING_PLATFORM),
                         1, List.of(), true),
-                new Plot("A_HILLSIDE", "A村·山坡地块", Region.VILLAGE_A, 2, 10,
+                new Plot("MISTWOOD_EDGE", "雾林边缘", Region.LIMGRAVE, 2, 8, 100000,
+                        Set.of(MotherBuildingType.STANDARD_ROOM),
+                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.OUTDOOR_CAMP),
+                        2, List.of("ACH_ASSET_10"), false),
+                new Plot("AGHEEL_LAKE", "亚基尔湖", Region.LIMGRAVE, 3, 10, 1000000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL),
-                        2, List.of("ACH_BUILDING_20"), false),
-                new Plot("A_LAKESIDE", "A村·湖区地块", Region.VILLAGE_A, 3, 12,
+                        3, List.of("ACH_ASSET_100", "ACH_GUEST_5000"), false),
+                new Plot("CARIA_MANOR", "卡利亚城寨", Region.LIURNIA, 1, 8, 5000000,
+                        Set.of(MotherBuildingType.STANDARD_ROOM),
+                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.TEA_LIBRARY, MotherBuildingType.VIEWING_PLATFORM),
+                        3, List.of("ACH_ASSET_500", "ACH_GUEST_10000", "ACH_STAFF_20"), false),
+                new Plot("RAYA_LUCARIA", "雷亚卢卡利亚学院", Region.LIURNIA, 2, 10, 8000000,
+                        Set.of(MotherBuildingType.STANDARD_ROOM),
+                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.TEA_LIBRARY, MotherBuildingType.CULTURE_WORKSHOP),
+                        3, List.of("ACH_BUILDING_20", "ACH_FAMILY_SUITE"), false),
+                new Plot("FOUR_BELFRIES", "四钟楼", Region.LIURNIA, 3, 12, 10000000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL, MotherBuildingType.VIEWING_PLATFORM),
-                        3, List.of("ACH_GUEST_500", "ACH_INCOME_100000"), false),
-                new Plot("B_COUNTRYSIDE", "B镇·乡间地块", Region.TOWN_B, 1, 12,
-                        Set.of(MotherBuildingType.STANDARD_ROOM, MotherBuildingType.LUXURY_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.RECEPTION_LOBBY),
-                        2, List.of("ACH_A_TOTAL", "ACH_BUILDING_40"), false),
-                new Plot("B_HILLSIDE", "B镇·山坡地块", Region.TOWN_B, 2, 14,
-                        Set.of(MotherBuildingType.STANDARD_ROOM, MotherBuildingType.LUXURY_ROOM, MotherBuildingType.WOODEN_CABIN),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL, MotherBuildingType.TEA_LIBRARY),
-                        3, List.of("ACH_A_TOTAL", "ACH_GUEST_2000"), false),
-                new Plot("B_LAKESIDE", "B镇·湖区地块", Region.TOWN_B, 3, 16,
-                        Set.of(MotherBuildingType.STANDARD_ROOM, MotherBuildingType.LUXURY_ROOM, MotherBuildingType.COURTYARD_HOUSE),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL, MotherBuildingType.VIEWING_PLATFORM),
-                        3, List.of("ACH_A_TOTAL", "ACH_INCOME_1000000"), false));
+                        3, List.of("ACH_STAFF_50", "ACH_MANAGER_LV3"), false));
 
         // ===================== 成就 =====================
         registerAchievement(
-                new Achievement("ACH_INCOME_100000", "累计总收入 10 万", AchievementCategory.FINANCE,
-                        AchievementType.CUMULATIVE_INCOME, 100000, ""),
-                new Achievement("ACH_ASSETS_100000", "总资产 10 万", AchievementCategory.FINANCE,
+                // —— 财务：总资产 ——
+                new Achievement("ACH_ASSET_10", "总资产 10 万", AchievementCategory.FINANCE,
                         AchievementType.TOTAL_ASSETS, 100000, ""),
-                new Achievement("ACH_A_TOTAL", "A村总成就·累计收入 30 万", AchievementCategory.FINANCE,
-                        AchievementType.CUMULATIVE_INCOME, 300000, ""),
-                new Achievement("ACH_INCOME_1000000", "累计总收入 100 万", AchievementCategory.FINANCE,
-                        AchievementType.CUMULATIVE_INCOME, 1000000, ""),
+                new Achievement("ACH_ASSET_100", "总资产 100 万", AchievementCategory.FINANCE,
+                        AchievementType.TOTAL_ASSETS, 1000000, ""),
+                new Achievement("ACH_ASSET_500", "总资产 500 万", AchievementCategory.FINANCE,
+                        AchievementType.TOTAL_ASSETS, 5000000, ""),
+                new Achievement("ACH_ASSET_1000", "总资产 1000 万", AchievementCategory.FINANCE,
+                        AchievementType.TOTAL_ASSETS, 10000000, ""),
+                new Achievement("ACH_ASSET_10000", "总资产 10000 万", AchievementCategory.FINANCE,
+                        AchievementType.TOTAL_ASSETS, 100000000, ""),
+                // —— 建筑：建筑数量 ——
+                new Achievement("ACH_BUILDING_5", "已建建筑 5 座", AchievementCategory.BUILDING,
+                        AchievementType.BUILDING_COUNT, 5, ""),
+                new Achievement("ACH_BUILDING_10", "已建建筑 10 座", AchievementCategory.BUILDING,
+                        AchievementType.BUILDING_COUNT, 10, ""),
                 new Achievement("ACH_BUILDING_20", "已建建筑 20 座", AchievementCategory.BUILDING,
                         AchievementType.BUILDING_COUNT, 20, ""),
-                new Achievement("ACH_BUILDING_40", "已建建筑 40 座", AchievementCategory.BUILDING,
-                        AchievementType.BUILDING_COUNT, 40, ""),
-                new Achievement("ACH_FORM_FAMILY_SUITE", "建成亲子套房 Lv1", AchievementCategory.BUILDING,
-                        AchievementType.FORM_LEVEL_COUNT, 1, "FAMILY_SUITE_1"),
-                new Achievement("ACH_FORM_MERGED_VILLA", "建成亲子合院 Lv1", AchievementCategory.BUILDING,
-                        AchievementType.FORM_LEVEL_COUNT, 1, "MERGED_FAMILY_VILLA_1"),
-                new Achievement("ACH_GUEST_500", "累计接待 500 人", AchievementCategory.GUEST,
-                        AchievementType.CUMULATIVE_GUESTS, 500, ""),
-                new Achievement("ACH_GUEST_2000", "累计接待 2000 人", AchievementCategory.GUEST,
-                        AchievementType.CUMULATIVE_GUESTS, 2000, ""),
-                new Achievement("ACH_SEG_FAMILY_300", "家庭客群累计接待 300 人", AchievementCategory.GUEST,
-                        AchievementType.SEGMENT_GUESTS, 300, "FAMILY"),
+                new Achievement("ACH_BUILDING_50", "已建建筑 50 座", AchievementCategory.BUILDING,
+                        AchievementType.BUILDING_COUNT, 50, ""),
+                new Achievement("ACH_BUILDING_100", "已建建筑 100 座", AchievementCategory.BUILDING,
+                        AchievementType.BUILDING_COUNT, 100, ""),
+                // —— 客流：累计接待 ——
+                new Achievement("ACH_GUEST_100", "累计接待 100 人", AchievementCategory.GUEST,
+                        AchievementType.CUMULATIVE_GUESTS, 100, ""),
+                new Achievement("ACH_GUEST_1000", "累计接待 1000 人", AchievementCategory.GUEST,
+                        AchievementType.CUMULATIVE_GUESTS, 1000, ""),
+                new Achievement("ACH_GUEST_5000", "累计接待 5000 人", AchievementCategory.GUEST,
+                        AchievementType.CUMULATIVE_GUESTS, 5000, ""),
+                new Achievement("ACH_GUEST_10000", "累计接待 10000 人", AchievementCategory.GUEST,
+                        AchievementType.CUMULATIVE_GUESTS, 10000, ""),
+                new Achievement("ACH_GUEST_100000", "累计接待 100000 人", AchievementCategory.GUEST,
+                        AchievementType.CUMULATIVE_GUESTS, 100000, ""),
+                // —— 雇佣：员工数量 / 特定岗位等级 ——
+                new Achievement("ACH_STAFF_5", "员工总数 5 人", AchievementCategory.STAFF,
+                        AchievementType.STAFF_COUNT, 5, ""),
                 new Achievement("ACH_STAFF_10", "员工总数 10 人", AchievementCategory.STAFF,
                         AchievementType.STAFF_COUNT, 10, ""),
-                new Achievement("ACH_POS_CHEF_LV3", "拥有 Lv3 厨师", AchievementCategory.STAFF,
-                        AchievementType.POSITION_LEVEL_COUNT, 1, "CHEF_3"));
+                new Achievement("ACH_STAFF_20", "员工总数 20 人", AchievementCategory.STAFF,
+                        AchievementType.STAFF_COUNT, 20, ""),
+                new Achievement("ACH_STAFF_50", "员工总数 50 人", AchievementCategory.STAFF,
+                        AchievementType.STAFF_COUNT, 50, ""),
+                new Achievement("ACH_STAFF_500", "员工总数 500 人", AchievementCategory.STAFF,
+                        AchievementType.STAFF_COUNT, 500, ""),
+                new Achievement("ACH_CHEF_LV3", "招聘 1 名 3 级厨师", AchievementCategory.STAFF,
+                        AchievementType.POSITION_LEVEL_COUNT, 1, "CHEF_3"),
+                new Achievement("ACH_MANAGER_LV3", "招聘 1 名 3 级店长", AchievementCategory.STAFF,
+                        AchievementType.POSITION_LEVEL_COUNT, 1, "MANAGER_3"),
+                // —— 建筑：特定形态 ——
+                new Achievement("ACH_FAMILY_SUITE", "建造 1 座亲子套房", AchievementCategory.BUILDING,
+                        AchievementType.FORM_LEVEL_COUNT, 1, "FAMILY_SUITE_1"),
+                new Achievement("ACH_BUSINESS_SUITE", "建造 1 座行政套房", AchievementCategory.BUILDING,
+                        AchievementType.FORM_LEVEL_COUNT, 1, "BUSINESS_SUITE_1"));
 
         // ===================== 技能树（DAG，禁止循环依赖） =====================
         registerSkill(
-                // 一级
-                node("SK_EVOLVE_COST", "进化节流 I", "建筑形态进化费用 −10%", SkillCategory.BUILDING,
-                        List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.EVOLVE_COST_DISCOUNT, 0.10),
+                // —— 无前置（一级） ——
                 node("SK_INTERIOR_COST", "内装节流 I", "内装升级费用 −10%", SkillCategory.INTERIOR,
                         List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.INTERIOR_UPGRADE_COST_DISCOUNT, 0.10),
-                node("SK_ATTRACT", "引流 I", "分客群吸引力 +10%", SkillCategory.DEMAND,
-                        List.of(), SkillEffectType.MULTIPLIER, SkillEffectKey.SEGMENT_ATTRACTION_MULT, 0.10),
                 node("SK_HIRE_COST", "招聘节流 I", "招聘消耗 −10%", SkillCategory.HIRING,
                         List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.HIRE_COST_DISCOUNT, 0.10),
-                node("SK_ROOM_PRICE", "房价溢价 I", "房晚基准单价 +5%", SkillCategory.FINANCE,
-                        List.of(), SkillEffectType.MULTIPLIER, SkillEffectKey.ROOM_PRICE_MULT, 0.05),
-                node("SK_REGION_GATE", "区块通达 I", "区块解锁所需成就门槛 −10%", SkillCategory.REGION,
-                        List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.REGION_ACHIEVEMENT_DISCOUNT, 0.10),
-                // 二级
-                node("SK_EVOLVE_COST_II", "进化节流 II", "建筑形态进化费用再 −10%", SkillCategory.BUILDING,
-                        List.of("SK_EVOLVE_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.EVOLVE_COST_DISCOUNT, 0.10),
-                node("SK_MERGE_COST", "合并节流 I", "合并进化消耗 −15%", SkillCategory.BUILDING,
-                        List.of("SK_EVOLVE_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.MERGE_COST_DISCOUNT, 0.15),
-                node("SK_PLOT_LIMIT", "地块扩容 I", "单地块可建建筑上限 +2", SkillCategory.BUILDING,
-                        List.of("SK_EVOLVE_COST"), SkillEffectType.FLAT, SkillEffectKey.PLOT_BUILD_LIMIT, 2.0),
+                node("SK_FIRE_COMP", "离职安抚 I", "解雇补偿 −10%", SkillCategory.HIRING,
+                        List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.FIRE_COMPENSATION_DISCOUNT, 0.10),
+                // —— 二级 ——
+                node("SK_EVOLVE_COST", "进化节流 I", "建筑形态进化费用 −10%", SkillCategory.BUILDING,
+                        List.of("SK_INTERIOR_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.EVOLVE_COST_DISCOUNT, 0.10),
                 node("SK_INTERIOR_COMFORT", "舒适内装 I", "内装舒适度加成 +15%", SkillCategory.INTERIOR,
                         List.of("SK_INTERIOR_COST"), SkillEffectType.MULTIPLIER, SkillEffectKey.INTERIOR_COMFORT_MULT, 0.15),
-                node("SK_INTERIOR_CAPACITY", "承载内装 I", "内装承载加成 +15%", SkillCategory.INTERIOR,
-                        List.of("SK_INTERIOR_COST"), SkillEffectType.MULTIPLIER, SkillEffectKey.INTERIOR_CAPACITY_MULT, 0.15),
-                node("SK_CONVERSION", "转化率 I", "客群转化率 +15%", SkillCategory.DEMAND,
-                        List.of("SK_ATTRACT"), SkillEffectType.MULTIPLIER, SkillEffectKey.CONVERSION_RATE_MULT, 0.15),
-                node("SK_STAFF_ABILITY", "人力素质 I", "员工能力值 +15%", SkillCategory.HIRING,
-                        List.of("SK_HIRE_COST"), SkillEffectType.MULTIPLIER, SkillEffectKey.STAFF_ABILITY_MULT, 0.15),
-                node("SK_STAFF_TRAIN", "岗前培训 I", "员工自动升级所需在岗时长 −15%", SkillCategory.HIRING,
-                        List.of("SK_HIRE_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.STAFF_UPGRADE_DAYS_MULT, 0.15),
-                node("SK_STAFF_SALARY", "薪资优化 I", "员工每日薪资 −10%", SkillCategory.HIRING,
-                        List.of("SK_HIRE_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.STAFF_SALARY_DISCOUNT, 0.10),
-                node("SK_SUPPORT_PRICE", "配套溢价 I", "配套基准单价 +5%", SkillCategory.FINANCE,
-                        List.of("SK_ROOM_PRICE"), SkillEffectType.MULTIPLIER, SkillEffectKey.SUPPORT_PRICE_MULT, 0.05),
-                node("SK_MAINTENANCE", "运维节流 I", "建筑维护成本 −10%", SkillCategory.FINANCE,
-                        List.of("SK_ROOM_PRICE"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.MAINTENANCE_COST_DISCOUNT, 0.10),
-                // 三级
-                node("SK_MERGE_BONUS", "合并专精", "合并产物房价 +10%", SkillCategory.BUILDING,
-                        List.of("SK_MERGE_COST"), SkillEffectType.FLAT, SkillEffectKey.MERGE_BONUS, 0.10),
-                node("SK_FIRE_COMP", "离职安抚", "解雇补偿 −20%", SkillCategory.HIRING,
-                        List.of("SK_STAFF_ABILITY"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.FIRE_COMPENSATION_DISCOUNT, 0.20));
-
-        // ===================== 景区顶层 =====================
-        Map<CustomerSegment, Double> ratios = new LinkedHashMap<>();
-        ratios.put(CustomerSegment.FAMILY, 0.35);
-        ratios.put(CustomerSegment.BUSINESS, 0.25);
-        ratios.put(CustomerSegment.ROMANTIC, 0.20);
-        ratios.put(CustomerSegment.WELLNESS, 0.20);
-        this.scenic = new ScenicConfig("云栖山谷景区", 60, Collections.unmodifiableMap(ratios));
+                node("SK_STAFF_ABILITY", "人力素质 I", "员工能力值 +10%", SkillCategory.HIRING,
+                        List.of("SK_HIRE_COST", "SK_FIRE_COMP"), SkillEffectType.MULTIPLIER, SkillEffectKey.STAFF_ABILITY_MULT, 0.10),
+                // —— 三级 ——
+                node("SK_BUILD_COST", "建造节流 I", "新建建筑费用 −10%", SkillCategory.BUILDING,
+                        List.of("SK_INTERIOR_COST", "SK_EVOLVE_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.BUILD_COST_DISCOUNT, 0.10),
+                // —— 四级（终点） ——
+                node("SK_ROOM_PRICE", "房屋收益溢价 I", "房屋收益基准 +10%", SkillCategory.FINANCE,
+                        List.of("SK_EVOLVE_COST", "SK_BUILD_COST"),
+                        SkillEffectType.MULTIPLIER, SkillEffectKey.ROOM_PRICE_MULT, 0.10));
     }
 
     private static SkillNode node(String id, String name, String desc, SkillCategory cat,
@@ -388,10 +387,6 @@ public class ConfigRegistry {
     }
 
     // ===================== 查询接口 =====================
-
-    public ScenicConfig scenic() {
-        return scenic;
-    }
 
     public BuildingForm form(String id) {
         return id == null ? null : formsById.get(id);
@@ -470,10 +465,5 @@ public class ConfigRegistry {
 
     public List<SkillNode> allSkills() {
         return Collections.unmodifiableList(new ArrayList<>(skillsById.values()));
-    }
-
-    /** 解锁 B 镇所需的 A 村总成就 ID */
-    public String regionGateAchievement() {
-        return "ACH_A_TOTAL";
     }
 }

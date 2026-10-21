@@ -47,20 +47,14 @@ public class DailySettle {
     /** 入住率（售出间数 / 总间数） */
     private double occupancyRate;
 
-    // —— 收入与支出 ——
-    /** 住宿收入 */
+    // —— 收益 ——
+    /** 房屋收益 */
     private double accommodationRevenue;
-    /** 配套收入 */
+    /** 配套收益 */
     private double supportRevenue;
-    /** 当日总收入 */
+    /** 当日总收入（= 净利润） */
     private double totalRevenue;
-    /** 建筑每日维护费合计 */
-    private double maintenanceCost;
-    /** 员工每日薪资合计 */
-    private double salaryCost;
-    /** 当日总支出 */
-    private double totalExpense;
-    /** 当日净利润 */
+    /** 当日净利润（无固定支出，等于总收入） */
     private double netProfit;
     /** 结算后资金池 */
     private double fundsAfter;

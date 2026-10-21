@@ -8,9 +8,6 @@ import BuildSlot from './BuildSlot.vue';
 
 const emit = defineEmits(['open-building', 'open-build']);
 
-const REGION_NAMES = { VILLAGE_A: 'A村', TOWN_B: 'B镇' };
-const REGION_ORDER = ['VILLAGE_A', 'TOWN_B'];
-
 const guestCount = computed(() => Math.round(store.state?.todayPreview?.expectedGuests || 0) || 0);
 const dots = computed(() => buildGuestDots(guestCount.value, 50));
 
@@ -21,10 +18,10 @@ const regionGroups = computed(() => {
     const unlockedPlots = new Set(st.unlockedPlots || []);
     const plots = (store.config.plots || []).filter((p) => unlockedPlots.has(p.id));
     const out = [];
-    for (const rid of REGION_ORDER) {
-        if (!unlockedRegions.includes(rid)) continue;
-        const list = plots.filter((p) => p.region === rid).sort((a, b) => a.orderInRegion - b.orderInRegion);
-        if (list.length) out.push({ region: rid, name: REGION_NAMES[rid] || rid, plots: list });
+    for (const r of store.config.regions || []) {
+        if (!unlockedRegions.includes(r.id)) continue;
+        const list = plots.filter((p) => p.region === r.id).sort((a, b) => a.orderInRegion - b.orderInRegion);
+        if (list.length) out.push({ region: r.id, name: r.displayName, plots: list });
     }
     return out;
 });

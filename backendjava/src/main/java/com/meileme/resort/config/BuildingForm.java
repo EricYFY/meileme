@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * 建筑形态。
  *
- * <p>形态自带「客群影响系数、每间可接待人数、固定房价、维护费、舒适度、能力需求」等固有属性；
+ * <p>形态自带「客群影响系数、每间可接待人数、固定房屋收益、舒适度、能力需求」等固有属性；
  * 每个形态自带等级 Lv1~Lv3，<b>形态满级后才可进行下一阶段分支进化</b>。</p>
  *
  * <p>本期只设计「标准客房」母本的进化树（家庭亲子线 / 商务行政线），其余母本形态仅登记备用。</p>
@@ -30,11 +30,11 @@ public class BuildingForm {
     private final int tier;
     /** 每间可接待人数（住宿形态；配套形态为 0） */
     private final double capacityPerRoom;
-    /** 每间固定房价，下标 0 = Lv1（住宿形态） */
+    /** 每间固定房屋收益，下标 0 = Lv1（住宿形态） */
     private final double[] pricePerRoomByLevel;
     /** 配套服务容量上限（配套形态；住宿形态为 0） */
     private final double serviceCapacity;
-    /** 配套固定单人消费单价，下标 0 = Lv1（配套形态） */
+    /** 配套固定单人收益，下标 0 = Lv1（配套形态） */
     private final double[] unitPriceByLevel;
     /** 新建该形态建筑的一次性花费（仅基础形态 > 0） */
     private final double buildCost;
@@ -42,8 +42,6 @@ public class BuildingForm {
     private final double evolveCost;
     /** 形态等级升级花费：[Lv1→Lv2, Lv2→Lv3] */
     private final double[] formLevelUpCost;
-    /** 各等级每日维护费，下标 0 = Lv1 */
-    private final double[] maintenanceByLevel;
     /** 形态基础舒适度（Lv1 时基准值） */
     private final double baseComfort;
     /** 客群影响系数（形态固有属性，内装不提供） */
@@ -68,7 +66,6 @@ public class BuildingForm {
         this.buildCost = b.buildCost;
         this.evolveCost = b.evolveCost;
         this.formLevelUpCost = b.formLevelUpCost;
-        this.maintenanceByLevel = b.maintenanceByLevel;
         this.baseComfort = b.baseComfort;
         this.segmentAffinity = b.segmentAffinity;
         this.maxInteriorLevel = b.maxInteriorLevel;
@@ -86,19 +83,14 @@ public class BuildingForm {
         return mother.getCategory() == BuildingCategory.SUPPORT;
     }
 
-    /** 指定形态等级下的每间房价 */
+    /** 指定形态等级下的每间房屋收益 */
     public double pricePerRoomOf(int formLevel) {
         return pick(pricePerRoomByLevel, formLevel);
     }
 
-    /** 指定形态等级下的配套单人单价 */
+    /** 指定形态等级下的配套单人收益 */
     public double unitPriceOf(int formLevel) {
         return pick(unitPriceByLevel, formLevel);
-    }
-
-    /** 指定形态等级下的每日维护费 */
-    public double maintenanceOf(int formLevel) {
-        return pick(maintenanceByLevel, formLevel);
     }
 
     /** 从指定形态等级升级到下一级的费用；已满级返回 0 */
@@ -178,7 +170,6 @@ public class BuildingForm {
         private double buildCost = 0;
         private double evolveCost = 0;
         private double[] formLevelUpCost = new double[]{0, 0};
-        private double[] maintenanceByLevel = new double[]{0, 0, 0};
         private double baseComfort = 50;
         private Map<CustomerSegment, Double> segmentAffinity = new EnumMap<>(CustomerSegment.class);
         private int[] maxInteriorLevel = new int[]{
@@ -236,11 +227,6 @@ public class BuildingForm {
 
         public Builder formLevelUpCost(double lv1ToLv2, double lv2ToLv3) {
             this.formLevelUpCost = new double[]{lv1ToLv2, lv2ToLv3};
-            return this;
-        }
-
-        public Builder maintenance(double lv1, double lv2, double lv3) {
-            this.maintenanceByLevel = new double[]{lv1, lv2, lv3};
             return this;
         }
 

@@ -29,7 +29,7 @@ public final class GameConfig {
     // ===================== 开局 =====================
 
     /** 初始资金池 */
-    public static final double STARTING_FUNDS = 20000;
+    public static final double STARTING_FUNDS = 50000;
     /** 每局起始日期的默认展示值（纯展示字段，不挂业务语义） */
     public static final String DEFAULT_START_DATE = "2026-07-01";
     /** 每日结算日志最多保留天数（环形上限） */
@@ -71,7 +71,7 @@ public final class GameConfig {
     /** 员工等级下限 */
     public static final int STAFF_MIN_LEVEL = 1;
     /** 解雇补偿：在岗累计天数每 1 天带来的补偿增量比例 */
-    public static final double FIRE_COMPENSATION_PER_DAY_RATIO = 0.005;
+    public static final double FIRE_COMPENSATION_PER_DAY_RATIO = 0.001;
 
     // ===================== 技能树 / 区块 =====================
 

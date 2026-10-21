@@ -39,7 +39,7 @@ public class EvolutionService {
     }
 
     public String validateFormLevelUp(GameState state, BuildingInstance building) {
-        if (state == null || state.isGameOver()) {
+        if (state == null) {
             return "GAME_NOT_RUNNING";
         }
         if (building == null) {
@@ -67,7 +67,7 @@ public class EvolutionService {
     }
 
     public String validateBranchEvolve(GameState state, BuildingInstance building, BuildingForm target) {
-        if (state == null || state.isGameOver()) {
+        if (state == null) {
             return "GAME_NOT_RUNNING";
         }
         if (building == null) {
@@ -127,7 +127,7 @@ public class EvolutionService {
     }
 
     public String validateMerge(GameState state, BuildingInstance a, BuildingInstance b, MergeRecipe recipe) {
-        if (state == null || state.isGameOver()) {
+        if (state == null) {
             return "GAME_NOT_RUNNING";
         }
         if (a == null || b == null) {

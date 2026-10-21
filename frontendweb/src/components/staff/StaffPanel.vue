@@ -40,7 +40,6 @@ function groupByPosition() {
                     <div v-for="p in positions" :key="p.id" class="staff-card">
                         <div class="title">{{ p.displayName }}</div>
                         <div class="sub">{{ abilityNames(p) }}</div>
-                        <div class="row"><span class="dim">日薪 Lv1/2/3</span><span class="num">{{ fmtMoney(p.salaryByLevel?.[0]) }} / {{ fmtMoney(p.salaryByLevel?.[1]) }} / {{ fmtMoney(p.salaryByLevel?.[2]) }}</span></div>
                         <div class="row"><span class="dim">能力值 Lv1/2/3</span><span class="num">{{ fmtInt(p.abilityValueByLevel?.[0]) }} / {{ fmtInt(p.abilityValueByLevel?.[1]) }} / {{ fmtInt(p.abilityValueByLevel?.[2]) }}</span></div>
                         <div class="row" style="align-items: center">
                             <span class="dim">等级</span>

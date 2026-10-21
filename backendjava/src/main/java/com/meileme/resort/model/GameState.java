@@ -36,12 +36,6 @@ public class GameState {
     /** 对局是否运行中 */
     private boolean running = false;
 
-    /** 是否已结束（破产等） */
-    private boolean gameOver = false;
-
-    /** 结束原因 */
-    private String endReason;
-
     // ===================== 时间推进 =====================
 
     /** 当前当日内进度（0 ~ 1） */

@@ -17,17 +17,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 财务结算：住宿收入（按间计价）+ 配套收入；支出 = 建筑维护费 + 员工薪资。
+ * 财务结算：当日总收入 = 房屋收益（按间计价）+ 配套收益；日常运营无固定支出。
  */
 @Service
 public class FinanceService {
 
-    private final StaffService staffService;
     private final ComfortService comfortService;
     private final SkillTreeService skillTree;
 
-    public FinanceService(StaffService staffService, ComfortService comfortService, SkillTreeService skillTree) {
-        this.staffService = staffService;
+    public FinanceService(ComfortService comfortService, SkillTreeService skillTree) {
         this.comfortService = comfortService;
         this.skillTree = skillTree;
     }
@@ -44,9 +42,8 @@ public class FinanceService {
         double roomPriceMult = skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
         double mergeBonus = skillTree.flat(state, SkillEffectKey.MERGE_BONUS);
         double supportPriceMult = skillTree.multiplier(state, SkillEffectKey.SUPPORT_PRICE_MULT);
-        double maintenanceDiscount = skillTree.discount(state, SkillEffectKey.MAINTENANCE_COST_DISCOUNT);
 
-        // —— 住宿收入（按间计价） ——
+        // —— 房屋收益（按间计价） ——
         double accommodationRevenue = 0;
         for (BuildingInstance b : state.aliveAccommodationBuildings()) {
             int sold = demand.getSoldRoomsByBuilding().getOrDefault(b.getId(), 0);
@@ -58,7 +55,7 @@ public class FinanceService {
             accommodationRevenue += sold * price;
         }
 
-        // —— 配套收入 ——
+        // —— 配套收益 ——
         double supportRevenue = 0;
         for (BuildingInstance b : state.aliveSupportBuildings()) {
             double count = demand.getSupportServiceByBuilding().getOrDefault(b.getId(), 0d);
@@ -66,24 +63,12 @@ public class FinanceService {
             supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * supportPriceMult;
         }
 
-        // —— 每日运营成本（仅两项） ——
-        double maintenance = 0;
-        for (BuildingInstance b : state.aliveBuildings()) {
-            maintenance += b.getForm().maintenanceOf(b.getFormLevel());
-        }
-        maintenance *= maintenanceDiscount;
-        double salary = staffService.totalSalary(state);
-
         double totalRevenue = accommodationRevenue + supportRevenue;
-        double totalExpense = maintenance + salary;
 
         p.setAccommodationRevenue(accommodationRevenue);
         p.setSupportRevenue(supportRevenue);
         p.setRevenue(totalRevenue);
-        p.setMaintenance(maintenance);
-        p.setSalary(salary);
-        p.setExpense(totalExpense);
-        p.setNetProfit(totalRevenue - totalExpense);
+        p.setNetProfit(totalRevenue);
         return p;
     }
 
@@ -109,9 +94,8 @@ public class FinanceService {
         double roomPriceMult = skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
         double mergeBonus = skillTree.flat(state, SkillEffectKey.MERGE_BONUS);
         double supportPriceMult = skillTree.multiplier(state, SkillEffectKey.SUPPORT_PRICE_MULT);
-        double maintenanceDiscount = skillTree.discount(state, SkillEffectKey.MAINTENANCE_COST_DISCOUNT);
 
-        // —— 住宿收入（按间计价：售出间数 × 该形态固定房价） ——
+        // —— 房屋收益（按间计价：售出间数 × 该形态固定房屋收益） ——
         double accommodationRevenue = 0;
         Map<String, Double> roomRevenueById = new HashMap<>();
         for (BuildingInstance b : state.aliveAccommodationBuildings()) {
@@ -126,7 +110,7 @@ public class FinanceService {
             accommodationRevenue += revenue;
         }
 
-        // —— 配套收入（服务人次 × 该形态固定基准消费单价） ——
+        // —— 配套收益（服务人次 × 该形态固定单人收益） ——
         double supportRevenue = 0;
         for (BuildingInstance b : state.aliveSupportBuildings()) {
             double count = demand.getSupportServiceByBuilding().getOrDefault(b.getId(), 0d);
@@ -134,24 +118,12 @@ public class FinanceService {
             supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * supportPriceMult;
         }
 
-        // —— 每日运营成本（仅两项） ——
-        double maintenance = 0;
-        for (BuildingInstance b : state.aliveBuildings()) {
-            maintenance += b.getForm().maintenanceOf(b.getFormLevel());
-        }
-        maintenance *= maintenanceDiscount;
-        double salary = staffService.totalSalary(state);
-
         double totalRevenue = accommodationRevenue + supportRevenue;
-        double totalExpense = maintenance + salary;
-        double netProfit = totalRevenue - totalExpense;
+        double netProfit = totalRevenue;
 
         settle.setAccommodationRevenue(accommodationRevenue);
         settle.setSupportRevenue(supportRevenue);
         settle.setTotalRevenue(totalRevenue);
-        settle.setMaintenanceCost(maintenance);
-        settle.setSalaryCost(salary);
-        settle.setTotalExpense(totalExpense);
         settle.setNetProfit(netProfit);
 
         state.setFunds(state.getFunds() + netProfit);

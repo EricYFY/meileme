@@ -25,7 +25,9 @@ public enum PendingCommandType {
     /** 解雇员工 */
     FIRE_STAFF("解雇员工"),
     /** 解锁局内技能点 */
-    SKILL_UNLOCK("解锁技能");
+    SKILL_UNLOCK("解锁技能"),
+    /** 付费解锁地块 */
+    UNLOCK_PLOT("解锁地块");
 
     private final String displayName;
 

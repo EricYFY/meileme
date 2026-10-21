@@ -27,15 +27,18 @@ public class ConstructionService {
         return plot.getBuildLimit() + (int) skillTree.flat(state, SkillEffectKey.PLOT_BUILD_LIMIT);
     }
 
-    /** 新建花费 */
+    /** 新建花费（含技能「建造节流」减免） */
     public double buildCost(GameState state, MotherBuildingType mother) {
         BuildingForm base = registry.baseFormOf(mother);
-        return base == null ? 0 : base.getBuildCost();
+        if (base == null) {
+            return 0;
+        }
+        return base.getBuildCost() * skillTree.discount(state, SkillEffectKey.BUILD_COST_DISCOUNT);
     }
 
     /** 校验新建；返回 null 表示可执行 */
     public String validateBuild(GameState state, MotherBuildingType mother, String plotId) {
-        if (state == null || state.isGameOver()) {
+        if (state == null) {
             return "GAME_NOT_RUNNING";
         }
         if (mother == null) {
