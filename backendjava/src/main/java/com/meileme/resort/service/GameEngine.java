@@ -5,8 +5,10 @@ import com.meileme.resort.config.AbilityType;
 import com.meileme.resort.config.Achievement;
 import com.meileme.resort.config.BuildingForm;
 import com.meileme.resort.config.CustomerSegment;
+import com.meileme.resort.config.EvolutionLine;
 import com.meileme.resort.config.GameConfig;
 import com.meileme.resort.config.InteriorType;
+import com.meileme.resort.config.SkillEffectKey;
 import com.meileme.resort.config.MotherBuildingType;
 import com.meileme.resort.config.PendingCommandType;
 import com.meileme.resort.config.Plot;
@@ -627,6 +629,20 @@ public class GameEngine {
         m.put("abilitySupply", comfortService.totalAbilitySupply(s));
         m.put("abilityDemand", comfortService.totalAbilityDemand(s));
         m.put("abilityRatios", comfortService.supplyRatios(s));
+        // 单间实际房屋收益构成（与日结同一套乘数，供前端展示「当前房屋收益（每间）」）
+        Map<String, Map<String, Object>> roomRevenue = new LinkedHashMap<>();
+        double roomPriceMult = skillTree.multiplier(s, SkillEffectKey.ROOM_PRICE_MULT);
+        for (BuildingInstance b : s.aliveAccommodationBuildings()) {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("base", b.getForm().pricePerRoomOf(b.getFormLevel()));
+            x.put("priceMult", roomPriceMult);
+            x.put("mergeBonus", b.getForm().getLine() == EvolutionLine.MERGE
+                    ? skillTree.flat(s, SkillEffectKey.MERGE_BONUS) : 0d);
+            x.put("interiorBonus", b.interiorRevenueBonus());
+            x.put("final", financeService.pricePerRoom(s, b));
+            roomRevenue.put(b.getId(), x);
+        }
+        m.put("roomRevenue", roomRevenue);
         Map<String, Double> compensations = new LinkedHashMap<>();
         for (StaffInstance st : s.aliveStaffs()) {
             compensations.put(st.getId(), staffService.fireCompensation(s, st));

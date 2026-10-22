@@ -30,6 +30,21 @@ public class FinanceService {
         this.skillTree = skillTree;
     }
 
+    /**
+     * 单间实际房屋收益（含全部乘数）：形态基础房屋收益 × 房屋收益技能倍率 ×（合并产物再加成）×（1 + 内装收益加成）。
+     * 今日预计、日结与前端「当前房屋收益（每间）」统一复用本方法，保证展示与结算一致。
+     */
+    public double pricePerRoom(GameState state, BuildingInstance b) {
+        BuildingForm f = b.getForm();
+        double price = f.pricePerRoomOf(b.getFormLevel())
+                * skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
+        if (f.getLine() == EvolutionLine.MERGE) {
+            price *= (1 + skillTree.flat(state, SkillEffectKey.MERGE_BONUS));
+        }
+        price *= (1 + b.interiorRevenueBonus());
+        return price;
+    }
+
     /** 今日预计纯投影：复用结算公式但不扣减资金、不修改累计统计 */
     public DailyPreview projection(GameState state, DemandResult demand) {
         DailyPreview p = new DailyPreview();
@@ -42,21 +57,13 @@ public class FinanceService {
                 : (double) demand.getOccupiedRooms() / demand.getTotalRooms());
         p.setExpectedGuests(demand.getTotalServed());
 
-        double roomPriceMult = skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
-        double mergeBonus = skillTree.flat(state, SkillEffectKey.MERGE_BONUS);
         double supportPriceMult = skillTree.multiplier(state, SkillEffectKey.SUPPORT_PRICE_MULT);
 
-        // —— 房屋收益（按间计价） ——
+        // —— 房屋收益（按间计价，含技能 / 合并 / 内装乘数） ——
         double accommodationRevenue = 0;
         for (BuildingInstance b : state.aliveAccommodationBuildings()) {
             int sold = demand.getSoldRoomsByBuilding().getOrDefault(b.getId(), 0);
-            BuildingForm f = b.getForm();
-            double price = f.pricePerRoomOf(b.getFormLevel()) * roomPriceMult;
-            if (f.getLine() == EvolutionLine.MERGE) {
-                price *= (1 + mergeBonus);
-            }
-            price *= (1 + b.interiorRevenueBonus());
-            accommodationRevenue += sold * price;
+            accommodationRevenue += sold * pricePerRoom(state, b);
         }
 
         // —— 配套收益 ——
@@ -95,22 +102,14 @@ public class FinanceService {
         settle.setOccupancyRate(demand.getTotalRooms() <= 0 ? 0
                 : (double) demand.getOccupiedRooms() / demand.getTotalRooms());
 
-        double roomPriceMult = skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
-        double mergeBonus = skillTree.flat(state, SkillEffectKey.MERGE_BONUS);
         double supportPriceMult = skillTree.multiplier(state, SkillEffectKey.SUPPORT_PRICE_MULT);
 
-        // —— 房屋收益（按间计价：售出间数 × 该形态固定房屋收益） ——
+        // —— 房屋收益（按间计价：售出间数 × 含全部乘数的单间收益） ——
         double accommodationRevenue = 0;
         Map<String, Double> roomRevenueById = new HashMap<>();
         for (BuildingInstance b : state.aliveAccommodationBuildings()) {
             int sold = demand.getSoldRoomsByBuilding().getOrDefault(b.getId(), 0);
-            BuildingForm f = b.getForm();
-            double price = f.pricePerRoomOf(b.getFormLevel()) * roomPriceMult;
-            if (f.getLine() == EvolutionLine.MERGE) {
-                price *= (1 + mergeBonus);
-            }
-            price *= (1 + b.interiorRevenueBonus());
-            double revenue = sold * price;
+            double revenue = sold * pricePerRoom(state, b);
             roomRevenueById.put(b.getId(), revenue);
             accommodationRevenue += revenue;
         }

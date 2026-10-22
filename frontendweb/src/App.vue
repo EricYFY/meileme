@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { store, connect } from './services/store.js';
 
 import StatusBar from './components/overview/StatusBar.vue';
@@ -29,11 +29,16 @@ const TABS = [
 
 const activeTab = ref('overview');
 const buildPlot = ref(null);
-const detailBuilding = ref(null);
+const detailBuildingId = ref(null);
 const showLog = ref(false);
 
+// 详情弹窗按 ID 从最新状态解析，保证次日生效后（内装 / 形态 / 收益变化）弹窗内容实时刷新
+const detailBuilding = computed(
+    () => (store.state?.buildings || []).find((b) => b.id === detailBuildingId.value) || null
+);
+
 function openBuild(plot) { buildPlot.value = plot; }
-function openBuilding(b) { detailBuilding.value = b; }
+function openBuilding(b) { detailBuildingId.value = b.id; }
 </script>
 
 <template>
@@ -88,7 +93,7 @@ function openBuilding(b) { detailBuilding.value = b; }
         </div>
 
         <BuildModal v-if="buildPlot" :plot="buildPlot" @close="buildPlot = null" />
-        <BuildingDetailModal v-if="detailBuilding" :building="detailBuilding" @close="detailBuilding = null" />
+        <BuildingDetailModal v-if="detailBuilding" :building="detailBuilding" @close="detailBuildingId = null" />
         <SettlementLogModal v-if="showLog" @close="showLog = false" />
 
         <Toast />

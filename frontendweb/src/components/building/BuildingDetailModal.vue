@@ -24,6 +24,15 @@ const pricePerRoom = computed(() => form.value.pricePerRoomByLevel?.[level.value
 const capacity = computed(() => form.value.capacityPerRoom ?? 0);
 const baseComfort = computed(() => form.value.baseComfort ?? 0);
 
+// 后端下发的「单间实际房屋收益」构成（与日结同一套乘数），无数据时退回形态基础值
+const revenue = computed(() => store.state?.roomRevenue?.[props.building.id] || null);
+const effectivePrice = computed(() => revenue.value?.final ?? pricePerRoom.value);
+const hasSkillBonus = computed(() => {
+    const r = revenue.value;
+    if (!r) return false;
+    return (r.priceMult || 1) > 1.0001 || (r.mergeBonus || 0) > 0;
+});
+
 const interiorRows = computed(() => {
     const cap = form.value.maxInteriorLevel?.[level.value - 1] ?? 3;
     return (store.config?.interiors || []).map((it) => {
@@ -75,7 +84,23 @@ function affinityText(it) {
         <div class="panel" style="margin-top: 12px">
             <div class="panel-body">
                 <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ capacity }} 人</span></div>
-                <div class="kv"><span class="k">当前房屋收益（每间）</span><span class="v num gold">{{ fmtMoney(pricePerRoom) }}</span></div>
+                <div class="kv">
+                    <span class="k">基础房屋收益（每间）</span>
+                    <span class="v num">{{ fmtMoney(revenue?.base ?? pricePerRoom) }}</span>
+                </div>
+                <div class="kv" v-if="revenue && revenue.interiorBonus > 0">
+                    <span class="k">内装收益加成</span>
+                    <span class="v num pos">+{{ pct(revenue.interiorBonus) }}</span>
+                </div>
+                <div class="kv" v-if="hasSkillBonus">
+                    <span class="k">技能 / 合并加成</span>
+                    <span class="v num pos">×{{ (revenue.priceMult || 1).toFixed(2) }}<template
+                        v-if="revenue.mergeBonus > 0"> · 合并 +{{ pct(revenue.mergeBonus) }}</template></span>
+                </div>
+                <div class="kv total">
+                    <span class="k">当前房屋收益（每间）</span>
+                    <span class="v num gold">{{ fmtMoney(effectivePrice) }}</span>
+                </div>
                 <div class="kv"><span class="k">基础舒适度</span><span class="v num">{{ baseComfort }}</span></div>
             </div>
         </div>
