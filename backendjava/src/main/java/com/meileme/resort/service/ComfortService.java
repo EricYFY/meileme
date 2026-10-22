@@ -123,4 +123,19 @@ public class ComfortService {
         extra *= capacityMult;
         return f.getCapacityPerRoom() + extra;
     }
+
+    /** 配套服务容量（配套 = 形态服务容量上限 + 承载型内装容量） */
+    public double supportCapacityOf(GameState state, BuildingInstance b) {
+        BuildingForm f = b.getForm();
+        if (f == null) {
+            return 0;
+        }
+        double capacityMult = skillTree.multiplier(state, SkillEffectKey.INTERIOR_CAPACITY_MULT);
+        double extra = 0;
+        for (InteriorInstance it : b.getInteriors()) {
+            extra += it.getInteriorType().getCapacityPerLevel() * it.getLevel();
+        }
+        extra *= capacityMult;
+        return f.getServiceCapacity() + extra;
+    }
 }

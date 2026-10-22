@@ -253,7 +253,8 @@ public class ConfigRegistry {
         registerPlot(
                 new Plot("STORMVEIL_CASTLE", "史东薇尔城", Region.LIMGRAVE, 1, 8, 0,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.VIEWING_PLATFORM),
+                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL,
+                                MotherBuildingType.VIEWING_PLATFORM),
                         1, List.of(), true),
                 new Plot("MISTWOOD_EDGE", "雾林边缘", Region.LIMGRAVE, 2, 8, 100000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),

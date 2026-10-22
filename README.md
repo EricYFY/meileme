@@ -90,14 +90,15 @@ flowchart TB
 
 ### 3.1 母本与第一期可建范围
 
-**住宿母本 6 种** + **配套母本 9 种**；**第一期仅「标准客房」可建造**（`MotherBuildingType.isPhase1Buildable()`），
-其余母本**仅登记、不可建**（是否可建还受地块白名单二次约束）。
+**住宿母本 6 种** + **配套母本 9 种**；**第一期开放「标准客房」（住宿）+「餐厅 / 温泉泡池 / 观景台」（配套）可建造**
+（`MotherBuildingType.isPhase1Buildable()`），其余母本**仅登记、不可建**（是否可建还受地块白名单二次约束）。
 
 | 母本 | 类别 | 第一期可建 |
 | :--- | :---: | :---: |
 | `STANDARD_ROOM` 标准客房 | 住宿 | ✅ |
+| `RESTAURANT` 餐厅 · `HOT_SPRING_POOL` 温泉泡池 · `VIEWING_PLATFORM` 观景台 | 配套 | ✅ |
 | `LUXURY_ROOM` 豪华客房 · `WOODEN_CABIN` 独栋木屋 · `DUPLEX_LOFT` 复式LOFT · `COURTYARD_HOUSE` 庭院小院 · `MULTI_BEDROOM_HOUSE` 多卧平房 | 住宿 | ❌ 仅登记 |
-| `RESTAURANT` 餐厅 · `HOT_SPRING_POOL` 温泉泡池 · `VIEWING_PLATFORM` 观景台 · `RECEPTION_LOBBY` 接待大堂 · `TEA_LIBRARY` 茶室书吧 · `CULTURE_WORKSHOP` 文创工坊 · `LOGISTICS_WAREHOUSE` 后勤库房 · `OUTDOOR_CAMP` 户外营地 · `PARENT_CHILD_PARK` 亲子乐园 | 配套 | ❌ 仅登记 |
+| `RECEPTION_LOBBY` 接待大堂 · `TEA_LIBRARY` 茶室书吧 · `CULTURE_WORKSHOP` 文创工坊 · `LOGISTICS_WAREHOUSE` 后勤库房 · `OUTDOOR_CAMP` 户外营地 · `PARENT_CHILD_PARK` 亲子乐园 | 配套 | ❌ 仅登记 |
 
 ### 3.2 形态（BuildingForm）
 
@@ -118,16 +119,25 @@ flowchart TB
 | `MERGED_FAMILY_VILLA` | 亲子合院 | MERGE | 3 | 10 | 1500 / 1750 / 2000 | 95 | 3/3/3 |
 | `MERGED_BUSINESS_HALL` | 商务行政馆 | MERGE | 3 | 8 | 1600 / 1850 / 2100 | 98 | 3/3/3 |
 
+**第一期开放配套（tier=0，可建造 + 可升级 Lv1~Lv3，带来收益 + 客群吸引 + 舒适度提升）**
+
+| 配套 | 服务容量 | 单人收益 Lv1/2/3 | 基础舒适 | 客群吸引系数 | 建造成本 | 升级成本 Lv1→2 / Lv2→3 | 建造工期 |
+| :--- | :---: | :--- | :---: | :--- | :---: | :---: | :---: |
+| `RESTAURANT` 餐厅 | 40 人次 | 80 / 95 / 110 | 40 | 家庭 1.2 · 商务 1.0 · 浪漫 1.0 · 康养 0.8 | 6,000 | 2,500 / 4,200 | 3 天 |
+| `HOT_SPRING_POOL` 温泉泡池 | 20 人次 | 60 / 75 / 90 | 45 | 康养 1.8 · 浪漫 1.3 · 家庭 0.9 · 商务 0.7 | 7,500 | 2,800 / 4,600 | 4 天 |
+| `VIEWING_PLATFORM` 观景台 | 30 人次 | 40 / 50 / 60 | 35 | 浪漫 1.4 · 康养 1.2 · 家庭 1.1 · 商务 0.9 | 4,000 | 1,800 / 3,000 | 2 天 |
+
+> 配套收益 = `min(本区域入住总人数, 服务容量) × 单人收益`；形态升级 Lv1→Lv2→Lv3 会**提升单人收益与舒适度**（舒适度随形态等级 `baseComfort × (1 + 0.15 × (level − 1))` 递增），同时以客群吸引系数参与区域吸引力计算。服务容量固定，不随等级变化。
+
 **其余母本基础形态（仅登记备用，tier=0；数值同样集中在配置类）**
 
 - 住宿（每间人数 / 房屋收益Lv1 / 建造成本）：`LUXURY_ROOM` 豪华客房 4 / 680 / 8000；
   `WOODEN_CABIN` 独栋木屋 4 / 720 / 12000；`DUPLEX_LOFT` 复式LOFT 5 / 860 / 10000；
   `COURTYARD_HOUSE` 庭院小院 6 / 1100 / 15000；`MULTI_BEDROOM_HOUSE` 多卧平房 8 / 1250 / 11000。
-- 配套（服务容量 / 单人收益Lv1 / 建造成本）：`RESTAURANT` 餐厅 40 / 80 / 6000；
-  `HOT_SPRING_POOL` 温泉泡池 20 / 60 / 7500；`VIEWING_PLATFORM` 观景台 30 / 40 / 4000；
-  `RECEPTION_LOBBY` 接待大堂 0 / 0 / 5000；`TEA_LIBRARY` 茶室书吧 15 / 50 / 4500；
-  `CULTURE_WORKSHOP` 文创工坊 12 / 55 / 5500；`LOGISTICS_WAREHOUSE` 后勤库房 0 / 0 / 3500；
-  `OUTDOOR_CAMP` 户外营地 25 / 35 / 3000；`PARENT_CHILD_PARK` 亲子乐园 35 / 45 / 6500。
+- 配套（服务容量 / 单人收益Lv1 / 建造成本）：`RECEPTION_LOBBY` 接待大堂 0 / 0 / 5000；
+  `TEA_LIBRARY` 茶室书吧 15 / 50 / 4500；`CULTURE_WORKSHOP` 文创工坊 12 / 55 / 5500；
+  `LOGISTICS_WAREHOUSE` 后勤库房 0 / 0 / 3500；`OUTDOOR_CAMP` 户外营地 25 / 35 / 3000；
+  `PARENT_CHILD_PARK` 亲子乐园 35 / 45 / 6500。
 
 > **接待大堂 / 后勤库房**的**服务容量与单人收益均为 0**（仅贡献吸引力，不产生配套收益）。
 
@@ -136,13 +146,15 @@ flowchart TB
 内装分两类：**承载型**（提供容量 + 舒适度）与**普通型**（仅舒适度）。内装共提供四类收益，**全部按内装等级线性叠加**：
 
 1. **舒适度**（影响综合舒适度）；
-2. **承载容量**（仅承载型）；
+2. **承载容量**（仅承载型；住宿作用于每间容量，配套作用于服务容量上限）；
 3. **指定客群吸引力加成**（叠加在形态固有客群系数上，参与本区域吸引力与权重分配）；
-4. **所在建筑房屋收益加成**（按比例乘算该建筑房屋收益）。
+4. **所在建筑收益加成**（按比例乘算该建筑收益；住宿乘算房屋收益，配套乘算配套单人收益）。
 
-形态等级决定该形态下的内装等级上限（见上表「内装上限」）。数值集中在 `InteriorType` 枚举。
+**内装按母本适配**（`InteriorType.applicableMothers`）：住宿客房与配套建筑各自拥有专属内装，互不通用，`validateUpgrade` 会校验适配性（不适用返回 `INTERIOR_NOT_APPLICABLE`）。形态等级决定该形态下的内装等级上限（见上表「内装上限」）。数值集中在 `InteriorType` 枚举。
 
-| 内装 ID | 名称 | 类型 | 每级舒适度 | 每级容量 | 每级客群吸引力 | 每级房屋收益 | 升级花费 Lv1/2/3 |
+**住宿客房内装（住宿母本可用）**
+
+| 内装 ID | 名称 | 类型 | 每级舒适度 | 每级容量 | 每级客群吸引力 | 每级收益 | 升级花费 Lv1/2/3 |
 | :--- | :--- | :---: | :---: | :---: | :--- | :---: | :--- |
 | `BED` | 床位 | 承载型 | 3.0 | 1.0 | 家庭 +10%、商务 +5% | +2.0% | 800 / 1500 / 2500 |
 | `DINING_TABLE` | 餐桌 | 承载型 | 2.0 | 2.0 | 家庭 +6%、商务 +4%、浪漫 +4%、康养 +3% | +1.5% | 600 / 1200 / 2000 |
@@ -151,7 +163,30 @@ flowchart TB
 | `LIGHTING` | 灯具 | 普通型 | 1.5 | 0 | 浪漫 +10%、康养 +5% | +1.0% | 300 / 600 / 1000 |
 | `DECOR` | 软装 | 普通型 | 2.5 | 0 | 浪漫 +8%、康养 +6%、家庭 +3% | +2.5% | 500 / 1000 / 1800 |
 
-> 客群吸引力按「每级百分比」以**加法**叠加在形态客群系数上；房屋收益按「每级百分比」以**加法**累加为建筑级乘数 `(1 + Σ每级加成 × 等级)`。
+**餐厅专属内装（`RESTAURANT`）**
+
+| 内装 ID | 名称 | 类型 | 每级舒适度 | 每级容量 | 每级客群吸引力 | 每级收益 | 升级花费 Lv1/2/3 |
+| :--- | :--- | :---: | :---: | :---: | :--- | :---: | :--- |
+| `KITCHEN` | 厨房设备 | 承载型 | 2.5 | 0 | 家庭 +8%、商务 +6% | +2.5% | 900 / 1600 / 2600 |
+| `DINING_SEAT` | 餐位桌椅 | 承载型 | 2.0 | 8.0 | 家庭 +6%、商务 +4% | +2.0% | 700 / 1300 / 2200 |
+
+**温泉泡池专属内装（`HOT_SPRING_POOL`）**
+
+| 内装 ID | 名称 | 类型 | 每级舒适度 | 每级容量 | 每级客群吸引力 | 每级收益 | 升级花费 Lv1/2/3 |
+| :--- | :--- | :---: | :---: | :---: | :--- | :---: | :--- |
+| `BATH_POOL` | 汤池 | 承载型 | 3.0 | 0 | 康养 +14%、浪漫 +8% | +3.0% | 1200 / 2200 / 3600 |
+| `SAUNA_ROOM` | 汗蒸房 | 普通型 | 2.0 | 0 | 康养 +10% | +2.0% | 800 / 1500 / 2500 |
+| `SPA_LOUNGE` | 更衣休憩区 | 承载型 | 1.5 | 6.0 | 康养 +6%、浪漫 +5%、家庭 +3% | +1.5% | 600 / 1200 / 2000 |
+
+**观景台专属内装（`VIEWING_PLATFORM`）**
+
+| 内装 ID | 名称 | 类型 | 每级舒适度 | 每级容量 | 每级客群吸引力 | 每级收益 | 升级花费 Lv1/2/3 |
+| :--- | :--- | :---: | :---: | :---: | :--- | :---: | :--- |
+| `TELESCOPE` | 观景望远镜 | 普通型 | 1.5 | 0 | 浪漫 +12%、康养 +6% | +2.0% | 800 / 1500 / 2400 |
+| `VIEW_SEAT` | 观景座椅 | 承载型 | 1.5 | 10.0 | 家庭 +5%、康养 +4% | +1.5% | 500 / 1000 / 1600 |
+| `SUNSHADE` | 遮阳茶座 | 普通型 | 1.0 | 0 | 浪漫 +5%、家庭 +4% | +1.0% | 500 / 1000 / 1800 |
+
+> 客群吸引力按「每级百分比」以**加法**叠加在形态客群系数上；收益按「每级百分比」以**加法**累加为建筑级乘数 `(1 + Σ每级加成 × 等级)`，住宿作用于房屋收益、配套作用于配套单人收益。
 
 ### 3.4 两大进化体系（互不互斥）
 
@@ -235,11 +270,14 @@ flowchart TB
 | 内装 | 至 Lv1 | 至 Lv2 | 至 Lv3 |
 | :--- | :---: | :---: | :---: |
 | 床位 | 2 天 | 3 天 | 4 天 |
-| 餐桌 | 2 天 | 3 天 | 3 天 |
-| 泡池 | 3 天 | 4 天 | 5 天 |
+| 餐桌 / 餐位桌椅 | 2 天 | 3 天 | 3 天 |
+| 泡池 / 汤池 | 3 天 | 4 天 | 5 天 |
 | 沙发 | 1 天 | 2 天 | 3 天 |
-| 灯具 | 1 天 | 2 天 | 2 天 |
+| 灯具 / 望远镜 / 遮阳茶座 | 1 天 | 2 天 | 2 天 |
 | 软装 | 2 天 | 2 天 | 3 天 |
+| 厨房设备 | 2 天 | 3 天 | 4 天 |
+| 汗蒸房 | 2 天 | 3 天 | 4 天 |
+| 更衣休憩区 / 观景座椅 | 2 天 | 2 天 | 3 天 |
 
 **工程规则**
 
@@ -276,7 +314,8 @@ flowchart TB
 
 - **全程无价格竞争、玩家无定价权**：不存在价格弹性 / 广告 / 口碑修正，只有「吸引力 → 转化率 → 分配 → 容量」。
 - 综合舒适度 = 形态基础舒适度（含形态等级加成）+ 内装舒适度，再乘**人力供给系数**（见第六节）。
-- **配套服务人次按区域口径**：某配套当日服务人次 = `min(本区域实际入住总人数, 该配套服务容量上限)`。
+- **配套服务人次按区域口径**：某配套当日服务人次 = `min(本区域实际入住总人数, 该配套服务容量上限)`，其中**服务容量上限 = 形态服务容量 + 承载型内装容量加成**。
+- 配套收益 = `Σ( 服务人次 × 该形态该等级固定单人收益 × 配套收益技能倍率 × (1 + 内装收益加成) )`（内装收益加成 = 该建筑全部内装「每级加成 × 等级」之和）。
 
 ### 4.1 按「间」计价的语义（已确认）
 
@@ -433,7 +472,7 @@ beginDay() 次日 0 点:
 
 | 地块 ID | 名称 | 区域 | 建筑上限 | 解锁费用 | tier cap | 解锁条件 | 住宿白名单 | 配套白名单 |
 | :--- | :--- | :---: | :---: | ---: | :---: | :--- | :--- | :--- |
-| `STORMVEIL_CASTLE` | 史东薇尔城 | 宁姆格福 | 8 | 0 | 1 | **默认解锁** | 标准客房 | 餐厅, 观景台 |
+| `STORMVEIL_CASTLE` | 史东薇尔城 | 宁姆格福 | 8 | 0 | 1 | **默认解锁** | 标准客房 | 餐厅, 温泉泡池, 观景台 |
 | `MISTWOOD_EDGE` | 雾林边缘 | 宁姆格福 | 8 | 100,000 | 2 | `ACH_ASSET_10` | 标准客房 | 餐厅, 户外营地 |
 | `AGHEEL_LAKE` | 亚基尔湖 | 宁姆格福 | 10 | 1,000,000 | 3 | `ACH_ASSET_100` + `ACH_GUEST_5000` | 标准客房 | 餐厅, 温泉泡池 |
 | `CARIA_MANOR` | 卡利亚城寨 | 湖之利耶尼亚 | 8 | 5,000,000 | 3 | `ACH_ASSET_500` + `ACH_GUEST_10000` + `ACH_STAFF_20` | 标准客房 | 餐厅, 茶室书吧, 观景台 |
@@ -511,7 +550,7 @@ beginDay() 次日 0 点:
 
 | 消息 | 载荷 / 说明 |
 | :--- | :--- |
-| `CONFIG` | 静态配置全量（开局与新连接时下发）：`regions`（含 `id` / `displayName` / `baseDailyFlow` / `segmentRatios`）/ `buildingForms`（含 `formLevelUpDays` / `evolveDays`）/ `mergeRecipes`（含 `mergeDays`）/ `plots` / `achievements` / `skills` / `speedOptions` / `formMaxLevel` / `staffMaxLevel`，以及**结构化目录** `mothers`（含 `buildDays`）/ `segments` / `abilities` / `positions` / `interiors`（含 `upgradeDaysByLevel`，均含 `id` 与 `displayName` 等展示字段） |
+| `CONFIG` | 静态配置全量（开局与新连接时下发）：`regions`（含 `id` / `displayName` / `baseDailyFlow` / `segmentRatios`）/ `buildingForms`（含 `formLevelUpDays` / `evolveDays`）/ `mergeRecipes`（含 `mergeDays`）/ `plots` / `achievements` / `skills` / `speedOptions` / `formMaxLevel` / `staffMaxLevel`，以及**结构化目录** `mothers`（含 `buildDays`）/ `segments` / `abilities` / `positions` / `interiors`（含 `upgradeDaysByLevel` 与 `applicableMothers`，均含 `id` 与 `displayName` 等展示字段） |
 | `RESORT_STATE` | 全量状态（资金 / 日 / 日期 / 建筑 / 员工 / 技能点 / 已解锁技能地块区域成就 / 待生效指令 / 统计 / 末日结），另含 **进行中工程 `projects`**（`id` / `type` / `typeDisplayName` / `displayName` / `plotId` / `buildingId` / `secondBuildingId` / `mother` / `targetFormId` / `interiorType` / `targetLevel` / `totalDays` / `remainingDays` / `elapsedDays` / `startedDay` / `finishDay`）、**今日预计 `todayPreview`（含 `potentialBySegment` / `intentBySegment` / `servedBySegment` 三组客群客流） / 里程碑 `milestones` / 能力供需 `abilitySupply·abilityDemand·abilityRatios` / 解雇补偿 `staffCompensations` / 培训状态 `staffTraining`（本级在岗天数、所需天数、培训费、是否达标） / 单间房屋收益 `roomRevenue`（`base` 基础、`priceMult` 技能、`mergeBonus` 合并、`interiorBonus` 内装、`final` 实际，与日结同源）** |
 | `TIME_TICK` | `{day, date, progress, speed, paused, funds}`（**约 200ms 广播，仅时间 / 进度 / 资金**） |
 | `DAY_STARTED` | `{day, date, unlocks}`（`unlocks` 同时包含当日完成的工程提示） |
@@ -533,7 +572,7 @@ beginDay() 次日 0 点:
 `INTERIOR_LEVEL_CAP_REACHED`、`FORM_LEVEL_MAX_REACHED`、`NO_SKILL_POINT`、`PREREQUISITE_NOT_UNLOCKED`、
 `TRAINING_NOT_READY`（在岗时长未达标）、`STAFF_MAX_LEVEL`（员工已满级）、
 `PROJECT_IN_PROGRESS`（该建筑已有进行中工程）、`BUILDING_NOT_FOUND`、`TARGET_FORM_NOT_FOUND`、
-`INTERIOR_NOT_FOUND`、`UNKNOWN_PROJECT`（工程完成时二次校验失败，均全额退款）。
+`INTERIOR_NOT_FOUND`、`INTERIOR_NOT_APPLICABLE`（该内装不适用于此母本）、`UNKNOWN_PROJECT`（工程完成时二次校验失败，均全额退款）。
 
 ### JSON 样例
 

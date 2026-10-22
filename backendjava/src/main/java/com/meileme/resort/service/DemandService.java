@@ -166,10 +166,10 @@ public class DemandService {
                 result.getSoldRoomsByBuilding().put(b.getId(), sold);
             }
 
-            // —— ⑥ 配套当日服务人次 = min(本区域入住总人数, 配套服务容量上限) ——
+            // —— ⑥ 配套当日服务人次 = min(本区域入住总人数, 配套服务容量上限含内装) ——
             for (BuildingInstance b : support) {
-                BuildingForm f = b.getForm();
-                double count = Math.min(regionServed, Math.max(0, f.getServiceCapacity()));
+                double cap = comfortService.supportCapacityOf(state, b);
+                double count = Math.min(regionServed, Math.max(0, cap));
                 result.getSupportServiceByBuilding().put(b.getId(), count);
             }
         }

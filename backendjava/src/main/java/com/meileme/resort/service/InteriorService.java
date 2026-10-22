@@ -42,6 +42,9 @@ public class InteriorService {
         if (type == null) {
             return "INTERIOR_NOT_FOUND";
         }
+        if (!type.isApplicableTo(building.getMother())) {
+            return "INTERIOR_NOT_APPLICABLE";
+        }
         if (state.projectOfBuilding(building.getId()) != null) {
             return "PROJECT_IN_PROGRESS";
         }

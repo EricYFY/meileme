@@ -24,6 +24,7 @@ const funds = computed(() => store.state?.funds ?? 0);
 const cost = computed(() => baseForm.value?.buildCost || 0);
 const canAfford = computed(() => funds.value >= cost.value);
 const days = computed(() => store.config?.mothersById?.[activeId.value]?.buildDays || 0);
+const isSupport = computed(() => store.config?.mothersById?.[activeId.value]?.category === 'SUPPORT');
 
 function confirm() {
     if (!activeId.value) return;
@@ -46,8 +47,14 @@ function confirm() {
 
         <div v-if="baseForm" class="panel" style="margin-top: 14px">
             <div class="panel-body">
-                <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ baseForm.capacityPerRoom }} 人</span></div>
-                <div class="kv"><span class="k">基础房屋收益（Lv1）</span><span class="v num">{{ fmtMoney(baseForm.pricePerRoomByLevel?.[0] || 0) }}</span></div>
+                <template v-if="isSupport">
+                    <div class="kv"><span class="k">每日服务容量</span><span class="v num">{{ baseForm.serviceCapacity || 0 }} 人次</span></div>
+                    <div class="kv"><span class="k">单人收益（Lv1）</span><span class="v num">{{ fmtMoney(baseForm.unitPriceByLevel?.[0] || 0) }}</span></div>
+                </template>
+                <template v-else>
+                    <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ baseForm.capacityPerRoom }} 人</span></div>
+                    <div class="kv"><span class="k">基础房屋收益（Lv1）</span><span class="v num">{{ fmtMoney(baseForm.pricePerRoomByLevel?.[0] || 0) }}</span></div>
+                </template>
                 <div class="kv total">
                     <span class="k">一次性建造花费</span>
                     <span class="v num" :class="canAfford ? 'pos' : 'neg'">{{ fmtMoney(cost) }}</span>

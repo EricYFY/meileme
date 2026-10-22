@@ -76,6 +76,7 @@ const REASONS = {
     RECIPE_NOT_MATCHED: '不满足任何合并配方',
     INTERIOR_MAX_LEVEL: '内装已满级',
     INTERIOR_LEVEL_CAP_REACHED: '内装已达当前形态等级上限',
+    INTERIOR_NOT_APPLICABLE: '该内装不适用于此建筑',
     PROJECT_IN_PROGRESS: '该建筑已有进行中的工程',
     PLOT_BUILD_LIMIT_REACHED: '地块建造名额已满',
     PLOT_NOT_UNLOCKED: '地块未解锁',

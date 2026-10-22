@@ -24,6 +24,11 @@ const pricePerRoom = computed(() => form.value.pricePerRoomByLevel?.[level.value
 const capacity = computed(() => form.value.capacityPerRoom ?? 0);
 const baseComfort = computed(() => form.value.baseComfort ?? 0);
 
+// 配套建筑（餐厅 / 温泉 / 观景台等）：展示服务容量与单人收益，而非「每间房价」
+const isSupport = computed(() => store.config?.mothersById?.[props.building.mother]?.category === 'SUPPORT');
+const serviceCapacity = computed(() => form.value.serviceCapacity ?? 0);
+const unitPrice = computed(() => form.value.unitPriceByLevel?.[level.value - 1] ?? 0);
+
 // 后端下发的「单间实际房屋收益」构成（与日结同一套乘数），无数据时退回形态基础值
 const revenue = computed(() => store.state?.roomRevenue?.[props.building.id] || null);
 const effectivePrice = computed(() => revenue.value?.final ?? pricePerRoom.value);
@@ -48,15 +53,18 @@ const levelUpDays = computed(() => form.value.formLevelUpDays?.[level.value - 1]
 
 const interiorRows = computed(() => {
     const cap = form.value.maxInteriorLevel?.[level.value - 1] ?? 3;
-    return (store.config?.interiors || []).map((it) => {
-        const inst = (props.building.interiors || []).find((x) => x.interiorType === it.id);
-        const cur = inst?.level || 0;
-        const rem = Math.max(0, cap - cur);
-        const cost = rem > 0 ? it.upgradeCostByLevel?.[cur] : 0;
-        const days = rem > 0 ? (it.upgradeDaysByLevel?.[cur] ?? 0) : 0;
-        const proj = interiorProject(it.id);
-        return { ...it, cur, cap, rem, cost, days, proj, canUp: !proj && rem > 0 && funds.value >= cost };
-    });
+    const mother = props.building.mother;
+    return (store.config?.interiors || [])
+        .filter((it) => !it.applicableMothers || it.applicableMothers.includes(mother))
+        .map((it) => {
+            const inst = (props.building.interiors || []).find((x) => x.interiorType === it.id);
+            const cur = inst?.level || 0;
+            const rem = Math.max(0, cap - cur);
+            const cost = rem > 0 ? it.upgradeCostByLevel?.[cur] : 0;
+            const days = rem > 0 ? (it.upgradeDaysByLevel?.[cur] ?? 0) : 0;
+            const proj = interiorProject(it.id);
+            return { ...it, cur, cap, rem, cost, days, proj, canUp: !proj && rem > 0 && funds.value >= cost };
+        });
 });
 
 const levelUpCost = computed(() => form.value.formLevelUpCost?.[level.value - 1] ?? 0);
@@ -110,7 +118,16 @@ function affinityText(it) {
         </div>
 
         <div class="panel" style="margin-top: 12px">
-            <div class="panel-body">
+            <div class="panel-body" v-if="isSupport">
+                <div class="kv"><span class="k">每日服务容量</span><span class="v num">{{ serviceCapacity }} 人次</span></div>
+                <div class="kv"><span class="k">单人收益（Lv{{ level }}）</span><span class="v num">{{ fmtMoney(unitPrice) }}</span></div>
+                <div class="kv total">
+                    <span class="k">满员日收益上限</span>
+                    <span class="v num gold">{{ fmtMoney(serviceCapacity * unitPrice) }}</span>
+                </div>
+                <div class="kv"><span class="k">基础舒适度</span><span class="v num">{{ baseComfort }}</span></div>
+            </div>
+            <div class="panel-body" v-else>
                 <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ capacity }} 人</span></div>
                 <div class="kv">
                     <span class="k">基础房屋收益（每间）</span>
@@ -144,19 +161,21 @@ function affinityText(it) {
             </button>
         </div>
 
-        <h4 class="sec">分支进化 <span class="faint" style="font-weight:400">（形态满级后可选，选定不可切换）</span></h4>
-        <div v-if="level < maxLevel" class="faint">需先将形态升到 Lv{{ maxLevel }}</div>
-        <div v-else-if="!branchTargets.length" class="faint">该形态无可分支的下一阶段</div>
-        <div v-for="t in branchTargets" :key="t.id" class="bld-row">
-            <div class="main">
-                <div class="title">{{ t.displayName }}</div>
-                <div class="sub">每间 {{ t.capacityPerRoom }} 人 · 房屋收益 Lv1 {{ fmtMoney(t.pricePerRoomByLevel?.[0] || 0) }}</div>
+        <template v-if="!isSupport">
+            <h4 class="sec">分支进化 <span class="faint" style="font-weight:400">（形态满级后可选，选定不可切换）</span></h4>
+            <div v-if="level < maxLevel" class="faint">需先将形态升到 Lv{{ maxLevel }}</div>
+            <div v-else-if="!branchTargets.length" class="faint">该形态无可分支的下一阶段</div>
+            <div v-for="t in branchTargets" :key="t.id" class="bld-row">
+                <div class="main">
+                    <div class="title">{{ t.displayName }}</div>
+                    <div class="sub">每间 {{ t.capacityPerRoom }} 人 · 房屋收益 Lv1 {{ fmtMoney(t.pricePerRoomByLevel?.[0] || 0) }}</div>
+                </div>
+                <button class="gold" :disabled="!branchMeta(t).can || !!activeProject"
+                        @click="api.branchEvolve(building.id, t.id)">
+                    进化 {{ fmtMoney(branchMeta(t).cost) }}（{{ branchMeta(t).days }} 天）
+                </button>
             </div>
-            <button class="gold" :disabled="!branchMeta(t).can || !!activeProject"
-                    @click="api.branchEvolve(building.id, t.id)">
-                进化 {{ fmtMoney(branchMeta(t).cost) }}（{{ branchMeta(t).days }} 天）
-            </button>
-        </div>
+        </template>
 
         <h4 class="sec">内装升级</h4>
         <div v-if="!interiorRows.length" class="faint">暂无可升级内装</div>

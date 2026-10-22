@@ -891,6 +891,11 @@ public class GameEngine {
             x.put("segmentAffinityPerLevel", affinities);
             x.put("upgradeCostByLevel", it.getUpgradeCostByLevel());
             x.put("upgradeDaysByLevel", it.getUpgradeDaysByLevel());
+            List<String> mothers = new ArrayList<>();
+            for (MotherBuildingType m : it.getApplicableMothers()) {
+                mothers.add(m.name());
+            }
+            x.put("applicableMothers", mothers);
             list.add(x);
         }
         return list;

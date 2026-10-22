@@ -71,7 +71,7 @@ public class FinanceService {
         for (BuildingInstance b : state.aliveSupportBuildings()) {
             double count = demand.getSupportServiceByBuilding().getOrDefault(b.getId(), 0d);
             BuildingForm f = b.getForm();
-            supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * supportPriceMult;
+            supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * (1 + b.interiorRevenueBonus()) * supportPriceMult;
         }
 
         double totalRevenue = accommodationRevenue + supportRevenue;
@@ -119,7 +119,7 @@ public class FinanceService {
         for (BuildingInstance b : state.aliveSupportBuildings()) {
             double count = demand.getSupportServiceByBuilding().getOrDefault(b.getId(), 0d);
             BuildingForm f = b.getForm();
-            supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * supportPriceMult;
+            supportRevenue += count * f.unitPriceOf(b.getFormLevel()) * (1 + b.interiorRevenueBonus()) * supportPriceMult;
         }
 
         double totalRevenue = accommodationRevenue + supportRevenue;

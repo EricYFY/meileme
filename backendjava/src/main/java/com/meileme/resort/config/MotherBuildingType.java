@@ -2,6 +2,9 @@ package com.meileme.resort.config;
 
 import lombok.Getter;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 /**
  * 建筑母本清单（6 种住宿母本 + 9 种配套母本）。
  *
@@ -25,13 +28,13 @@ public enum MotherBuildingType {
     /** 多卧平房（仅登记） */
     MULTI_BEDROOM_HOUSE("多卧平房", BuildingCategory.ACCOMMODATION, false, 6),
 
-    // ============ 配套母本（9，均仅登记、第一期不可建） ============
+    // ============ 配套母本（9；第一期仅开放餐厅 / 温泉泡池 / 观景台，其余仅登记） ============
     /** 餐厅 */
-    RESTAURANT("餐厅", BuildingCategory.SUPPORT, false, 3),
+    RESTAURANT("餐厅", BuildingCategory.SUPPORT, true, 3),
     /** 温泉泡池 */
-    HOT_SPRING_POOL("温泉泡池", BuildingCategory.SUPPORT, false, 4),
+    HOT_SPRING_POOL("温泉泡池", BuildingCategory.SUPPORT, true, 4),
     /** 观景台 */
-    VIEWING_PLATFORM("观景台", BuildingCategory.SUPPORT, false, 2),
+    VIEWING_PLATFORM("观景台", BuildingCategory.SUPPORT, true, 2),
     /** 接待大堂 */
     RECEPTION_LOBBY("接待大堂", BuildingCategory.SUPPORT, false, 3),
     /** 茶室书吧 */
@@ -44,6 +47,10 @@ public enum MotherBuildingType {
     OUTDOOR_CAMP("户外营地", BuildingCategory.SUPPORT, false, 2),
     /** 亲子乐园 */
     PARENT_CHILD_PARK("亲子乐园", BuildingCategory.SUPPORT, false, 4);
+
+    /** 全部住宿母本集合（供内装等按类别适配引用） */
+    public static final Set<MotherBuildingType> ACCOMMODATION_MOTHERS = EnumSet.of(
+            STANDARD_ROOM, LUXURY_ROOM, WOODEN_CABIN, DUPLEX_LOFT, COURTYARD_HOUSE, MULTI_BEDROOM_HOUSE);
 
     /** 展示名 */
     private final String displayName;
