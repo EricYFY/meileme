@@ -72,6 +72,10 @@ public final class GameConfig {
     public static final int STAFF_MIN_LEVEL = 1;
     /** 解雇补偿：在岗累计天数每 1 天带来的补偿增量比例 */
     public static final double FIRE_COMPENSATION_PER_DAY_RATIO = 0.001;
+    /** 员工培训费（Lv1 → Lv2）= 该岗位招聘基准花费 × 本比例 */
+    public static final double TRAIN_COST_LV1_TO_LV2_RATIO = 0.6;
+    /** 员工培训费（Lv2 → Lv3）= 该岗位招聘基准花费 × 本比例 */
+    public static final double TRAIN_COST_LV2_TO_LV3_RATIO = 1.2;
 
     // ===================== 技能树 / 区块 =====================
 

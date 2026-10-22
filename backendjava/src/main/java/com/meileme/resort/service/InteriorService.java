@@ -8,7 +8,7 @@ import com.meileme.resort.model.InteriorInstance;
 import org.springframework.stereotype.Service;
 
 /**
- * 内装升级：内装仅影响舒适度与承载容量；形态等级决定该形态下内装等级上限。
+ * 内装升级：内装提供舒适度、承载容量、客群吸引力加成、房屋收益加成；形态等级决定该形态下内装等级上限。
  */
 @Service
 public class InteriorService {

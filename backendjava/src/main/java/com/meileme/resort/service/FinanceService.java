@@ -33,6 +33,9 @@ public class FinanceService {
     /** 今日预计纯投影：复用结算公式但不扣减资金、不修改累计统计 */
     public DailyPreview projection(GameState state, DemandResult demand) {
         DailyPreview p = new DailyPreview();
+        p.setPotentialBySegment(new java.util.EnumMap<>(demand.getPotentialBySegment()));
+        p.setIntentBySegment(new java.util.EnumMap<>(demand.getIntentBySegment()));
+        p.setServedBySegment(new java.util.EnumMap<>(demand.getServedBySegment()));
         p.setTotalRooms(demand.getTotalRooms());
         p.setOccupiedRooms(demand.getOccupiedRooms());
         p.setOccupancyRate(demand.getTotalRooms() <= 0 ? 0
@@ -52,6 +55,7 @@ public class FinanceService {
             if (f.getLine() == EvolutionLine.MERGE) {
                 price *= (1 + mergeBonus);
             }
+            price *= (1 + b.interiorRevenueBonus());
             accommodationRevenue += sold * price;
         }
 
@@ -105,6 +109,7 @@ public class FinanceService {
             if (f.getLine() == EvolutionLine.MERGE) {
                 price *= (1 + mergeBonus);
             }
+            price *= (1 + b.interiorRevenueBonus());
             double revenue = sold * price;
             roomRevenueById.put(b.getId(), revenue);
             accommodationRevenue += revenue;

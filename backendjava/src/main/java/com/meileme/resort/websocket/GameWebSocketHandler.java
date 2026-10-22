@@ -105,10 +105,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 }
                 case "HIRE_STAFF": {
                     PositionType position = PositionType.valueOf(node.get("position").asText());
-                    int level = node.has("level") ? node.get("level").asInt() : 1;
-                    gameEngine.requestHire(session, position, level);
+                    gameEngine.requestHire(session, position);
                     break;
                 }
+                case "TRAIN_STAFF":
+                    gameEngine.requestTrain(session, node.has("staffId") ? node.get("staffId").asText() : "");
+                    break;
                 case "FIRE_STAFF":
                     gameEngine.requestFire(session, node.has("staffId") ? node.get("staffId").asText() : "");
                     break;

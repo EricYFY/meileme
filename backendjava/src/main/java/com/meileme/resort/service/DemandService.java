@@ -106,7 +106,8 @@ public class DemandService {
                     if (f == null) {
                         continue;
                     }
-                    attr += f.affinityOf(seg) * comfortById.get(b.getId()) * f.levelWeightOf(b.getFormLevel());
+                    attr += (f.affinityOf(seg) + b.interiorAffinityBonusOf(seg))
+                            * comfortById.get(b.getId()) * f.levelWeightOf(b.getFormLevel());
                 }
                 attr *= attractMult;
                 attraction.merge(seg, attr, Double::sum);
@@ -129,7 +130,8 @@ public class DemandService {
 
                 Map<CustomerSegment, Double> weight = new EnumMap<>(CustomerSegment.class);
                 for (CustomerSegment seg : CustomerSegment.values()) {
-                    weight.put(seg, f.affinityOf(seg) * comfort * f.levelWeightOf(b.getFormLevel()));
+                    weight.put(seg, (f.affinityOf(seg) + b.interiorAffinityBonusOf(seg))
+                            * comfort * f.levelWeightOf(b.getFormLevel()));
                 }
 
                 double totalRaw = 0;
@@ -138,8 +140,8 @@ public class DemandService {
                     double segTotalWeight = 0;
                     for (BuildingInstance other : accommodation) {
                         BuildingForm of = other.getForm();
-                        segTotalWeight += of.affinityOf(seg) * comfortById.get(other.getId())
-                                * of.levelWeightOf(other.getFormLevel());
+                        segTotalWeight += (of.affinityOf(seg) + other.interiorAffinityBonusOf(seg))
+                                * comfortById.get(other.getId()) * of.levelWeightOf(other.getFormLevel());
                     }
                     double share = segTotalWeight <= 0 ? 0 : weight.get(seg) / segTotalWeight;
                     double v = regionIntent.get(seg) * share;

@@ -47,6 +47,21 @@ function branchMeta(t) {
     const cost = t.evolveCost || 0;
     return { cost, can: funds.value >= cost };
 }
+
+/** 百分比格式化：0.02 → 2%，0.015 → 1.5% */
+function pct(v) {
+    const n = Math.round((v || 0) * 1000) / 10;
+    return `${n}%`;
+}
+
+/** 内装的客群吸引力加成描述（仅列出有加成的客群） */
+function affinityText(it) {
+    const map = it.segmentAffinityPerLevel || {};
+    return Object.entries(map)
+        .filter(([, v]) => v > 0)
+        .map(([k, v]) => `${store.config?.segmentsById?.[k]?.displayName || k} +${pct(v)}`)
+        .join('、');
+}
 </script>
 
 <template>
@@ -92,7 +107,12 @@ function branchMeta(t) {
         <div v-for="it in interiorRows" :key="it.id" class="bld-row">
             <div class="main">
                 <div class="title">{{ it.displayName }}</div>
-                <div class="sub">当前 Lv{{ it.cur }} / {{ it.cap }}（{{ it.categoryDisplayName }} · 舒适 +{{ it.comfortPerLevel }}/级）</div>
+                <div class="sub">
+                    当前 Lv{{ it.cur }} / {{ it.cap }}（{{ it.categoryDisplayName }} · 舒适 +{{ it.comfortPerLevel }}/级<template
+                        v-if="it.capacityPerLevel > 0"> · 容量 +{{ it.capacityPerLevel }}/级</template>）
+                </div>
+                <div class="sub faint">客群吸引力：{{ affinityText(it) }}</div>
+                <div class="sub faint">房屋收益：+{{ pct(it.revenueBonusPerLevel) }}/级</div>
             </div>
             <button class="primary" :disabled="!it.canUp" @click="api.interiorUpgrade(building.id, it.id)">
                 {{ it.rem > 0 ? '升级 ' + fmtMoney(it.cost) : '已满' }}

@@ -3,7 +3,7 @@ package com.meileme.resort.model;
 import com.meileme.resort.config.InteriorType;
 import lombok.Data;
 
-/** 建筑内装实例（仅影响舒适度与承载容量）。 */
+/** 建筑内装实例（影响舒适度、承载容量、客群吸引力加成、房屋收益加成）。 */
 @Data
 public class InteriorInstance {
 

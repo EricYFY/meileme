@@ -88,9 +88,20 @@ public enum PositionType {
         return 0;
     }
 
-    /** 招聘指定等级的一次性花费（按等级线性放大） */
+    /** 招聘指定等级的一次性花费（按等级线性放大；本期仅允许招聘 Lv1） */
     public double hireCostOf(int level) {
         return hireCost * clampLevelIndex(level) + hireCost;
+    }
+
+    /** 从指定等级培训升到下一级的一次性培训费；已满级返回 0 */
+    public double trainCostOf(int currentLevel) {
+        if (currentLevel <= 1) {
+            return hireCost * GameConfig.TRAIN_COST_LV1_TO_LV2_RATIO;
+        }
+        if (currentLevel == 2) {
+            return hireCost * GameConfig.TRAIN_COST_LV2_TO_LV3_RATIO;
+        }
+        return 0;
     }
 
     /** 解雇一次性补偿金：岗位类型 × 等级 × 在岗累计时长（复合能力员工按主类型计算，不叠加） */

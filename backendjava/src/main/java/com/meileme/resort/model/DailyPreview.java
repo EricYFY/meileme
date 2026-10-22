@@ -1,6 +1,10 @@
 package com.meileme.resort.model;
 
+import com.meileme.resort.config.CustomerSegment;
 import lombok.Data;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * 今日预计结算（纯投影）。
@@ -10,6 +14,15 @@ import lombok.Data;
  */
 @Data
 public class DailyPreview {
+
+    /** 各客群原始潜在客流 */
+    private Map<CustomerSegment, Double> potentialBySegment = new EnumMap<>(CustomerSegment.class);
+
+    /** 各客群意向客流（潜在 × 转化率） */
+    private Map<CustomerSegment, Double> intentBySegment = new EnumMap<>(CustomerSegment.class);
+
+    /** 各客群实际接待人数（床位容量截断后） */
+    private Map<CustomerSegment, Double> servedBySegment = new EnumMap<>(CustomerSegment.class);
 
     /** 住宿总间数 */
     private int totalRooms;

@@ -1,6 +1,7 @@
 package com.meileme.resort.model;
 
 import com.meileme.resort.config.BuildingForm;
+import com.meileme.resort.config.CustomerSegment;
 import com.meileme.resort.config.EvolutionLine;
 import com.meileme.resort.config.MotherBuildingType;
 import lombok.Data;
@@ -47,6 +48,24 @@ public class BuildingInstance {
     /** 进化线（由形态推导） */
     public EvolutionLine line() {
         return form == null ? EvolutionLine.BASE : form.getLine();
+    }
+
+    /** 内装提供的指定客群吸引力加成（按各内装等级累加） */
+    public double interiorAffinityBonusOf(CustomerSegment segment) {
+        double sum = 0;
+        for (InteriorInstance it : interiors) {
+            sum += it.getInteriorType().segmentAffinityOf(segment) * it.getLevel();
+        }
+        return sum;
+    }
+
+    /** 内装提供的房屋收益加成比例（按各内装等级累加） */
+    public double interiorRevenueBonus() {
+        double sum = 0;
+        for (InteriorInstance it : interiors) {
+            sum += it.getInteriorType().getRevenueBonusPerLevel() * it.getLevel();
+        }
+        return sum;
     }
 
     /** 查找指定内装类型的实例 */

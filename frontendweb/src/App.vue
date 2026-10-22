@@ -5,6 +5,7 @@ import { store, connect } from './services/store.js';
 import StatusBar from './components/overview/StatusBar.vue';
 import PlotMapView from './components/overview/PlotMapView.vue';
 import DayPreview from './components/overview/DayPreview.vue';
+import GuestMixPanel from './components/overview/GuestMixPanel.vue';
 import RegionPanel from './components/region/RegionPanel.vue';
 import AchievementProgress from './components/region/AchievementProgress.vue';
 import BuildingListPanel from './components/building/BuildingListPanel.vue';
@@ -59,6 +60,7 @@ function openBuilding(b) { detailBuilding.value = b; }
             <template v-else>
                 <div v-if="activeTab === 'overview'" class="grid two">
                     <DayPreview />
+                    <GuestMixPanel />
                     <PlotMapView @open-building="openBuilding" @open-build="openBuild" />
                 </div>
 

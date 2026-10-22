@@ -20,8 +20,10 @@ public enum PendingCommandType {
     MERGE_EVOLVE("合并进化"),
     /** 内装升级 */
     INTERIOR_UPGRADE("内装升级"),
-    /** 招聘员工 */
+    /** 招聘员工（仅 Lv1） */
     HIRE_STAFF("招聘员工"),
+    /** 培训升级员工 */
+    TRAIN_STAFF("培训员工"),
     /** 解雇员工 */
     FIRE_STAFF("解雇员工"),
     /** 解锁局内技能点 */

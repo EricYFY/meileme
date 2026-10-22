@@ -198,7 +198,7 @@ public class GameEngine {
             settle.getEvents().add("结算异常：" + e.getMessage());
         }
 
-        // 员工在岗时长累计与自动升级
+        // 员工在岗时长累计（不自动升级，仅提示可培训）
         settle.getEvents().addAll(staffService.advanceOneDay(s));
 
         // 统计刷新 → 成就解锁（地块需玩家付费解锁）
@@ -329,18 +329,32 @@ public class GameEngine {
                 b.getForm().getDisplayName() + " 内装升级：" + type.getDisplayName());
     }
 
-    public void requestHire(WebSocketSession session, PositionType position, int level) {
+    public void requestHire(WebSocketSession session, PositionType position) {
         GameState s = repository.get();
-        String reason = staffService.validateHire(s, position, level);
+        String reason = staffService.validateHire(s, position);
         if (reason != null) {
             fail(session, "HIRE_STAFF", reason);
             return;
         }
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("position", position.name());
-        payload.put("level", level);
         enqueue(session, PendingCommandType.HIRE_STAFF, payload,
-                "招聘 " + position.getDisplayName() + " Lv" + level);
+                "招聘 " + position.getDisplayName() + " Lv1");
+    }
+
+    public void requestTrain(WebSocketSession session, String staffId) {
+        GameState s = repository.get();
+        StaffInstance staff = s == null ? null : s.findAliveStaff(staffId);
+        String reason = staffService.validateTrain(s, staff);
+        if (reason != null) {
+            fail(session, "TRAIN_STAFF", reason);
+            return;
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("staffId", staffId);
+        enqueue(session, PendingCommandType.TRAIN_STAFF, payload,
+                "培训 " + staff.getPosition().getDisplayName() + " Lv" + staff.getLevel() + " → Lv"
+                        + (staff.getLevel() + 1));
     }
 
     public void requestFire(WebSocketSession session, String staffId) {
@@ -456,10 +470,17 @@ public class GameEngine {
                 }
                 case HIRE_STAFF: {
                     PositionType position = parsePosition(cmd.str("position"));
-                    int level = cmd.intVal("level", 1);
-                    reason = staffService.validateHire(s, position, level);
+                    reason = staffService.validateHire(s, position);
                     if (reason == null) {
-                        staffService.hire(s, position, level);
+                        staffService.hire(s, position);
+                    }
+                    break;
+                }
+                case TRAIN_STAFF: {
+                    StaffInstance staff = s.findAliveStaff(cmd.str("staffId"));
+                    reason = staffService.validateTrain(s, staff);
+                    if (reason == null) {
+                        staffService.train(s, staff);
                     }
                     break;
                 }
@@ -611,6 +632,17 @@ public class GameEngine {
             compensations.put(st.getId(), staffService.fireCompensation(s, st));
         }
         m.put("staffCompensations", compensations);
+        Map<String, Map<String, Object>> training = new LinkedHashMap<>();
+        for (StaffInstance st : s.aliveStaffs()) {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("daysAtCurrentLevel", st.getDaysAtCurrentLevel());
+            x.put("requiredDays", staffService.trainingRequiredDays(s, st));
+            x.put("trainCost", staffService.trainingCost(st));
+            x.put("ready", staffService.trainingReady(s, st));
+            x.put("maxLevel", st.getLevel() >= com.meileme.resort.config.GameConfig.STAFF_MAX_LEVEL);
+            training.put(st.getId(), x);
+        }
+        m.put("staffTraining", training);
         return m;
     }
 
@@ -716,6 +748,12 @@ public class GameEngine {
             x.put("categoryDisplayName", it.getCategory().getDisplayName());
             x.put("comfortPerLevel", it.getComfortPerLevel());
             x.put("capacityPerLevel", it.getCapacityPerLevel());
+            x.put("revenueBonusPerLevel", it.getRevenueBonusPerLevel());
+            Map<String, Double> affinities = new LinkedHashMap<>();
+            for (CustomerSegment seg : CustomerSegment.values()) {
+                affinities.put(seg.name(), it.segmentAffinityOf(seg));
+            }
+            x.put("segmentAffinityPerLevel", affinities);
             x.put("upgradeCostByLevel", it.getUpgradeCostByLevel());
             list.add(x);
         }
