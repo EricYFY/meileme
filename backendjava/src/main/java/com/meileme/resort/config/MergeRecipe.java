@@ -31,6 +31,8 @@ public class MergeRecipe {
     private final int resultLevel;
     /** 合并进化一次性花费 */
     private final double mergeCost;
+    /** 合并进化工期（游戏日，自开工次日起累计） */
+    private final int mergeDays;
 
     /** 配方是否与给定的两个「形态 + 等级」组合匹配（A/B 可对调） */
     public boolean matches(BuildingForm formA, int levelA, BuildingForm formB, int levelB) {

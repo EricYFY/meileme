@@ -13,8 +13,10 @@ import com.meileme.resort.config.MotherBuildingType;
 import com.meileme.resort.config.PendingCommandType;
 import com.meileme.resort.config.Plot;
 import com.meileme.resort.config.PositionType;
+import com.meileme.resort.config.ProjectType;
 import com.meileme.resort.config.Region;
 import com.meileme.resort.model.BuildingInstance;
+import com.meileme.resort.model.ConstructionProject;
 import com.meileme.resort.model.DailySettle;
 import com.meileme.resort.model.DemandResult;
 import com.meileme.resort.model.GameState;
@@ -219,15 +221,137 @@ public class GameEngine {
     private void beginDay() {
         GameState s = repository.get();
         s.setDay(s.getDay() + 1);
+        // 工程工期从次日起累计，达标后在本日 0 点生效
+        List<String> projectDone = progressProjects(s);
         applyPendingCommands();
         statsService.rebuild(s);
-        List<String> unlocks = new ArrayList<>();
+        List<String> unlocks = new ArrayList<>(projectDone);
         for (Achievement a : achievementService.evaluateAndUnlock(s)) {
             unlocks.add("🏆 成就达成：" + a.getDisplayName());
         }
         refreshPreview();
         broadcast("DAY_STARTED", Map.of("day", s.getDay(), "date", s.currentDateDisplay(), "unlocks", unlocks));
         broadcastState();
+    }
+
+    /** 推进所有进行中工程：每过一天剩余工期 −1；归零则完成并生效（失败则退还已付费用） */
+    private List<String> progressProjects(GameState s) {
+        List<String> done = new ArrayList<>();
+        List<ConstructionProject> finished = new ArrayList<>();
+        for (ConstructionProject p : s.getProjects()) {
+            p.setRemainingDays(p.getRemainingDays() - 1);
+            if (p.getRemainingDays() <= 0) {
+                finished.add(p);
+            }
+        }
+        for (ConstructionProject p : finished) {
+            String reason = completeProject(s, p);
+            s.getProjects().remove(p);
+            if (reason == null) {
+                done.add("✅ " + p.getDisplayName() + " 已完成");
+                broadcast("PROJECT_COMPLETED", projectView(p));
+            } else {
+                s.setFunds(s.getFunds() + p.getPaidCost());
+                Map<String, Object> failPayload = new LinkedHashMap<>();
+                failPayload.put("project", projectView(p));
+                failPayload.put("reason", reason);
+                failPayload.put("refund", p.getPaidCost());
+                broadcast("PROJECT_FAILED", failPayload);
+            }
+        }
+        return done;
+    }
+
+    /** 应用工程结果；返回 null 表示成功，否则为失败原因（失败会退还开工费用） */
+    private String completeProject(GameState s, ConstructionProject p) {
+        switch (p.getType()) {
+            case BUILD: {
+                Plot plot = registry.plot(p.getPlotId());
+                if (plot == null || !s.getUnlockedPlots().contains(plot.getId())) {
+                    return "PLOT_NOT_UNLOCKED";
+                }
+                if (s.aliveBuildingCountInPlot(plot.getId()) >= constructionService.buildLimit(s, plot)) {
+                    return "PLOT_BUILD_LIMIT_REACHED";
+                }
+                constructionService.completeBuild(s, p.getMother(), p.getPlotId());
+                return null;
+            }
+            case FORM_LEVEL_UP: {
+                BuildingInstance b = s.findAliveBuilding(p.getBuildingId());
+                if (b == null) {
+                    return "BUILDING_NOT_FOUND";
+                }
+                if (b.getFormLevel() >= GameConfig.FORM_MAX_LEVEL) {
+                    return "FORM_LEVEL_MAX_REACHED";
+                }
+                evolutionService.completeFormLevelUp(b);
+                return null;
+            }
+            case BRANCH_EVOLVE: {
+                BuildingInstance b = s.findAliveBuilding(p.getBuildingId());
+                BuildingForm target = registry.form(p.getTargetFormId());
+                if (b == null) {
+                    return "BUILDING_NOT_FOUND";
+                }
+                if (target == null) {
+                    return "TARGET_FORM_NOT_FOUND";
+                }
+                if (target.getEvolveFrom() != b.getForm() || b.getFormLevel() < GameConfig.FORM_MAX_LEVEL) {
+                    return "EVOLVE_PATH_NOT_ALLOWED";
+                }
+                evolutionService.completeBranchEvolve(b, target);
+                return null;
+            }
+            case MERGE_EVOLVE: {
+                BuildingInstance a = s.findAliveBuilding(p.getBuildingId());
+                BuildingInstance b = s.findAliveBuilding(p.getSecondBuildingId());
+                var recipe = evolutionService.matchRecipe(a, b);
+                if (recipe == null) {
+                    return "MERGE_RECIPE_NOT_MATCHED";
+                }
+                evolutionService.completeMerge(s, a, b, recipe);
+                return null;
+            }
+            case INTERIOR_UPGRADE: {
+                BuildingInstance b = s.findAliveBuilding(p.getBuildingId());
+                if (b == null) {
+                    return "BUILDING_NOT_FOUND";
+                }
+                if (p.getInteriorType() == null) {
+                    return "INTERIOR_NOT_FOUND";
+                }
+                com.meileme.resort.model.InteriorInstance inst = b.findInterior(p.getInteriorType());
+                int cur = inst == null ? 0 : inst.getLevel();
+                if (cur >= b.getForm().maxInteriorLevelOf(b.getFormLevel())) {
+                    return "INTERIOR_LEVEL_CAP_REACHED";
+                }
+                interiorService.completeUpgrade(s, b, p.getInteriorType());
+                return null;
+            }
+            default:
+                return "UNKNOWN_PROJECT";
+        }
+    }
+
+    private Map<String, Object> projectView(ConstructionProject p) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", p.getId());
+        m.put("type", p.getType().name());
+        m.put("typeDisplayName", p.getType().getDisplayName());
+        m.put("displayName", p.getDisplayName());
+        m.put("plotId", p.getPlotId());
+        m.put("buildingId", p.getBuildingId());
+        m.put("secondBuildingId", p.getSecondBuildingId());
+        m.put("mother", p.getMother() == null ? null : p.getMother().name());
+        m.put("targetFormId", p.getTargetFormId());
+        m.put("interiorType", p.getInteriorType() == null ? null : p.getInteriorType().name());
+        m.put("targetLevel", p.getTargetLevel());
+        m.put("totalDays", p.getTotalDays());
+        m.put("remainingDays", p.getRemainingDays());
+        m.put("elapsedDays", p.elapsedDays());
+        m.put("startedDay", p.getStartedDay());
+        m.put("finishDay", p.finishDay());
+        return m;
     }
 
     /** 刷新今日预计结算（开新局 / 次日 0 点应用指令后调用），纯投影不动资金 */
@@ -244,7 +368,7 @@ public class GameEngine {
         }
     }
 
-    // ===================== 指令入队（立即校验，次日生效） =====================
+    // ===================== 工程开工（立即扣费，按工期完成后生效） =====================
 
     public void requestBuild(WebSocketSession session, MotherBuildingType mother, String plotId) {
         GameState s = repository.get();
@@ -253,11 +377,13 @@ public class GameEngine {
             fail(session, "BUILD_BUILDING", reason);
             return;
         }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("buildingType", mother.name());
-        payload.put("plotId", plotId);
-        enqueue(session, PendingCommandType.BUILD, payload,
-                "新建 " + mother.getDisplayName() + " @ " + plotId);
+        ConstructionProject p = new ConstructionProject();
+        p.setType(ProjectType.BUILD);
+        p.setMother(mother);
+        p.setPlotId(plotId);
+        p.setDisplayName("新建 " + mother.getDisplayName());
+        p.setTotalDays(constructionService.projectDays(mother));
+        startProject(session, s, p, constructionService.buildCost(s, mother));
     }
 
     public void requestFormLevelUp(WebSocketSession session, String buildingId) {
@@ -268,10 +394,14 @@ public class GameEngine {
             fail(session, "FORM_LEVEL_UP", reason);
             return;
         }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("buildingId", buildingId);
-        enqueue(session, PendingCommandType.FORM_LEVEL_UP, payload,
-                b.getForm().getDisplayName() + " 形态升级 Lv" + (b.getFormLevel() + 1));
+        ConstructionProject p = new ConstructionProject();
+        p.setType(ProjectType.FORM_LEVEL_UP);
+        p.setBuildingId(buildingId);
+        p.setPlotId(b.getPlotId());
+        p.setTargetLevel(b.getFormLevel() + 1);
+        p.setDisplayName(b.getForm().getDisplayName() + " 升级至 Lv" + (b.getFormLevel() + 1));
+        p.setTotalDays(evolutionService.formLevelUpDays(b.getForm(), b.getFormLevel()));
+        startProject(session, s, p, evolutionService.formLevelUpCost(s, b));
     }
 
     public void requestBranchEvolve(WebSocketSession session, String buildingId, String targetFormId) {
@@ -283,11 +413,14 @@ public class GameEngine {
             fail(session, "BRANCH_EVOLVE", reason);
             return;
         }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("buildingId", buildingId);
-        payload.put("targetFormId", targetFormId);
-        enqueue(session, PendingCommandType.BRANCH_EVOLVE, payload,
-                b.getForm().getDisplayName() + " → " + target.getDisplayName());
+        ConstructionProject p = new ConstructionProject();
+        p.setType(ProjectType.BRANCH_EVOLVE);
+        p.setBuildingId(buildingId);
+        p.setPlotId(b.getPlotId());
+        p.setTargetFormId(targetFormId);
+        p.setDisplayName(b.getForm().getDisplayName() + " → " + target.getDisplayName());
+        p.setTotalDays(evolutionService.branchEvolveDays(target));
+        startProject(session, s, p, evolutionService.branchEvolveCost(s, target));
     }
 
     public void requestMergeEvolve(WebSocketSession session, String buildingIdA, String buildingIdB) {
@@ -308,12 +441,16 @@ public class GameEngine {
             fail(session, "MERGE_EVOLVE", reason);
             return;
         }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("buildingIdA", buildingIdA);
-        payload.put("buildingIdB", buildingIdB);
-        enqueue(session, PendingCommandType.MERGE_EVOLVE, payload,
-                "合并 " + a.getForm().getDisplayName() + " + " + b.getForm().getDisplayName()
-                        + " → " + recipe.getResultForm().getDisplayName());
+        ConstructionProject p = new ConstructionProject();
+        p.setType(ProjectType.MERGE_EVOLVE);
+        p.setBuildingId(buildingIdA);
+        p.setSecondBuildingId(buildingIdB);
+        p.setPlotId(a.getPlotId());
+        p.setTargetFormId(recipe.getResultForm().getId());
+        p.setDisplayName("合并 " + a.getForm().getDisplayName() + " + " + b.getForm().getDisplayName()
+                + " → " + recipe.getResultForm().getDisplayName());
+        p.setTotalDays(evolutionService.mergeEvolveDays(recipe));
+        startProject(session, s, p, evolutionService.mergeCost(s, recipe));
     }
 
     public void requestInteriorUpgrade(WebSocketSession session, String buildingId, InteriorType type) {
@@ -324,12 +461,31 @@ public class GameEngine {
             fail(session, "INTERIOR_UPGRADE", reason);
             return;
         }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("buildingId", buildingId);
-        payload.put("interiorType", type.name());
-        enqueue(session, PendingCommandType.INTERIOR_UPGRADE, payload,
-                b.getForm().getDisplayName() + " 内装升级：" + type.getDisplayName());
+        int nextLevel = (b.findInterior(type) == null ? 0 : b.findInterior(type).getLevel()) + 1;
+        ConstructionProject p = new ConstructionProject();
+        p.setType(ProjectType.INTERIOR_UPGRADE);
+        p.setBuildingId(buildingId);
+        p.setPlotId(b.getPlotId());
+        p.setInteriorType(type);
+        p.setTargetLevel(nextLevel);
+        p.setDisplayName(b.getForm().getDisplayName() + " 内装 " + type.getDisplayName() + " → Lv" + nextLevel);
+        p.setTotalDays(interiorService.upgradeDays(type, nextLevel));
+        startProject(session, s, p, interiorService.upgradeCost(s, type, nextLevel));
     }
+
+    /** 创建工程：立即扣费并进入进行中状态，自次日开始累计工期 */
+    private void startProject(WebSocketSession session, GameState s, ConstructionProject p, double cost) {
+        p.setId(idGenerator.next("PJT"));
+        p.setRemainingDays(p.getTotalDays());
+        p.setStartedDay(s.getDay());
+        p.setPaidCost(cost);
+        s.setFunds(s.getFunds() - cost);
+        s.getProjects().add(p);
+        send(session, "PROJECT_STARTED", projectView(p));
+        broadcastState();
+    }
+
+    // ===================== 指令入队（立即校验，次日生效） =====================
 
     public void requestHire(WebSocketSession session, PositionType position) {
         GameState s = repository.get();
@@ -426,50 +582,6 @@ public class GameEngine {
         for (PendingCommand cmd : queue) {
             String reason;
             switch (cmd.getType()) {
-                case BUILD: {
-                    MotherBuildingType mother = parseMother(cmd.str("buildingType"));
-                    reason = constructionService.validateBuild(s, mother, cmd.str("plotId"));
-                    if (reason == null) {
-                        constructionService.build(s, mother, cmd.str("plotId"));
-                    }
-                    break;
-                }
-                case FORM_LEVEL_UP: {
-                    BuildingInstance b = s.findAliveBuilding(cmd.str("buildingId"));
-                    reason = evolutionService.validateFormLevelUp(s, b);
-                    if (reason == null) {
-                        evolutionService.formLevelUp(s, b);
-                    }
-                    break;
-                }
-                case BRANCH_EVOLVE: {
-                    BuildingInstance b = s.findAliveBuilding(cmd.str("buildingId"));
-                    BuildingForm target = registry.form(cmd.str("targetFormId"));
-                    reason = evolutionService.validateBranchEvolve(s, b, target);
-                    if (reason == null) {
-                        evolutionService.branchEvolve(s, b, target);
-                    }
-                    break;
-                }
-                case MERGE_EVOLVE: {
-                    BuildingInstance a = s.findAliveBuilding(cmd.str("buildingIdA"));
-                    BuildingInstance b = s.findAliveBuilding(cmd.str("buildingIdB"));
-                    var recipe = evolutionService.matchRecipe(a, b);
-                    reason = evolutionService.validateMerge(s, a, b, recipe);
-                    if (reason == null) {
-                        evolutionService.merge(s, a, b, recipe);
-                    }
-                    break;
-                }
-                case INTERIOR_UPGRADE: {
-                    BuildingInstance b = s.findAliveBuilding(cmd.str("buildingId"));
-                    InteriorType type = parseInterior(cmd.str("interiorType"));
-                    reason = interiorService.validateUpgrade(s, b, type);
-                    if (reason == null) {
-                        interiorService.upgrade(s, b, type);
-                    }
-                    break;
-                }
                 case HIRE_STAFF: {
                     PositionType position = parsePosition(cmd.str("position"));
                     reason = staffService.validateHire(s, position);
@@ -629,6 +741,12 @@ public class GameEngine {
         m.put("abilitySupply", comfortService.totalAbilitySupply(s));
         m.put("abilityDemand", comfortService.totalAbilityDemand(s));
         m.put("abilityRatios", comfortService.supplyRatios(s));
+        // 进行中的工程（建造 / 升级 / 进化 / 合并 / 内装）
+        List<Map<String, Object>> projects = new ArrayList<>();
+        for (ConstructionProject p : s.getProjects()) {
+            projects.add(projectView(p));
+        }
+        m.put("projects", projects);
         // 单间实际房屋收益构成（与日结同一套乘数，供前端展示「当前房屋收益（每间）」）
         Map<String, Map<String, Object>> roomRevenue = new LinkedHashMap<>();
         double roomPriceMult = skillTree.multiplier(s, SkillEffectKey.ROOM_PRICE_MULT);
@@ -706,6 +824,7 @@ public class GameEngine {
             x.put("displayName", mt.getDisplayName());
             x.put("category", mt.getCategory().name());
             x.put("phase1Buildable", mt.isPhase1Buildable());
+            x.put("buildDays", mt.getBuildDays());
             list.add(x);
         }
         return list;
@@ -771,6 +890,7 @@ public class GameEngine {
             }
             x.put("segmentAffinityPerLevel", affinities);
             x.put("upgradeCostByLevel", it.getUpgradeCostByLevel());
+            x.put("upgradeDaysByLevel", it.getUpgradeDaysByLevel());
             list.add(x);
         }
         return list;
@@ -815,22 +935,6 @@ public class GameEngine {
     }
 
     // ===================== 解析工具 =====================
-
-    private MotherBuildingType parseMother(String name) {
-        try {
-            return MotherBuildingType.valueOf(name);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private InteriorType parseInterior(String name) {
-        try {
-            return InteriorType.valueOf(name);
-        } catch (Exception e) {
-            return null;
-        }
-    }
 
     private PositionType parsePosition(String name) {
         try {

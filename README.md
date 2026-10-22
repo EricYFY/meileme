@@ -1,7 +1,10 @@
 # 🏔️ 山间民宿度假村 · 挂机经营模拟系统（Meileme Resort）
 
 纯**挂机经营**沙盘：开局后引擎连续实时仿真（现实 **1 分钟 = 游戏 1 天**，可 0.5~16x 倍速），
-玩家随时下单，**所有操作统一「次日 0 点生效」**（进入待生效指令队列，生效时二次校验）。
+玩家随时下单。操作分两类生效方式：
+**① 即时类操作**（招聘 / 培训 / 解雇 / 技能解锁 / 地块解锁）进入「待生效指令队列」，**次日 0 点**生效并二次校验；
+**② 工程类操作**（建造 / 形态升级 / 分支进化 / 合并进化 / 内装升级）点击即**立即扣费**并进入「进行中」状态，
+按各自**工期（游戏日，自次日起累计）**逐日推进，**达到工期后于当日 0 点生效**；施工期间建筑仍按**开工前**的状态正常经营。
 本局为**无数值决策的挂机经营**——无定价权、无随机事件、无四季、无团建、无广告；
 玩家做的是**建设 / 进化 / 内装 / 雇佣 / 技能**这一条长期成长线。
 
@@ -167,6 +170,86 @@ flowchart TB
 
 > `MERGE_CROSS_LINE_HALL` 为**跨线合并演示**配方（家庭线 × 商务线 → 商务行政馆）。
 
+### 3.5 工程（建造 / 升级 / 进化 / 合并 / 内装）——多日施工
+
+玩家点击后**立即做前置校验**，通过则**立即扣费**并创建一条「进行中工程」（`ConstructionProject`），
+**自次日 0 点起**每个游戏日剩余工期 −1，归零当日 0 点生效。**施工期间建筑状态完全不变**：
+收益、舒适度、吸引力、承载容量、形态等级、内装等级全部沿用**开工前**的数值，照常参与每日结算。
+
+**工期配置（按实体各自配置，无全局工期常量）**
+
+| 工程 | 工期配置位置 | 粒度 |
+| :--- | :--- | :--- |
+| 新建建筑 | `MotherBuildingType.buildDays` | 每个母本独立 |
+| 形态等级升级 | `BuildingForm.formLevelUpDays` | 每个形态 × 每一级 |
+| 分支进化 | `BuildingForm.evolveDays` | 每个目标形态独立 |
+| 合并进化 | `MergeRecipe.mergeDays` | 每个配方独立 |
+| 内装升级 | `InteriorType.upgradeDaysByLevel` | 每个内装类型 × 每一级 |
+
+**新建建筑工期（`MotherBuildingType`）**
+
+| 母本 | 工期 | 母本 | 工期 |
+| :--- | :---: | :--- | :---: |
+| 标准客房 | 3 天 | 餐厅 | 3 天 |
+| 豪华客房 | 5 天 | 温泉泡池 | 4 天 |
+| 独栋木屋 | 6 天 | 观景台 | 2 天 |
+| 复式LOFT | 5 天 | 接待大堂 | 3 天 |
+| 庭院小院 | 7 天 | 茶室书吧 | 2 天 |
+| 多卧平房 | 6 天 | 文创工坊 | 3 天 |
+| — | — | 后勤库房 | 2 天 |
+| — | — | 户外营地 | 2 天 |
+| — | — | 亲子乐园 | 4 天 |
+
+**形态升级 / 分支进化工期（`BuildingForm`）**
+
+| 形态 | Lv1→Lv2 | Lv2→Lv3 | 分支进化到本形态 |
+| :--- | :---: | :---: | :---: |
+| 标准客房 | 2 天 | 3 天 | — |
+| 家庭亲子房 | 3 天 | 4 天 | 4 天 |
+| 亲子套房 | 4 天 | 5 天 | 5 天 |
+| 商务行政房 | 3 天 | 4 天 | 4 天 |
+| 行政套房 | 4 天 | 5 天 | 5 天 |
+| 亲子合院（合并产物） | 5 天 | 6 天 | — |
+| 商务行政馆（合并产物） | 5 天 | 6 天 | — |
+| 豪华客房 | 3 天 | 4 天 | — |
+| 独栋木屋 | 4 天 | 5 天 | — |
+| 复式LOFT | 3 天 | 5 天 | — |
+| 庭院小院 | 5 天 | 6 天 | — |
+| 多卧平房 | 4 天 | 5 天 | — |
+| 餐厅 / 温泉泡池 | 2 / 3 天 | 3 / 4 天 | — |
+| 观景台 / 茶室书吧 | 1 / 2 天 | 2 / 2 天 | — |
+| 接待大堂 / 文创工坊 | 2 / 2 天 | 2 / 3 天 | — |
+| 后勤库房 / 户外营地 | 1 / 1 天 | 1 / 2 天 | — |
+| 亲子乐园 | 3 天 | 4 天 | — |
+
+**合并进化工期（`MergeRecipe`）**
+
+| 配方 | 工期 |
+| :--- | :---: |
+| `MERGE_FAMILY_VILLA` | 5 天 |
+| `MERGE_BUSINESS_HALL` | 5 天 |
+| `MERGE_CROSS_LINE_HALL`（跨线） | 6 天 |
+
+**内装升级工期（`InteriorType`，按「内装类型 × 目标等级」）**
+
+| 内装 | 至 Lv1 | 至 Lv2 | 至 Lv3 |
+| :--- | :---: | :---: | :---: |
+| 床位 | 2 天 | 3 天 | 4 天 |
+| 餐桌 | 2 天 | 3 天 | 3 天 |
+| 泡池 | 3 天 | 4 天 | 5 天 |
+| 沙发 | 1 天 | 2 天 | 3 天 |
+| 灯具 | 1 天 | 2 天 | 2 天 |
+| 软装 | 2 天 | 2 天 | 3 天 |
+
+**工程规则**
+
+- **同一建筑同时只能有一个工程**：建筑上存在进行中工程（含作为合并源）时，升级 / 进化 / 合并 / 内装均被拒绝（`PROJECT_IN_PROGRESS`）；
+- **新建工程占用地块建造名额**：地块名额判定 = 存活建筑数 + 本地块在建工程数 ≤ 建筑上限，避免施工期间超建；
+- **合并工程锁定两个源建筑**：施工期间两栋源建筑仍各自正常经营，完成后才逻辑删除并新建产物；
+- **完成时二次校验**：0 点生效前复检地块已解锁 / 建筑仍存活 / 等级上限 / 配方仍匹配 / 内装上限；
+  **校验失败则工程作废，并全额退还开工时已扣的费用**（`PROJECT_FAILED.refund`）；
+- 工程进行中的地块在地图总览中显示为**施工占位格**（`ghost`），建筑列表中同时展示「施工中 · 剩 N 天」。
+
 ---
 
 ## 👥 四、客流与房型需求（核心链路）
@@ -266,8 +349,9 @@ flowchart TB
 | 资金池 | `资金池 += 净利润` |
 | 对局结束 | 日常运营无固定支出，**不存在破产**；仅玩家主动 `STOP_GAME` 才结束对局 |
 
-**一次性支出**：新建建筑费、形态进化费、内装升级费、招聘费、员工培训费、员工解雇补偿金（资金不足则无法执行，不会产生负资金）。
+**一次性支出**：新建建筑费、形态升级费、形态进化费、合并进化费、内装升级费、招聘费、员工培训费、员工解雇补偿金（资金不足则无法执行，不会产生负资金）。
 
+> **工程类支出在点击开工时立即扣除**；工程完成时生效、**校验失败则全额退还**（见 3.5 节）。
 > 舒适度**仅参与客流转化**，**不二次折损收入**。
 
 ---
@@ -281,7 +365,7 @@ scheduledLoop() 每 1000ms:
     while dayProgress >= 1.0:
         dayProgress -= 1.0
         closeDay()          # 当日日结
-        beginDay()          # 次日 0 点：应用待生效指令
+        beginDay()          # 次日 0 点：推进工程工期 → 应用待生效指令
 
 # ---- 每日 6 步（closeDay 核心）----
 ① 刷新各区域每日基础客流                # 宁姆格福 100 / 湖之利耶尼亚 200（Region）
@@ -293,7 +377,23 @@ scheduledLoop() 每 1000ms:
    → 统计刷新 → 成就解锁 → 区块解锁 → 完成当日挂机结算
 ```
 
-**玩家操作 → 生效（`applyPendingCommands`，次日 0 点）**
+**工程推进（`progressProjects`，次日 0 点、先于待生效指令）**
+
+```
+beginDay():
+  day += 1
+  for p in 进行中工程:
+      p.remainingDays -= 1                 # 自开工次日开始累计，当日开工不计
+      if p.remainingDays <= 0: 收集为完成候选
+  for p in 完成候选:
+      二次校验（地块已解锁 / 建筑存活 / 等级上限 / 配方匹配 / 内装上限）
+      └─ 通过 → 应用结果（新建 / 升级 / 进化 / 合并 / 内装）→ 广播 PROJECT_COMPLETED
+      └─ 失败 → 工程作废 + 全额退还 paidCost → 广播 PROJECT_FAILED{reason, refund}
+      从 projects 移除
+  applyPendingCommands()
+```
+
+**玩家操作 → 生效（即时类：`applyPendingCommands`，次日 0 点）**
 
 ```
 玩家下单（立即做前置校验）
@@ -306,6 +406,14 @@ beginDay() 次日 0 点:
      └─ 通过 → 执行
      └─ 失败 → 广播 ACTION_FAILED{action, description, reason}
   清空队列
+```
+
+**玩家操作 → 生效（工程类：即时开工，按工期完成）**
+
+```
+玩家点击（立即做前置校验，含「同一建筑无进行中工程」）
+  └─ 通过 → 立即扣费 + 创建工程 → 广播 PROJECT_STARTED（含 totalDays / remainingDays / finishDay）
+  └─ 拒绝 → 广播 ACTION_FAILED{reason}
 ```
 
 ---
@@ -386,11 +494,11 @@ beginDay() 次日 0 点:
 | `CHECK_STATUS` / `GET_STATUS` | — | 拉取状态（仅回请求方全量同步） |
 | `GET_CONFIG` | — | 拉取静态配置（形态 / 配方 / 地块 / 成就 / 技能 / 区域客流） |
 | `SET_SIMULATION_SPEED` | `speed` | 0.5 / 1 / 2 / 4 / 8 / 16 |
-| `BUILD_BUILDING` | `buildingType`, `plotId` | 新建建筑（次日 0 点生效） |
-| `FORM_LEVEL_UP` | `buildingId` | 形态等级升级 Lv1→Lv2→Lv3 |
-| `BRANCH_EVOLVE` | `buildingId`, `targetFormId` | 分支进化（满级后选定线） |
-| `MERGE_EVOLVE` | `buildingIdA`, `buildingIdB` | 合并进化（按配方二建一） |
-| `INTERIOR_UPGRADE` | `buildingId`, `interiorType` | 内装升级 |
+| `BUILD_BUILDING` | `buildingType`, `plotId` | 新建建筑（**工程**：立即扣费，工期按母本配置，见 3.5） |
+| `FORM_LEVEL_UP` | `buildingId` | 形态等级升级 Lv1→Lv2→Lv3（**工程**：工期按形态 × 等级配置） |
+| `BRANCH_EVOLVE` | `buildingId`, `targetFormId` | 分支进化（满级后选定线，**工程**：工期按目标形态配置） |
+| `MERGE_EVOLVE` | `buildingIdA`, `buildingIdB` | 合并进化（按配方二建一，**工程**：工期按配方配置） |
+| `INTERIOR_UPGRADE` | `buildingId`, `interiorType` | 内装升级（**工程**：工期按内装类型 × 目标等级配置） |
 | `HIRE_STAFF` | `position` | 招聘 Lv1（必定成功） |
 | `TRAIN_STAFF` | `staffId` | 培训升级（需在岗时长达标 + 支付培训费，次日生效） |
 | `FIRE_STAFF` | `staffId` | 解雇（无冷却） |
@@ -403,13 +511,16 @@ beginDay() 次日 0 点:
 
 | 消息 | 载荷 / 说明 |
 | :--- | :--- |
-| `CONFIG` | 静态配置全量（开局与新连接时下发）：`regions`（含 `id` / `displayName` / `baseDailyFlow` / `segmentRatios`）/ `buildingForms` / `mergeRecipes` / `plots` / `achievements` / `skills` / `speedOptions` / `formMaxLevel` / `staffMaxLevel`，以及**结构化目录** `mothers` / `segments` / `abilities` / `positions` / `interiors`（均含 `id` 与 `displayName` 等展示字段） |
-| `RESORT_STATE` | 全量状态（资金 / 日 / 日期 / 建筑 / 员工 / 技能点 / 已解锁技能地块区域成就 / 待生效指令 / 统计 / 末日结），另含 **今日预计 `todayPreview`（含 `potentialBySegment` / `intentBySegment` / `servedBySegment` 三组客群客流） / 里程碑 `milestones` / 能力供需 `abilitySupply·abilityDemand·abilityRatios` / 解雇补偿 `staffCompensations` / 培训状态 `staffTraining`（本级在岗天数、所需天数、培训费、是否达标） / 单间房屋收益 `roomRevenue`（`base` 基础、`priceMult` 技能、`mergeBonus` 合并、`interiorBonus` 内装、`final` 实际，与日结同源）** |
+| `CONFIG` | 静态配置全量（开局与新连接时下发）：`regions`（含 `id` / `displayName` / `baseDailyFlow` / `segmentRatios`）/ `buildingForms`（含 `formLevelUpDays` / `evolveDays`）/ `mergeRecipes`（含 `mergeDays`）/ `plots` / `achievements` / `skills` / `speedOptions` / `formMaxLevel` / `staffMaxLevel`，以及**结构化目录** `mothers`（含 `buildDays`）/ `segments` / `abilities` / `positions` / `interiors`（含 `upgradeDaysByLevel`，均含 `id` 与 `displayName` 等展示字段） |
+| `RESORT_STATE` | 全量状态（资金 / 日 / 日期 / 建筑 / 员工 / 技能点 / 已解锁技能地块区域成就 / 待生效指令 / 统计 / 末日结），另含 **进行中工程 `projects`**（`id` / `type` / `typeDisplayName` / `displayName` / `plotId` / `buildingId` / `secondBuildingId` / `mother` / `targetFormId` / `interiorType` / `targetLevel` / `totalDays` / `remainingDays` / `elapsedDays` / `startedDay` / `finishDay`）、**今日预计 `todayPreview`（含 `potentialBySegment` / `intentBySegment` / `servedBySegment` 三组客群客流） / 里程碑 `milestones` / 能力供需 `abilitySupply·abilityDemand·abilityRatios` / 解雇补偿 `staffCompensations` / 培训状态 `staffTraining`（本级在岗天数、所需天数、培训费、是否达标） / 单间房屋收益 `roomRevenue`（`base` 基础、`priceMult` 技能、`mergeBonus` 合并、`interiorBonus` 内装、`final` 实际，与日结同源）** |
 | `TIME_TICK` | `{day, date, progress, speed, paused, funds}`（**约 200ms 广播，仅时间 / 进度 / 资金**） |
-| `DAY_STARTED` | `{day, date, unlocks}` |
+| `DAY_STARTED` | `{day, date, unlocks}`（`unlocks` 同时包含当日完成的工程提示） |
 | `DAY_SETTLED` | `{day, funds, settle}`（日结快照，含收益 / 客流 / 事件） |
-| `ACTION_QUEUED` | `{action, commandId, description, effectiveDay}` |
+| `ACTION_QUEUED` | `{action, commandId, description, effectiveDay}`（**仅即时类操作**） |
 | `ACTION_FAILED` | `{action, commandId, description, reason}` |
+| `PROJECT_STARTED` | 工程已开工（**只回发起方**）：`{id, type, typeDisplayName, displayName, plotId, buildingId, secondBuildingId, mother, targetFormId, interiorType, targetLevel, totalDays, remainingDays, elapsedDays, startedDay, finishDay}` |
+| `PROJECT_COMPLETED` | 工程完成并生效（广播）：载荷同上工程视图 |
+| `PROJECT_FAILED` | 工程完成时二次校验失败（广播）：`{project, reason, refund}`（`refund` 为全额退还金额） |
 | `GAME_STOPPED` | `{reason}` |
 | `DAILY_LOG` | `{history: DailySettle[]}`（只回请求方） |
 | `RANGE_REPORT` | `{rangeDays, days, totalRevenue, netProfit, totalGuests, overflowGuests, avgOccupancyRate, slices}`（只回请求方，`netProfit = totalRevenue`） |
@@ -420,21 +531,26 @@ beginDay() 次日 0 点:
 `PLOT_NOT_UNLOCKED`、`PLOT_BUILD_LIMIT_REACHED`、`FORM_NOT_MAX_LEVEL`、`EVOLVE_LINE_LOCKED`、
 `EVOLVE_PATH_NOT_ALLOWED`、`PLOT_EVOLVE_TIER_CAP_EXCEEDED`、`MERGE_RECIPE_NOT_MATCHED`、
 `INTERIOR_LEVEL_CAP_REACHED`、`FORM_LEVEL_MAX_REACHED`、`NO_SKILL_POINT`、`PREREQUISITE_NOT_UNLOCKED`、
-`TRAINING_NOT_READY`（在岗时长未达标）、`STAFF_MAX_LEVEL`（员工已满级）。
+`TRAINING_NOT_READY`（在岗时长未达标）、`STAFF_MAX_LEVEL`（员工已满级）、
+`PROJECT_IN_PROGRESS`（该建筑已有进行中工程）、`BUILDING_NOT_FOUND`、`TARGET_FORM_NOT_FOUND`、
+`INTERIOR_NOT_FOUND`、`UNKNOWN_PROJECT`（工程完成时二次校验失败，均全额退款）。
 
 ### JSON 样例
 
 ```json
-{ "command": "BUILD_BUILDING", "buildingType": "STANDARD_ROOM", "plotId": "A_COUNTRYSIDE" }
+{ "command": "BUILD_BUILDING", "buildingType": "STANDARD_ROOM", "plotId": "STORMVEIL_CASTLE" }
 ```
 ```json
 { "command": "MERGE_EVOLVE", "buildingIdA": "BLD-a1", "buildingIdB": "BLD-b2" }
 ```
 ```json
-{ "type": "ACTION_QUEUED", "action": "BUILD", "commandId": "CMD-7d8e9f", "description": "新建 标准客房 @ A_COUNTRYSIDE", "effectiveDay": 2 }
+{ "type": "PROJECT_STARTED", "id": "PJT-3a1c", "type": "BUILD", "typeDisplayName": "建造中", "displayName": "新建 标准客房", "plotId": "STORMVEIL_CASTLE", "totalDays": 3, "remainingDays": 3, "elapsedDays": 0, "startedDay": 1, "finishDay": 4 }
 ```
 ```json
-{ "type": "ACTION_FAILED", "action": "BRANCH_EVOLVE", "commandId": "CMD-1a", "reason": "FORM_NOT_MAX_LEVEL" }
+{ "type": "PROJECT_COMPLETED", "id": "PJT-3a1c", "type": "BUILD", "typeDisplayName": "建造中", "displayName": "新建 标准客房", "totalDays": 3, "remainingDays": 0, "elapsedDays": 3, "startedDay": 1, "finishDay": 4 }
+```
+```json
+{ "type": "ACTION_FAILED", "action": "BRANCH_EVOLVE", "reason": "FORM_NOT_MAX_LEVEL" }
 ```
 
 ---
@@ -451,9 +567,9 @@ meileme/
 │           ├── config/      # 数值配置（唯一来源）：GameConfig、ConfigRegistry、BuildingForm、
 │           │                #   MotherBuildingType、InteriorType、MergeRecipe、EvolutionLine、Region、
 │           │                #   CustomerSegment、AbilityType、PositionType、Plot、Achievement、
-│           │                #   SkillNode、PendingCommandType 等
+│           │                #   SkillNode、PendingCommandType（即时类指令）、ProjectType（工程类型）等
 │           ├── model/       # 内存实体：GameState、GameStats、DailySettle、DemandResult、PendingCommand、
-│           │                #   BuildingInstance、InteriorInstance、StaffInstance
+│           │                #   ConstructionProject（进行中工程）、BuildingInstance、InteriorInstance、StaffInstance
 │           ├── repository/  # GameStateRepository（内存态）
 │           ├── service/     # ConfigRegistry、GameEngine、DemandService、ComfortService、FinanceService、
 │           │                #   StaffService、ConstructionService、EvolutionService、InteriorService、
@@ -497,9 +613,11 @@ cd frontendweb && npm install && npm run dev    # :5173
 # cd backendpython && python3 -m uvicorn main:app --port 8081
 ```
 
-**调试流程（推荐走前端 UI）**：浏览器打开 `http://localhost:5173` → 顶部「开始一局」→ 建造标准客房 → 等待次日 0 点生效与日结
-→ 后续形态升级 / 分支进化 / 合并进化 / 内装升级 / 招聘 / 技能解锁均可在对应面板操作，实时查看「今日预计 / 今日客群（各客群意向客流 + 实际接待构成环形图） / 能力供需 / 里程碑 / 成就进度」。
-（也可纯 WebSocket 直连 `ws://localhost:8080/game` 手动排指令：发 `START_GAME` → 收 `CONFIG`/`RESORT_STATE` → 发 `BUILD_BUILDING` → 收 `ACTION_QUEUED` → 次日收 `DAY_SETTLED`。）
+**调试流程（推荐走前端 UI）**：浏览器打开 `http://localhost:5173` → 顶部「开始一局」→ 建造标准客房（进入「建造中」，**3 天**后完成）
+→ 等待次日 0 点生效与日结 → 期间可在建筑面板查看「施工中 · 剩 N 天」、地块总览查看施工占位格
+→ 后续形态升级 / 分支进化 / 合并进化 / 内装升级均以多日工程形式推进（详见 3.5 节），
+招聘 / 培训 / 技能解锁 / 地块解锁仍为次日 0 点生效；实时查看「今日预计 / 今日客群（各客群意向客流 + 实际接待构成环形图） / 能力供需 / 里程碑 / 成就进度」。
+（也可纯 WebSocket 直连 `ws://localhost:8080/game` 手动排指令：发 `START_GAME` → 收 `CONFIG`/`RESORT_STATE` → 发 `BUILD_BUILDING` → 收 `PROJECT_STARTED` → 工期满后收 `PROJECT_COMPLETED`，期间照常 `DAY_SETTLED`。）
 
 ---
 

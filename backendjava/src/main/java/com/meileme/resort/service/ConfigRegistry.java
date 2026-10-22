@@ -43,7 +43,7 @@ public class ConfigRegistry {
         BuildingForm standardRoom = BuildingForm.builder("STANDARD_ROOM", "标准客房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.BASE).tier(0).capacityPerRoom(2)
                 .pricePerRoom(280, 330, 380).buildCost(3000).evolveCost(0)
-                .formLevelUpCost(1500, 2500).baseComfort(50)
+                .formLevelUpCost(1500, 2500).formLevelUpDays(2, 3).baseComfort(50)
                 .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
                 .affinity(CustomerSegment.ROMANTIC, 0.8).affinity(CustomerSegment.WELLNESS, 0.8)
                 .maxInteriorLevel(1, 2, 3)
@@ -53,47 +53,47 @@ public class ConfigRegistry {
         BuildingForm familyRoom = BuildingForm.builder("FAMILY_ROOM", "家庭亲子房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.FAMILY).tier(1).capacityPerRoom(4)
                 .pricePerRoom(500, 580, 660).evolveCost(6000)
-                .formLevelUpCost(3000, 5000).baseComfort(62)
+                .formLevelUpCost(3000, 5000).formLevelUpDays(3, 4).baseComfort(62)
                 .affinity(CustomerSegment.FAMILY, 1.8).affinity(CustomerSegment.BUSINESS, 0.5)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
                 .abilityDemand(AbilityType.ROOM_CLEANING, 26).abilityDemand(AbilityType.ROOM_REPAIR, 12)
-                .evolveFrom(standardRoom).build();
+                .evolveFrom(standardRoom).evolveDays(4).build();
 
         BuildingForm familySuite = BuildingForm.builder("FAMILY_SUITE", "亲子套房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.FAMILY).tier(2).capacityPerRoom(6)
                 .pricePerRoom(760, 880, 1000).evolveCost(15000)
-                .formLevelUpCost(7000, 11000).baseComfort(76)
+                .formLevelUpCost(7000, 11000).formLevelUpDays(4, 5).baseComfort(76)
                 .affinity(CustomerSegment.FAMILY, 2.2).affinity(CustomerSegment.BUSINESS, 0.4)
                 .affinity(CustomerSegment.ROMANTIC, 1.1).affinity(CustomerSegment.WELLNESS, 1.0)
                 .maxInteriorLevel(2, 3, 3)
                 .abilityDemand(AbilityType.ROOM_CLEANING, 34).abilityDemand(AbilityType.ROOM_REPAIR, 16)
-                .evolveFrom(familyRoom).build();
+                .evolveFrom(familyRoom).evolveDays(5).build();
 
         BuildingForm businessRoom = BuildingForm.builder("BUSINESS_ROOM", "商务行政房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.BUSINESS).tier(1).capacityPerRoom(2)
                 .pricePerRoom(620, 720, 820).evolveCost(7000)
-                .formLevelUpCost(3200, 5200).baseComfort(64)
+                .formLevelUpCost(3200, 5200).formLevelUpDays(3, 4).baseComfort(64)
                 .affinity(CustomerSegment.BUSINESS, 1.9).affinity(CustomerSegment.FAMILY, 0.5)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
                 .abilityDemand(AbilityType.ROOM_CLEANING, 22).abilityDemand(AbilityType.ROOM_REPAIR, 14)
-                .evolveFrom(standardRoom).build();
+                .evolveFrom(standardRoom).evolveDays(4).build();
 
         BuildingForm businessSuite = BuildingForm.builder("BUSINESS_SUITE", "行政套房", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.BUSINESS).tier(2).capacityPerRoom(3)
                 .pricePerRoom(950, 1100, 1250).evolveCost(17000)
-                .formLevelUpCost(7500, 12000).baseComfort(80)
+                .formLevelUpCost(7500, 12000).formLevelUpDays(4, 5).baseComfort(80)
                 .affinity(CustomerSegment.BUSINESS, 2.3).affinity(CustomerSegment.FAMILY, 0.4)
                 .affinity(CustomerSegment.ROMANTIC, 1.2).affinity(CustomerSegment.WELLNESS, 1.1)
                 .maxInteriorLevel(2, 3, 3)
                 .abilityDemand(AbilityType.ROOM_CLEANING, 30).abilityDemand(AbilityType.ROOM_REPAIR, 18)
-                .evolveFrom(businessRoom).build();
+                .evolveFrom(businessRoom).evolveDays(5).build();
 
         BuildingForm mergedFamilyVilla = BuildingForm.builder("MERGED_FAMILY_VILLA", "亲子合院", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.MERGE).tier(3).capacityPerRoom(10)
                 .pricePerRoom(1500, 1750, 2000)
-                .formLevelUpCost(9000, 14000).baseComfort(95)
+                .formLevelUpCost(9000, 14000).formLevelUpDays(5, 6).baseComfort(95)
                 .affinity(CustomerSegment.FAMILY, 2.6).affinity(CustomerSegment.BUSINESS, 0.6)
                 .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.WELLNESS, 1.3)
                 .maxInteriorLevel(3, 3, 3)
@@ -103,7 +103,7 @@ public class ConfigRegistry {
         BuildingForm mergedBusinessHall = BuildingForm.builder("MERGED_BUSINESS_HALL", "商务行政馆", MotherBuildingType.STANDARD_ROOM)
                 .line(EvolutionLine.MERGE).tier(3).capacityPerRoom(8)
                 .pricePerRoom(1600, 1850, 2100)
-                .formLevelUpCost(9500, 15000).baseComfort(98)
+                .formLevelUpCost(9500, 15000).formLevelUpDays(5, 6).baseComfort(98)
                 .affinity(CustomerSegment.BUSINESS, 2.6).affinity(CustomerSegment.FAMILY, 0.6)
                 .affinity(CustomerSegment.ROMANTIC, 1.5).affinity(CustomerSegment.WELLNESS, 1.4)
                 .maxInteriorLevel(3, 3, 3)
@@ -113,7 +113,7 @@ public class ConfigRegistry {
         // —— 其余住宿母本基础形态（仅登记，第一期不可建） ——
         BuildingForm luxuryRoom = BuildingForm.builder("LUXURY_ROOM", "豪华客房", MotherBuildingType.LUXURY_ROOM)
                 .tier(0).capacityPerRoom(4).pricePerRoom(680, 780, 880).buildCost(8000)
-                .formLevelUpCost(3000, 5000).baseComfort(70)
+                .formLevelUpCost(3000, 5000).formLevelUpDays(3, 4).baseComfort(70)
                 .affinity(CustomerSegment.FAMILY, 1.1).affinity(CustomerSegment.BUSINESS, 1.4)
                 .affinity(CustomerSegment.ROMANTIC, 1.2).affinity(CustomerSegment.WELLNESS, 1.1)
                 .maxInteriorLevel(2, 3, 3)
@@ -122,7 +122,7 @@ public class ConfigRegistry {
 
         BuildingForm woodenCabin = BuildingForm.builder("WOODEN_CABIN", "独栋木屋", MotherBuildingType.WOODEN_CABIN)
                 .tier(0).capacityPerRoom(4).pricePerRoom(720, 820, 920).buildCost(12000)
-                .formLevelUpCost(4000, 6500).baseComfort(72)
+                .formLevelUpCost(4000, 6500).formLevelUpDays(4, 5).baseComfort(72)
                 .affinity(CustomerSegment.FAMILY, 1.3).affinity(CustomerSegment.BUSINESS, 0.8)
                 .affinity(CustomerSegment.ROMANTIC, 1.5).affinity(CustomerSegment.WELLNESS, 1.2)
                 .maxInteriorLevel(2, 3, 3)
@@ -131,7 +131,7 @@ public class ConfigRegistry {
 
         BuildingForm duplexLoft = BuildingForm.builder("DUPLEX_LOFT", "复式LOFT", MotherBuildingType.DUPLEX_LOFT)
                 .tier(0).capacityPerRoom(5).pricePerRoom(860, 960, 1060).buildCost(10000)
-                .formLevelUpCost(3500, 6000).baseComfort(68)
+                .formLevelUpCost(3500, 6000).formLevelUpDays(3, 5).baseComfort(68)
                 .affinity(CustomerSegment.BUSINESS, 1.5).affinity(CustomerSegment.FAMILY, 1.2)
                 .affinity(CustomerSegment.ROMANTIC, 1.3).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -140,7 +140,7 @@ public class ConfigRegistry {
 
         BuildingForm courtyardHouse = BuildingForm.builder("COURTYARD_HOUSE", "庭院小院", MotherBuildingType.COURTYARD_HOUSE)
                 .tier(0).capacityPerRoom(6).pricePerRoom(1100, 1250, 1400).buildCost(15000)
-                .formLevelUpCost(5000, 8000).baseComfort(82)
+                .formLevelUpCost(5000, 8000).formLevelUpDays(5, 6).baseComfort(82)
                 .affinity(CustomerSegment.WELLNESS, 1.6).affinity(CustomerSegment.FAMILY, 1.5)
                 .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.BUSINESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -149,7 +149,7 @@ public class ConfigRegistry {
 
         BuildingForm multiBedroomHouse = BuildingForm.builder("MULTI_BEDROOM_HOUSE", "多卧平房", MotherBuildingType.MULTI_BEDROOM_HOUSE)
                 .tier(0).capacityPerRoom(8).pricePerRoom(1250, 1400, 1550).buildCost(11000)
-                .formLevelUpCost(4000, 6500).baseComfort(66)
+                .formLevelUpCost(4000, 6500).formLevelUpDays(4, 5).baseComfort(66)
                 .affinity(CustomerSegment.FAMILY, 1.7).affinity(CustomerSegment.BUSINESS, 0.5)
                 .affinity(CustomerSegment.ROMANTIC, 0.9).affinity(CustomerSegment.WELLNESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -159,7 +159,7 @@ public class ConfigRegistry {
         // —— 配套母本基础形态（9 种，仅登记） ——
         BuildingForm restaurant = BuildingForm.builder("RESTAURANT", "餐厅", MotherBuildingType.RESTAURANT)
                 .tier(0).serviceCapacity(40).unitPrice(80, 95, 110).buildCost(6000)
-                .formLevelUpCost(2500, 4200).baseComfort(40)
+                .formLevelUpCost(2500, 4200).formLevelUpDays(2, 3).baseComfort(40)
                 .affinity(CustomerSegment.FAMILY, 1.2).affinity(CustomerSegment.BUSINESS, 1.0)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.8)
                 .maxInteriorLevel(2, 3, 3)
@@ -168,7 +168,7 @@ public class ConfigRegistry {
 
         BuildingForm hotSpringPool = BuildingForm.builder("HOT_SPRING_POOL", "温泉泡池", MotherBuildingType.HOT_SPRING_POOL)
                 .tier(0).serviceCapacity(20).unitPrice(60, 75, 90).buildCost(7500)
-                .formLevelUpCost(2800, 4600).baseComfort(45)
+                .formLevelUpCost(2800, 4600).formLevelUpDays(3, 4).baseComfort(45)
                 .affinity(CustomerSegment.WELLNESS, 1.8).affinity(CustomerSegment.ROMANTIC, 1.3)
                 .affinity(CustomerSegment.FAMILY, 0.9).affinity(CustomerSegment.BUSINESS, 0.7)
                 .maxInteriorLevel(2, 3, 3)
@@ -177,7 +177,7 @@ public class ConfigRegistry {
 
         BuildingForm viewingPlatform = BuildingForm.builder("VIEWING_PLATFORM", "观景台", MotherBuildingType.VIEWING_PLATFORM)
                 .tier(0).serviceCapacity(30).unitPrice(40, 50, 60).buildCost(4000)
-                .formLevelUpCost(1800, 3000).baseComfort(35)
+                .formLevelUpCost(1800, 3000).formLevelUpDays(1, 2).baseComfort(35)
                 .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.WELLNESS, 1.2)
                 .affinity(CustomerSegment.FAMILY, 1.1).affinity(CustomerSegment.BUSINESS, 0.9)
                 .maxInteriorLevel(2, 3, 3)
@@ -185,7 +185,7 @@ public class ConfigRegistry {
 
         BuildingForm receptionLobby = BuildingForm.builder("RECEPTION_LOBBY", "接待大堂", MotherBuildingType.RECEPTION_LOBBY)
                 .tier(0).serviceCapacity(0).unitPrice(0, 0, 0).buildCost(5000)
-                .formLevelUpCost(2000, 3400).baseComfort(30)
+                .formLevelUpCost(2000, 3400).formLevelUpDays(2, 2).baseComfort(30)
                 .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
                 .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 1.0)
                 .maxInteriorLevel(2, 3, 3)
@@ -193,7 +193,7 @@ public class ConfigRegistry {
 
         BuildingForm teaLibrary = BuildingForm.builder("TEA_LIBRARY", "茶室书吧", MotherBuildingType.TEA_LIBRARY)
                 .tier(0).serviceCapacity(15).unitPrice(50, 60, 70).buildCost(4500)
-                .formLevelUpCost(1900, 3200).baseComfort(38)
+                .formLevelUpCost(1900, 3200).formLevelUpDays(2, 2).baseComfort(38)
                 .affinity(CustomerSegment.WELLNESS, 1.4).affinity(CustomerSegment.ROMANTIC, 1.2)
                 .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
                 .maxInteriorLevel(2, 3, 3)
@@ -201,7 +201,7 @@ public class ConfigRegistry {
 
         BuildingForm cultureWorkshop = BuildingForm.builder("CULTURE_WORKSHOP", "文创工坊", MotherBuildingType.CULTURE_WORKSHOP)
                 .tier(0).serviceCapacity(12).unitPrice(55, 65, 80).buildCost(5500)
-                .formLevelUpCost(2200, 3600).baseComfort(36)
+                .formLevelUpCost(2200, 3600).formLevelUpDays(2, 3).baseComfort(36)
                 .affinity(CustomerSegment.FAMILY, 1.3).affinity(CustomerSegment.ROMANTIC, 1.1)
                 .affinity(CustomerSegment.WELLNESS, 1.0).affinity(CustomerSegment.BUSINESS, 0.8)
                 .maxInteriorLevel(2, 3, 3)
@@ -209,7 +209,7 @@ public class ConfigRegistry {
 
         BuildingForm logisticsWarehouse = BuildingForm.builder("LOGISTICS_WAREHOUSE", "后勤库房", MotherBuildingType.LOGISTICS_WAREHOUSE)
                 .tier(0).serviceCapacity(0).unitPrice(0, 0, 0).buildCost(3500)
-                .formLevelUpCost(1500, 2500).baseComfort(20)
+                .formLevelUpCost(1500, 2500).formLevelUpDays(1, 1).baseComfort(20)
                 .affinity(CustomerSegment.FAMILY, 0.8).affinity(CustomerSegment.BUSINESS, 0.8)
                 .affinity(CustomerSegment.ROMANTIC, 0.8).affinity(CustomerSegment.WELLNESS, 0.8)
                 .maxInteriorLevel(2, 3, 3)
@@ -217,7 +217,7 @@ public class ConfigRegistry {
 
         BuildingForm outdoorCamp = BuildingForm.builder("OUTDOOR_CAMP", "户外营地", MotherBuildingType.OUTDOOR_CAMP)
                 .tier(0).serviceCapacity(25).unitPrice(35, 45, 55).buildCost(3000)
-                .formLevelUpCost(1400, 2400).baseComfort(34)
+                .formLevelUpCost(1400, 2400).formLevelUpDays(1, 2).baseComfort(34)
                 .affinity(CustomerSegment.FAMILY, 1.4).affinity(CustomerSegment.ROMANTIC, 1.2)
                 .affinity(CustomerSegment.WELLNESS, 1.1).affinity(CustomerSegment.BUSINESS, 0.6)
                 .maxInteriorLevel(2, 3, 3)
@@ -225,7 +225,7 @@ public class ConfigRegistry {
 
         BuildingForm parentChildPark = BuildingForm.builder("PARENT_CHILD_PARK", "亲子乐园", MotherBuildingType.PARENT_CHILD_PARK)
                 .tier(0).serviceCapacity(35).unitPrice(45, 55, 65).buildCost(6500)
-                .formLevelUpCost(2600, 4400).baseComfort(42)
+                .formLevelUpCost(2600, 4400).formLevelUpDays(3, 4).baseComfort(42)
                 .affinity(CustomerSegment.FAMILY, 1.8).affinity(CustomerSegment.ROMANTIC, 0.9)
                 .affinity(CustomerSegment.WELLNESS, 0.8).affinity(CustomerSegment.BUSINESS, 0.5)
                 .maxInteriorLevel(2, 3, 3)
@@ -241,11 +241,11 @@ public class ConfigRegistry {
         // 配方框架完整支持跨母本合并（sourceFormA / sourceFormB 可属不同母本）；
         // 第一期仅标准客房母本可建造，故下列配方均落在标准客房进化线内。
         mergeRecipes.add(new MergeRecipe("MERGE_FAMILY_VILLA", "亲子合院（合并）",
-                familySuite, 3, familySuite, 3, mergedFamilyVilla, 1, 30000));
+                familySuite, 3, familySuite, 3, mergedFamilyVilla, 1, 30000, 5));
         mergeRecipes.add(new MergeRecipe("MERGE_BUSINESS_HALL", "商务行政馆（合并）",
-                businessSuite, 3, businessSuite, 3, mergedBusinessHall, 1, 32000));
+                businessSuite, 3, businessSuite, 3, mergedBusinessHall, 1, 32000, 5));
         mergeRecipes.add(new MergeRecipe("MERGE_CROSS_LINE_HALL", "跨线合并：商务行政馆",
-                familySuite, 3, businessSuite, 3, mergedBusinessHall, 1, 40000));
+                familySuite, 3, businessSuite, 3, mergedBusinessHall, 1, 40000, 6));
 
         // ===================== 地块（按注册顺序构成解锁链） =====================
         // 规则：每一地块必须先解锁「上一地块」（跨区域同样成立），再达成自身成就条件后解锁；

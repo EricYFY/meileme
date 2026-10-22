@@ -33,6 +33,21 @@ public class EvolutionService {
 
     // ===================== 形态等级升级 =====================
 
+    /** 形态升级工期：按形态各自配置的 [Lv1→Lv2, Lv2→Lv3] 取值 */
+    public int formLevelUpDays(BuildingForm form, int currentLevel) {
+        return form == null ? 0 : form.formLevelUpDaysOf(currentLevel);
+    }
+
+    /** 分支进化工期：按目标形态配置 */
+    public int branchEvolveDays(BuildingForm target) {
+        return target == null ? 0 : target.getEvolveDays();
+    }
+
+    /** 合并进化工期：按合并配方配置 */
+    public int mergeEvolveDays(MergeRecipe recipe) {
+        return recipe == null ? 0 : recipe.getMergeDays();
+    }
+
     public double formLevelUpCost(GameState state, BuildingInstance building) {
         double base = building.getForm().formLevelUpCostOf(building.getFormLevel());
         return base * skillTree.discount(state, SkillEffectKey.EVOLVE_COST_DISCOUNT);
@@ -45,6 +60,9 @@ public class EvolutionService {
         if (building == null) {
             return "BUILDING_NOT_FOUND";
         }
+        if (state.projectOfBuilding(building.getId()) != null) {
+            return "PROJECT_IN_PROGRESS";
+        }
         if (building.getFormLevel() >= GameConfig.FORM_MAX_LEVEL) {
             return "FORM_LEVEL_MAX_REACHED";
         }
@@ -54,9 +72,8 @@ public class EvolutionService {
         return null;
     }
 
-    /** 形态等级 +1 */
-    public void formLevelUp(GameState state, BuildingInstance building) {
-        state.setFunds(state.getFunds() - formLevelUpCost(state, building));
+    /** 工程完成时形态等级 +1（费用已在开工时扣除） */
+    public void completeFormLevelUp(BuildingInstance building) {
         building.setFormLevel(building.getFormLevel() + 1);
     }
 
@@ -75,6 +92,9 @@ public class EvolutionService {
         }
         if (target == null) {
             return "TARGET_FORM_NOT_FOUND";
+        }
+        if (state.projectOfBuilding(building.getId()) != null) {
+            return "PROJECT_IN_PROGRESS";
         }
         if (building.getFormLevel() < GameConfig.FORM_MAX_LEVEL) {
             return "FORM_NOT_MAX_LEVEL";
@@ -101,9 +121,8 @@ public class EvolutionService {
         return null;
     }
 
-    /** 执行分支进化：形态替换为目标形态并回到 Lv1 */
-    public void branchEvolve(GameState state, BuildingInstance building, BuildingForm target) {
-        state.setFunds(state.getFunds() - branchEvolveCost(state, target));
+    /** 工程完成时分支进化：形态替换为目标形态并回到 Lv1（费用已在开工时扣除） */
+    public void completeBranchEvolve(BuildingInstance building, BuildingForm target) {
         building.setForm(target);
         building.setFormLevel(GameConfig.FORM_MIN_LEVEL);
     }
@@ -136,6 +155,9 @@ public class EvolutionService {
         if (a.getId().equals(b.getId())) {
             return "MERGE_SOURCE_DUPLICATED";
         }
+        if (state.projectOfBuilding(a.getId()) != null || state.projectOfBuilding(b.getId()) != null) {
+            return "PROJECT_IN_PROGRESS";
+        }
         if (recipe == null) {
             return "MERGE_RECIPE_NOT_FOUND";
         }
@@ -148,9 +170,8 @@ public class EvolutionService {
         return null;
     }
 
-    /** 执行合并：两个源建筑逻辑删除（保留墓碑记录），产物为新建建筑并记录来源 ID */
-    public BuildingInstance merge(GameState state, BuildingInstance a, BuildingInstance b, MergeRecipe recipe) {
-        state.setFunds(state.getFunds() - mergeCost(state, recipe));
+    /** 工程完成时合并：两个源建筑逻辑删除（保留墓碑记录），产物为新建建筑并记录来源 ID（费用已在开工时扣除） */
+    public BuildingInstance completeMerge(GameState state, BuildingInstance a, BuildingInstance b, MergeRecipe recipe) {
         a.setAlive(false);
         b.setAlive(false);
 

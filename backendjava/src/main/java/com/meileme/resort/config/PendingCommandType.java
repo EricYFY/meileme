@@ -3,23 +3,14 @@ package com.meileme.resort.config;
 import lombok.Getter;
 
 /**
- * 待生效指令类型。
+ * 待生效指令类型（即时类操作）。
  *
- * <p>所有玩家操作统一进入「待生效指令队列」，于<b>次日 0 点</b>统一生效并二次校验。</p>
+ * <p>招聘 / 培训 / 解雇 / 技能 / 地块解锁统一进入「待生效指令队列」，于<b>次日 0 点</b>统一生效并二次校验；
+ * 建造 / 升级 / 进化 / 合并 / 内装改为「进行中工程」（见 {@code ConstructionProject}），按工期完成后生效。</p>
  */
 @Getter
 public enum PendingCommandType {
 
-    /** 新建建筑 */
-    BUILD("新建建筑"),
-    /** 建筑形态等级升级（Lv1 → Lv2 → Lv3） */
-    FORM_LEVEL_UP("形态等级升级"),
-    /** 分支进化（单体进化到当前进化线的下一阶段形态） */
-    BRANCH_EVOLVE("分支进化"),
-    /** 合并进化（按预设配方消耗两个源建筑，新建一个产物） */
-    MERGE_EVOLVE("合并进化"),
-    /** 内装升级 */
-    INTERIOR_UPGRADE("内装升级"),
     /** 招聘员工（仅 Lv1） */
     HIRE_STAFF("招聘员工"),
     /** 培训升级员工 */

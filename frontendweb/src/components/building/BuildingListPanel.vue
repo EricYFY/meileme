@@ -17,6 +17,11 @@ const mergeMode = ref(false);
 const mergeSel = ref([]);
 
 const buildings = computed(() => (store.state?.buildings || []).filter((b) => b.alive));
+const projects = computed(() => store.state?.projects || []);
+
+function projectOf(buildingId) {
+    return projects.value.find((p) => p.buildingId === buildingId || p.secondBuildingId === buildingId) || null;
+}
 
 const filtered = computed(() => {
     const list = buildings.value;
@@ -36,6 +41,7 @@ function catLabel(b) {
 }
 
 function toggleMergeSelect(b) {
+    if (projectOf(b.id)) return;
     const idx = mergeSel.value.indexOf(b.id);
     if (idx >= 0) {
         mergeSel.value.splice(idx, 1);
@@ -85,6 +91,19 @@ function confirmMerge() {
                 合并模式：点击选择两个源建筑（消耗两个、新建一个）。已选 {{ mergeSel.length }} / 2
             </div>
 
+            <div v-if="projects.length" class="project-list">
+                <div v-for="p in projects" :key="p.id" class="bld-row project-row">
+                    <span class="tag base">{{ p.typeDisplayName }}</span>
+                    <div class="main">
+                        <div class="title">{{ p.displayName }}</div>
+                        <div class="sub">
+                            {{ plotName(p.plotId) }} · 剩余 {{ p.remainingDays }} / {{ p.totalDays }} 天 · 第 {{ p.finishDay }} 天完成
+                        </div>
+                    </div>
+                    <span class="faint">施工期间沿用当前状态</span>
+                </div>
+            </div>
+
             <div v-if="!filtered.length" class="empty faint">暂无建筑</div>
 
             <div class="row-list">
@@ -96,6 +115,7 @@ function confirmMerge() {
                         <div class="title">{{ b.form.displayName || b.mother }}</div>
                         <div class="sub">{{ plotName(b.plotId) }} · {{ catLabel(b) }}</div>
                     </div>
+                    <span v-if="projectOf(b.id)" class="tag gold">{{ projectOf(b.id).typeDisplayName }} · 剩 {{ projectOf(b.id).remainingDays }} 天</span>
                     <span class="tag" :class="(b.form.line || 'base').toLowerCase()">{{ b.form.line || 'BASE' }}</span>
                     <span class="num dim">Lv{{ b.formLevel }}</span>
                 </div>
@@ -111,7 +131,9 @@ function confirmMerge() {
                     <div v-else class="empty faint">所选两建筑不满足任何合并配方（需形态与等级匹配）</div>
                 </div>
                 <div class="panel-body" style="padding-top: 0">
-                    <button class="primary" :disabled="!canMerge" @click="confirmMerge">确认合并（次日生效）</button>
+                    <button class="primary" :disabled="!canMerge" @click="confirmMerge">
+                        开始合并（{{ matched.mergeDays || 0 }} 天）
+                    </button>
                 </div>
             </div>
         </div>
@@ -120,4 +142,7 @@ function confirmMerge() {
 
 <style scoped>
 .bld-row.active { border-color: var(--gold); background: rgba(242, 181, 60, .1); }
+.project-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.project-row { cursor: default; border-color: rgba(242, 181, 60, .45); }
+.project-row .tag.gold { background: rgba(242, 181, 60, .18); color: var(--gold); }
 </style>

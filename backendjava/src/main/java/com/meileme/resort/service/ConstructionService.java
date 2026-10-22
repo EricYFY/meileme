@@ -36,6 +36,11 @@ public class ConstructionService {
         return base.getBuildCost() * skillTree.discount(state, SkillEffectKey.BUILD_COST_DISCOUNT);
     }
 
+    /** 新建工期（游戏日）：按母本各自配置（见 {@link MotherBuildingType#getBuildDays()}） */
+    public int projectDays(MotherBuildingType mother) {
+        return mother.getBuildDays();
+    }
+
     /** 校验新建；返回 null 表示可执行 */
     public String validateBuild(GameState state, MotherBuildingType mother, String plotId) {
         if (state == null) {
@@ -57,7 +62,9 @@ public class ConstructionService {
         if (!plot.allows(mother)) {
             return "MOTHER_NOT_ALLOWED_IN_PLOT";
         }
-        if (state.aliveBuildingCountInPlot(plot.getId()) >= buildLimit(state, plot)) {
+        // 进行中的新建工程同样占用建造名额，避免超建
+        int used = state.aliveBuildingCountInPlot(plot.getId()) + state.buildProjectCountInPlot(plot.getId());
+        if (used >= buildLimit(state, plot)) {
             return "PLOT_BUILD_LIMIT_REACHED";
         }
         if (registry.baseFormOf(mother) == null) {
@@ -69,10 +76,8 @@ public class ConstructionService {
         return null;
     }
 
-    /** 执行新建 */
-    public BuildingInstance build(GameState state, MotherBuildingType mother, String plotId) {
-        double cost = buildCost(state, mother);
-        state.setFunds(state.getFunds() - cost);
+    /** 工程完成时新建建筑（费用已在开工时扣除，此处不再扣费） */
+    public BuildingInstance completeBuild(GameState state, MotherBuildingType mother, String plotId) {
         BuildingInstance b = new BuildingInstance();
         b.setId(idGenerator.next("BLD"));
         b.setMother(mother);

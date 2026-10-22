@@ -75,6 +75,12 @@ const REASONS = {
     FORMLINE_UNSWITCHABLE: '分支已选定，不可切换',
     RECIPE_NOT_MATCHED: '不满足任何合并配方',
     INTERIOR_MAX_LEVEL: '内装已满级',
+    INTERIOR_LEVEL_CAP_REACHED: '内装已达当前形态等级上限',
+    PROJECT_IN_PROGRESS: '该建筑已有进行中的工程',
+    PLOT_BUILD_LIMIT_REACHED: '地块建造名额已满',
+    PLOT_NOT_UNLOCKED: '地块未解锁',
+    TARGET_FORM_NOT_FOUND: '目标形态不存在',
+    UNKNOWN_PROJECT: '工程类型异常',
     PREREQUISITE_UNMET: '前置技能未解锁',
     SKILL_ALREADY_UNLOCKED: '技能已解锁',
     NOT_ENOUGH_SKILL_POINTS: '技能点不足',
@@ -142,6 +148,19 @@ ws.onActionQueued = (msg) => {
 
 ws.onActionFailed = (msg) => {
     toast('操作失败：' + translateReason(msg.reason), 'error');
+};
+
+ws.onProjectStarted = (msg) => {
+    toast(`已开工：${msg.displayName}（${msg.totalDays} 天，第 ${msg.finishDay} 天完成）`, 'queued');
+};
+
+ws.onProjectCompleted = (msg) => {
+    toast(`已完成：${msg.displayName}`, 'unlock');
+};
+
+ws.onProjectFailed = (msg) => {
+    const name = msg.project?.displayName || '工程';
+    toast(`${name} 失败：${translateReason(msg.reason)}，已退还 ${msg.refund ?? 0}`, 'error');
 };
 
 ws.onDailyLog = (msg) => {

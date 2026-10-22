@@ -18,6 +18,9 @@ export default class WebSocketClient {
         this.onGameStopped = null;   // GAME_STOPPED {reason}
         this.onActionQueued = null;  // ACTION_QUEUED {action, commandId, description, effectiveDay}
         this.onActionFailed = null;  // ACTION_FAILED {action, reason, ...}
+        this.onProjectStarted = null;   // PROJECT_STARTED：工程开工
+        this.onProjectCompleted = null; // PROJECT_COMPLETED：工程完成
+        this.onProjectFailed = null;    // PROJECT_FAILED：工程失败（已退款）
         this.onDailyLog = null;      // DAILY_LOG {history}
         this.onRangeReport = null;   // RANGE_REPORT {...}
     }
@@ -89,6 +92,15 @@ export default class WebSocketClient {
                 break;
             case 'ACTION_FAILED':
                 if (this.onActionFailed) this.onActionFailed(msg);
+                break;
+            case 'PROJECT_STARTED':
+                if (this.onProjectStarted) this.onProjectStarted(msg);
+                break;
+            case 'PROJECT_COMPLETED':
+                if (this.onProjectCompleted) this.onProjectCompleted(msg);
+                break;
+            case 'PROJECT_FAILED':
+                if (this.onProjectFailed) this.onProjectFailed(msg);
                 break;
             case 'DAILY_LOG':
                 if (this.onDailyLog) this.onDailyLog(msg);

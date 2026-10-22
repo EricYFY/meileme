@@ -191,6 +191,10 @@ button.ghost:hover { color: var(--text); border-color: var(--text-faint); }
 .slot .plus { font-size: 20px; }
 .slot.buildable { border-color: var(--accent); color: var(--accent); cursor: pointer; }
 .slot.buildable:hover { background: var(--accent-soft); }
+.slot.ghost { border-style: solid; border-color: var(--gold); background: rgba(242, 181, 60, .08); color: var(--gold); }
+.slot .ghost-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px; min-width: 0; max-width: 100%; text-align: center; }
+.slot .ghost-name { font-size: 11px; color: var(--text-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot .ghost-days { font-size: 10px; color: var(--gold); white-space: nowrap; }
 
 /* 建筑图标 */
 .building-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; min-width: 0; max-width: 100%; }

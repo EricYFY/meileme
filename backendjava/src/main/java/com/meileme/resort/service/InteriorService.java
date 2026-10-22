@@ -26,6 +26,11 @@ public class InteriorService {
         return type.upgradeCostOf(nextLevel) * skillTree.discount(state, SkillEffectKey.INTERIOR_UPGRADE_COST_DISCOUNT);
     }
 
+    /** 内装升级工期：按内装类型 + 目标等级各自配置 */
+    public int upgradeDays(InteriorType type, int nextLevel) {
+        return type == null ? 0 : type.upgradeDaysOf(nextLevel);
+    }
+
     /** 校验内装升级；返回 null 表示可执行 */
     public String validateUpgrade(GameState state, BuildingInstance building, InteriorType type) {
         if (state == null) {
@@ -36,6 +41,9 @@ public class InteriorService {
         }
         if (type == null) {
             return "INTERIOR_NOT_FOUND";
+        }
+        if (state.projectOfBuilding(building.getId()) != null) {
+            return "PROJECT_IN_PROGRESS";
         }
         InteriorInstance existing = building.findInterior(type);
         int currentLevel = existing == null ? 0 : existing.getLevel();
@@ -49,12 +57,10 @@ public class InteriorService {
         return null;
     }
 
-    /** 执行内装升级（不存在则安装 Lv1，否则升 1 级） */
-    public void upgrade(GameState state, BuildingInstance building, InteriorType type) {
+    /** 工程完成时内装升级（不存在则安装 Lv1，否则升 1 级；费用已在开工时扣除） */
+    public void completeUpgrade(GameState state, BuildingInstance building, InteriorType type) {
         InteriorInstance existing = building.findInterior(type);
         int nextLevel = (existing == null ? 0 : existing.getLevel()) + 1;
-        double cost = upgradeCost(state, type, nextLevel);
-        state.setFunds(state.getFunds() - cost);
         if (existing == null) {
             building.getInteriors().add(new InteriorInstance(idGenerator.next("INT"), type, nextLevel));
         } else {

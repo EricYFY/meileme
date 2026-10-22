@@ -35,11 +35,37 @@ const buildingsByPlot = computed(() => {
     return m;
 });
 
+// 进行中的「新建工程」按地块归组，占用建造名额并显示为施工中占位格
+const buildProjectsByPlot = computed(() => {
+    const m = {};
+    for (const p of store.state?.projects || []) {
+        if (p.type !== 'BUILD') continue;
+        if (!m[p.plotId]) m[p.plotId] = [];
+        m[p.plotId].push(p);
+    }
+    return m;
+});
+
+function projectMotherName(p) {
+    return store.config?.mothersById?.[p.mother]?.displayName || '建筑';
+}
+
 function slots(plot) {
     const n = plot.buildLimit || 0;
     const arr = [];
     const list = buildingsByPlot.value[plot.id] || [];
-    for (let i = 0; i < n; i++) arr.push(list[i] || null);
+    const pending = buildProjectsByPlot.value[plot.id] || [];
+    let bi = 0;
+    let pi = 0;
+    for (let i = 0; i < n; i++) {
+        if (bi < list.length) {
+            arr.push({ building: list[bi++] });
+        } else if (pi < pending.length) {
+            arr.push({ project: pending[pi++] });
+        } else {
+            arr.push(null);
+        }
+    }
     return arr;
 }
 
@@ -89,11 +115,20 @@ const abilityRows = computed(() => {
                 <div class="plot-cards">
                     <div v-for="plot in g.plots" :key="plot.id" class="plot-card">
                         <div class="plot-name">{{ plot.displayName }}</div>
-                        <div class="plot-meta">已建 {{ (buildingsByPlot[plot.id] || []).length }} / {{ plot.buildLimit }}</div>
+                        <div class="plot-meta">
+                            已建 {{ (buildingsByPlot[plot.id] || []).length }} / {{ plot.buildLimit }}
+                            <span v-if="buildProjectsByPlot[plot.id]?.length" class="gold">· 在建 {{ buildProjectsByPlot[plot.id].length }}</span>
+                        </div>
                         <div class="slots">
-                            <template v-for="(b, i) in slots(plot)" :key="plot.id + '-' + i">
-                                <div v-if="b" class="slot filled" @click="emit('open-building', b)">
-                                    <BuildingIcon :building="b" />
+                            <template v-for="(s, i) in slots(plot)" :key="plot.id + '-' + i">
+                                <div v-if="s?.building" class="slot filled" @click="emit('open-building', s.building)">
+                                    <BuildingIcon :building="s.building" />
+                                </div>
+                                <div v-else-if="s?.project" class="slot ghost">
+                                    <div class="ghost-tile">
+                                        <span class="ghost-name">{{ projectMotherName(s.project) }}</span>
+                                        <span class="ghost-days">建造中 · 剩 {{ s.project.remainingDays }} 天</span>
+                                    </div>
                                 </div>
                                 <BuildSlot v-else :buildable="plotBuildable(plot)" @click="emit('open-build', plot)" />
                             </template>

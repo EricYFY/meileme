@@ -33,6 +33,19 @@ const hasSkillBonus = computed(() => {
     return (r.priceMult || 1) > 1.0001 || (r.mergeBonus || 0) > 0;
 });
 
+// 该建筑进行中的工程（作为主目标或合并源）
+const activeProject = computed(() => (store.state?.projects || []).find(
+    (p) => p.buildingId === props.building.id || p.secondBuildingId === props.building.id
+) || null);
+
+function interiorProject(typeId) {
+    return (store.state?.projects || []).find(
+        (p) => p.type === 'INTERIOR_UPGRADE' && p.buildingId === props.building.id && p.interiorType === typeId
+    ) || null;
+}
+
+const levelUpDays = computed(() => form.value.formLevelUpDays?.[level.value - 1] ?? 0);
+
 const interiorRows = computed(() => {
     const cap = form.value.maxInteriorLevel?.[level.value - 1] ?? 3;
     return (store.config?.interiors || []).map((it) => {
@@ -40,12 +53,16 @@ const interiorRows = computed(() => {
         const cur = inst?.level || 0;
         const rem = Math.max(0, cap - cur);
         const cost = rem > 0 ? it.upgradeCostByLevel?.[cur] : 0;
-        return { ...it, cur, cap, rem, cost, canUp: rem > 0 && funds.value >= cost };
+        const days = rem > 0 ? (it.upgradeDaysByLevel?.[cur] ?? 0) : 0;
+        const proj = interiorProject(it.id);
+        return { ...it, cur, cap, rem, cost, days, proj, canUp: !proj && rem > 0 && funds.value >= cost };
     });
 });
 
 const levelUpCost = computed(() => form.value.formLevelUpCost?.[level.value - 1] ?? 0);
-const canLevelUp = computed(() => level.value < maxLevel.value && funds.value >= levelUpCost.value);
+const canLevelUp = computed(
+    () => !activeProject.value && level.value < maxLevel.value && funds.value >= levelUpCost.value
+);
 
 const branchTargets = computed(() => {
     if (level.value < maxLevel.value) return [];
@@ -54,7 +71,7 @@ const branchTargets = computed(() => {
 
 function branchMeta(t) {
     const cost = t.evolveCost || 0;
-    return { cost, can: funds.value >= cost };
+    return { cost, days: t.evolveDays || 0, can: funds.value >= cost };
 }
 
 /** 百分比格式化：0.02 → 2%，0.015 → 1.5% */
@@ -79,6 +96,17 @@ function affinityText(it) {
             <span class="tag" :class="lineClass">{{ lineLabel }}</span>
             <span class="tag base">Lv{{ level }}</span>
             <span class="dim" v-if="plot">{{ plot.displayName }} · {{ shortId(building.id) }}</span>
+        </div>
+
+        <div v-if="activeProject" class="project-banner">
+            <span class="tag gold">{{ activeProject.typeDisplayName }}</span>
+            <div class="main">
+                <div class="title">{{ activeProject.displayName }}</div>
+                <div class="sub faint">
+                    剩余 {{ activeProject.remainingDays }} / {{ activeProject.totalDays }} 天 · 预计第 {{ activeProject.finishDay }} 天完成
+                    <br>施工期间沿用当前形态 / 内装计算收益、舒适度与吸引力
+                </div>
+            </div>
         </div>
 
         <div class="panel" style="margin-top: 12px">
@@ -109,9 +137,11 @@ function affinityText(it) {
         <div class="bld-row">
             <div class="main">
                 <div class="sub" v-if="level >= maxLevel">形态已满级 Lv{{ maxLevel }}，可进行分支进化</div>
-                <div class="sub" v-else>升级至 Lv{{ level + 1 }}，花费 {{ fmtMoney(levelUpCost) }}</div>
+                <div class="sub" v-else>升级至 Lv{{ level + 1 }}，花费 {{ fmtMoney(levelUpCost) }} · 工期 {{ levelUpDays }} 天</div>
             </div>
-            <button class="primary" :disabled="!canLevelUp" @click="api.formLevelUp(building.id)">升级</button>
+            <button class="primary" :disabled="!canLevelUp" @click="api.formLevelUp(building.id)">
+                升级（{{ levelUpDays }} 天）
+            </button>
         </div>
 
         <h4 class="sec">分支进化 <span class="faint" style="font-weight:400">（形态满级后可选，选定不可切换）</span></h4>
@@ -122,8 +152,9 @@ function affinityText(it) {
                 <div class="title">{{ t.displayName }}</div>
                 <div class="sub">每间 {{ t.capacityPerRoom }} 人 · 房屋收益 Lv1 {{ fmtMoney(t.pricePerRoomByLevel?.[0] || 0) }}</div>
             </div>
-            <button class="gold" :disabled="!branchMeta(t).can" @click="api.branchEvolve(building.id, t.id)">
-                进化 {{ fmtMoney(branchMeta(t).cost) }}
+            <button class="gold" :disabled="!branchMeta(t).can || !!activeProject"
+                    @click="api.branchEvolve(building.id, t.id)">
+                进化 {{ fmtMoney(branchMeta(t).cost) }}（{{ branchMeta(t).days }} 天）
             </button>
         </div>
 
@@ -138,9 +169,14 @@ function affinityText(it) {
                 </div>
                 <div class="sub faint">客群吸引力：{{ affinityText(it) }}</div>
                 <div class="sub faint">房屋收益：+{{ pct(it.revenueBonusPerLevel) }}/级</div>
+                <div class="sub gold" v-if="it.proj">
+                    内装升级中 · 剩余 {{ it.proj.remainingDays }} / {{ it.proj.totalDays }} 天（目标 Lv{{ it.proj.targetLevel }}）
+                </div>
             </div>
             <button class="primary" :disabled="!it.canUp" @click="api.interiorUpgrade(building.id, it.id)">
-                {{ it.rem > 0 ? '升级 ' + fmtMoney(it.cost) : '已满' }}
+                <template v-if="it.proj">升级中</template>
+                <template v-else-if="it.rem > 0">升级 {{ fmtMoney(it.cost) }}（{{ it.days }} 天）</template>
+                <template v-else>已满</template>
             </button>
         </div>
 
@@ -154,4 +190,12 @@ function affinityText(it) {
 .bld-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sec { margin: 18px 0 8px; font-size: 14px; color: var(--text); border-left: 3px solid var(--accent); padding-left: 8px; }
 .bld-row { margin-bottom: 8px; }
+.project-banner {
+    display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; padding: 10px 12px;
+    border: 1px solid rgba(242, 181, 60, .45); border-radius: var(--radius-sm); background: rgba(242, 181, 60, .08);
+}
+.project-banner .tag.gold { background: rgba(242, 181, 60, .18); color: var(--gold); }
+.project-banner .main { flex: 1; }
+.project-banner .title { font-weight: 600; }
+.project-banner .sub { font-size: 12px; margin-top: 2px; line-height: 1.6; }
 </style>

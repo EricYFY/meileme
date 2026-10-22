@@ -50,6 +50,8 @@ public enum InteriorType {
     private final double revenueBonusPerLevel;
     /** 各等级升级花费（下标 0 = 升到 Lv1，即首次安装） */
     private final double[] upgradeCostByLevel;
+    /** 各等级升级工期（游戏日，下标 0 = 升到 Lv1） */
+    private final int[] upgradeDaysByLevel;
 
     InteriorType(String displayName, InteriorCategory category, double comfortPerLevel, double capacityPerLevel,
                  Map<CustomerSegment, Double> segmentAffinityPerLevel, double revenueBonusPerLevel) {
@@ -60,6 +62,7 @@ public enum InteriorType {
         this.segmentAffinityPerLevel = segmentAffinityPerLevel;
         this.revenueBonusPerLevel = revenueBonusPerLevel;
         this.upgradeCostByLevel = defaultCosts(name());
+        this.upgradeDaysByLevel = defaultDays(name());
     }
 
     /** 指定客群每级吸引力加成 */
@@ -86,6 +89,37 @@ public enum InteriorType {
             idx = upgradeCostByLevel.length - 1;
         }
         return upgradeCostByLevel[idx];
+    }
+
+    /** 指定等级的内装升级工期（游戏日，下标 = level − 1） */
+    public int upgradeDaysOf(int level) {
+        int idx = level - 1;
+        if (idx < 0) {
+            idx = 0;
+        }
+        if (idx > upgradeDaysByLevel.length - 1) {
+            idx = upgradeDaysByLevel.length - 1;
+        }
+        return upgradeDaysByLevel[idx];
+    }
+
+    /** 各内装类型的等级工期表（集中配置，禁止散落硬编码） */
+    private static int[] defaultDays(String typeName) {
+        switch (typeName) {
+            case "BED":
+                return new int[]{2, 3, 4};
+            case "DINING_TABLE":
+                return new int[]{2, 3, 3};
+            case "HOT_SPRING_TUB":
+                return new int[]{3, 4, 5};
+            case "SOFA":
+                return new int[]{1, 2, 3};
+            case "LIGHTING":
+                return new int[]{1, 2, 2};
+            case "DECOR":
+            default:
+                return new int[]{2, 2, 3};
+        }
     }
 
     /** 各内装类型的等级花费表（集中配置，禁止散落硬编码） */

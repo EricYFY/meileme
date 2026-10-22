@@ -42,6 +42,10 @@ public class BuildingForm {
     private final double evolveCost;
     /** 形态等级升级花费：[Lv1→Lv2, Lv2→Lv3] */
     private final double[] formLevelUpCost;
+    /** 形态等级升级工期（游戏日）：[Lv1→Lv2, Lv2→Lv3] */
+    private final int[] formLevelUpDays;
+    /** 分支进化到本形态的工期（游戏日；基础形态 / 合并产物为 0） */
+    private final int evolveDays;
     /** 形态基础舒适度（Lv1 时基准值） */
     private final double baseComfort;
     /** 客群影响系数（形态固有属性，内装不提供） */
@@ -66,6 +70,8 @@ public class BuildingForm {
         this.buildCost = b.buildCost;
         this.evolveCost = b.evolveCost;
         this.formLevelUpCost = b.formLevelUpCost;
+        this.formLevelUpDays = b.formLevelUpDays;
+        this.evolveDays = b.evolveDays;
         this.baseComfort = b.baseComfort;
         this.segmentAffinity = b.segmentAffinity;
         this.maxInteriorLevel = b.maxInteriorLevel;
@@ -100,6 +106,15 @@ public class BuildingForm {
             return 0;
         }
         return formLevelUpCost[idx];
+    }
+
+    /** 从指定形态等级升级到下一级的工期（游戏日）；已满级返回 0 */
+    public int formLevelUpDaysOf(int formLevel) {
+        int idx = formLevel - GameConfig.FORM_MIN_LEVEL;
+        if (idx < 0 || idx >= formLevelUpDays.length) {
+            return 0;
+        }
+        return formLevelUpDays[idx];
     }
 
     /** 指定形态等级下的内装等级上限 */
@@ -170,6 +185,8 @@ public class BuildingForm {
         private double buildCost = 0;
         private double evolveCost = 0;
         private double[] formLevelUpCost = new double[]{0, 0};
+        private int[] formLevelUpDays = new int[]{1, 1};
+        private int evolveDays = 0;
         private double baseComfort = 50;
         private Map<CustomerSegment, Double> segmentAffinity = new EnumMap<>(CustomerSegment.class);
         private int[] maxInteriorLevel = new int[]{
@@ -227,6 +244,18 @@ public class BuildingForm {
 
         public Builder formLevelUpCost(double lv1ToLv2, double lv2ToLv3) {
             this.formLevelUpCost = new double[]{lv1ToLv2, lv2ToLv3};
+            return this;
+        }
+
+        /** 形态等级升级工期（游戏日）：Lv1→Lv2、Lv2→Lv3 */
+        public Builder formLevelUpDays(int lv1ToLv2, int lv2ToLv3) {
+            this.formLevelUpDays = new int[]{lv1ToLv2, lv2ToLv3};
+            return this;
+        }
+
+        /** 分支进化到本形态的工期（游戏日） */
+        public Builder evolveDays(int v) {
+            this.evolveDays = v;
             return this;
         }
 

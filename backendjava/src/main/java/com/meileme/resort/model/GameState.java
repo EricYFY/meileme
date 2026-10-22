@@ -55,6 +55,9 @@ public class GameState {
     /** 员工实例列表（含已解雇的逻辑删除记录） */
     private List<StaffInstance> staffs = new ArrayList<>();
 
+    /** 进行中的工程（建造 / 升级 / 进化 / 合并 / 内装） */
+    private List<ConstructionProject> projects = new ArrayList<>();
+
     // ===================== 成长与解锁 =====================
 
     /** 可用技能点 */
@@ -179,6 +182,31 @@ public class GameState {
             }
         }
         return null;
+    }
+
+    /** 该建筑是否被进行中的工程占用（作为主目标或合并源） */
+    public ConstructionProject projectOfBuilding(String buildingId) {
+        if (buildingId == null) {
+            return null;
+        }
+        for (ConstructionProject p : projects) {
+            if (buildingId.equals(p.getBuildingId()) || buildingId.equals(p.getSecondBuildingId())) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /** 指定地块内进行中的「新建工程」数量（占用建造名额） */
+    public int buildProjectCountInPlot(String plotId) {
+        int n = 0;
+        for (ConstructionProject p : projects) {
+            if (p.getType() == com.meileme.resort.config.ProjectType.BUILD
+                    && plotId != null && plotId.equals(p.getPlotId())) {
+                n++;
+            }
+        }
+        return n;
     }
 
     /** 追加每日结算日志，超出上限裁剪最旧一条 */

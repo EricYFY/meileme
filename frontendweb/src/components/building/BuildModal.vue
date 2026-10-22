@@ -23,6 +23,7 @@ const funds = computed(() => store.state?.funds ?? 0);
 
 const cost = computed(() => baseForm.value?.buildCost || 0);
 const canAfford = computed(() => funds.value >= cost.value);
+const days = computed(() => store.config?.mothersById?.[activeId.value]?.buildDays || 0);
 
 function confirm() {
     if (!activeId.value) return;
@@ -51,6 +52,7 @@ function confirm() {
                     <span class="k">一次性建造花费</span>
                     <span class="v num" :class="canAfford ? 'pos' : 'neg'">{{ fmtMoney(cost) }}</span>
                 </div>
+                <div class="kv"><span class="k">建造工期</span><span class="v num">{{ days }} 天（自次日起累计）</span></div>
                 <div class="kv"><span class="k">当前资金</span><span class="v num gold">{{ fmtMoney(funds) }}</span></div>
             </div>
         </div>
@@ -58,7 +60,7 @@ function confirm() {
         <template #footer>
             <button class="ghost" @click="emit('close')">取消</button>
             <button class="primary" :disabled="!canAfford || !activeId" @click="confirm">
-                确认建造（次日生效）
+                开始建造（{{ days }} 天）
             </button>
         </template>
     </Modal>
