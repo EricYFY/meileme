@@ -79,7 +79,7 @@ public class SkillTreeService {
         }
         for (String pre : node.getPrerequisites()) {
             if (!state.getUnlockedSkills().contains(pre)) {
-                return "PREREQUISITE_NOT_UNLOCKED:" + pre;
+                return "PREREQUISITE_NOT_UNLOCKED";
             }
         }
         return null;
