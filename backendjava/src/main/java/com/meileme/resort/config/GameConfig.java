@@ -81,4 +81,9 @@ public final class GameConfig {
 
     /** 每解锁一个地块获得的技能点 */
     public static final int SKILL_POINT_PER_PLOT = 1;
+
+    // ===================== 地块地图 =====================
+
+    /** 地块地图随机生成的基础种子（配合地块序号派生，保证六张地图固定可复现） */
+    public static final long MAP_SEED = 20261022L;
 }

@@ -6,9 +6,11 @@ import com.meileme.resort.config.Plot;
 import com.meileme.resort.config.SkillEffectKey;
 import com.meileme.resort.model.BuildingInstance;
 import com.meileme.resort.model.GameState;
+import com.meileme.resort.model.MapCell;
+import com.meileme.resort.model.PlotMap;
 import org.springframework.stereotype.Service;
 
-/** 新建建筑：仅允许在「已解锁地块 + 母本白名单 + 建筑数量上限内」建造，费用次日生效时结算。 */
+/** 新建建筑：仅允许在「已解锁地块 + 母本白名单 + 可建造空格」上建造，费用次日生效时结算。 */
 @Service
 public class ConstructionService {
 
@@ -20,11 +22,6 @@ public class ConstructionService {
         this.registry = registry;
         this.skillTree = skillTree;
         this.idGenerator = idGenerator;
-    }
-
-    /** 地块建筑数量上限（含技能「地块扩容」加成） */
-    public int buildLimit(GameState state, Plot plot) {
-        return plot.getBuildLimit() + (int) skillTree.flat(state, SkillEffectKey.PLOT_BUILD_LIMIT);
     }
 
     /** 新建花费（含技能「建造节流」减免） */
@@ -41,8 +38,32 @@ public class ConstructionService {
         return mother.getBuildDays();
     }
 
+    /** 校验落格坐标：在地图内、可建造、未被占用；返回 null 表示可落格 */
+    public String validateCell(GameState state, String plotId, int cellX, int cellY) {
+        return validateCell(state, plotId, cellX, cellY, null);
+    }
+
+    /** 校验落格坐标（工程完成二次校验时排除该工程自身占用的格子） */
+    public String validateCell(GameState state, String plotId, int cellX, int cellY, String excludeProjectId) {
+        PlotMap map = registry.plotMap(plotId);
+        if (map == null) {
+            return "PLOT_MAP_NOT_FOUND";
+        }
+        if (cellX < 0 || cellY < 0 || cellX >= map.getWidth() || cellY >= map.getHeight()) {
+            return "CELL_OUT_OF_BOUNDS";
+        }
+        MapCell cell = map.cellAt(cellX, cellY);
+        if (cell == null || !cell.isBuildable()) {
+            return "CELL_NOT_BUILDABLE";
+        }
+        if (state.isCellOccupied(plotId, cellX, cellY, excludeProjectId)) {
+            return "CELL_OCCUPIED";
+        }
+        return null;
+    }
+
     /** 校验新建；返回 null 表示可执行 */
-    public String validateBuild(GameState state, MotherBuildingType mother, String plotId) {
+    public String validateBuild(GameState state, MotherBuildingType mother, String plotId, int cellX, int cellY) {
         if (state == null) {
             return "GAME_NOT_RUNNING";
         }
@@ -62,10 +83,9 @@ public class ConstructionService {
         if (!plot.allows(mother)) {
             return "MOTHER_NOT_ALLOWED_IN_PLOT";
         }
-        // 进行中的新建工程同样占用建造名额，避免超建
-        int used = state.aliveBuildingCountInPlot(plot.getId()) + state.buildProjectCountInPlot(plot.getId());
-        if (used >= buildLimit(state, plot)) {
-            return "PLOT_BUILD_LIMIT_REACHED";
+        String cellReason = validateCell(state, plotId, cellX, cellY);
+        if (cellReason != null) {
+            return cellReason;
         }
         if (registry.baseFormOf(mother) == null) {
             return "FORM_NOT_CONFIGURED";
@@ -77,13 +97,15 @@ public class ConstructionService {
     }
 
     /** 工程完成时新建建筑（费用已在开工时扣除，此处不再扣费） */
-    public BuildingInstance completeBuild(GameState state, MotherBuildingType mother, String plotId) {
+    public BuildingInstance completeBuild(GameState state, MotherBuildingType mother, String plotId, int cellX, int cellY) {
         BuildingInstance b = new BuildingInstance();
         b.setId(idGenerator.next("BLD"));
         b.setMother(mother);
         b.setForm(registry.baseFormOf(mother));
         b.setFormLevel(1);
         b.setPlotId(plotId);
+        b.setCellX(cellX);
+        b.setCellY(cellY);
         b.setAlive(true);
         b.setBuiltDay(state.getDay());
         state.getBuildings().add(b);

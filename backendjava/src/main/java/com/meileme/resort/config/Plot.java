@@ -24,6 +24,12 @@ public class Plot {
     private final Region region;
     /** 区域内排序（决定解锁顺序） */
     private final int orderInRegion;
+    /** 地图宽度（列数） */
+    private final int width;
+    /** 地图高度（行数） */
+    private final int height;
+    /** 地图上预挖可建造格数量 */
+    private final int buildableCellCount;
     /** 地块内建筑数量上限 */
     private final int buildLimit;
     /** 解锁该地块需支付的一次性费用（0 = 免费，仅默认地块） */

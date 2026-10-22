@@ -26,6 +26,12 @@ public class ConstructionProject {
     /** 涉及地块（新建用；其余取建筑所在地块） */
     private String plotId;
 
+    /** 新建落格坐标（列，-1 表示未指定） */
+    private int cellX = -1;
+
+    /** 新建落格坐标（行，-1 表示未指定） */
+    private int cellY = -1;
+
     /** 主目标建筑（新建时为空） */
     private String buildingId;
 

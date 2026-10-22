@@ -80,7 +80,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 case "BUILD_BUILDING": {
                     MotherBuildingType type = MotherBuildingType.valueOf(node.get("buildingType").asText());
                     String plotId = node.has("plotId") ? node.get("plotId").asText() : "A_COUNTRYSIDE";
-                    gameEngine.requestBuild(session, type, plotId);
+                    int cellX = node.has("cellX") ? node.get("cellX").asInt() : -1;
+                    int cellY = node.has("cellY") ? node.get("cellY").asInt() : -1;
+                    gameEngine.requestBuild(session, type, plotId, cellX, cellY);
                     break;
                 }
                 case "FORM_LEVEL_UP":

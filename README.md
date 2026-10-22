@@ -461,7 +461,7 @@ beginDay() 次日 0 点:
 
 **大区域**：宁姆格福 / 湖之利耶尼亚，各含 **3 个地块**。开局**仅开放「史东薇尔城」**。
 
-- 每地块独立配置：**可建造住宿母本白名单** / **配套母本白名单** / **分支进化进阶上限（tier cap）** / **建筑数量上限**；
+- 每地块独立配置：**可建造住宿母本白名单** / **配套母本白名单** / **分支进化进阶上限（tier cap）** / **地图尺寸与预挖可建造格数（建筑数量上限 = 可建造格数）**；
 - **地块按顺序链式解锁**：必须先解锁「上一地块」（跨区域同样成立），再达成该地块自身成就条件；
 - 前置条件（上一地块 + 成就）全部满足后，**仍需支付该地块的解锁费用**（`unlockCost`，通过 `UNLOCK_PLOT` 指令，次日 0 点生效）才真正解锁；
 - 区域内首个地块解锁即视为**该大区域解锁**（不再单独设「区域总成就」门槛）；
@@ -470,16 +470,18 @@ beginDay() 次日 0 点:
 
 **地块清单（`Plot`）**
 
-| 地块 ID | 名称 | 区域 | 建筑上限 | 解锁费用 | tier cap | 解锁条件 | 住宿白名单 | 配套白名单 |
-| :--- | :--- | :---: | :---: | ---: | :---: | :--- | :--- | :--- |
-| `STORMVEIL_CASTLE` | 史东薇尔城 | 宁姆格福 | 8 | 0 | 1 | **默认解锁** | 标准客房 | 餐厅, 温泉泡池, 观景台 |
-| `MISTWOOD_EDGE` | 雾林边缘 | 宁姆格福 | 8 | 100,000 | 2 | `ACH_ASSET_10` | 标准客房 | 餐厅, 户外营地 |
-| `AGHEEL_LAKE` | 亚基尔湖 | 宁姆格福 | 10 | 1,000,000 | 3 | `ACH_ASSET_100` + `ACH_GUEST_5000` | 标准客房 | 餐厅, 温泉泡池 |
-| `CARIA_MANOR` | 卡利亚城寨 | 湖之利耶尼亚 | 8 | 5,000,000 | 3 | `ACH_ASSET_500` + `ACH_GUEST_10000` + `ACH_STAFF_20` | 标准客房 | 餐厅, 茶室书吧, 观景台 |
-| `RAYA_LUCARIA` | 雷亚卢卡利亚学院 | 湖之利耶尼亚 | 10 | 8,000,000 | 3 | `ACH_BUILDING_20` + `ACH_FAMILY_SUITE` | 标准客房 | 餐厅, 茶室书吧, 文创工坊 |
-| `FOUR_BELFRIES` | 四钟楼 | 湖之利耶尼亚 | 12 | 10,000,000 | 3 | `ACH_STAFF_50` + `ACH_MANAGER_LV3` | 标准客房 | 餐厅, 温泉泡池, 观景台 |
+| 地块 ID | 名称 | 区域 | 地图尺寸 | 可建造格（=建筑上限） | 解锁费用 | tier cap | 解锁条件 | 住宿白名单 | 配套白名单 |
+| :--- | :--- | :---: | :---: | :---: | ---: | :---: | :--- | :--- | :--- |
+| `STORMVEIL_CASTLE` | 史东薇尔城 | 宁姆格福 | 7×7 | 15 | 0 | 1 | **默认解锁** | 标准客房 | 餐厅, 温泉泡池, 观景台 |
+| `MISTWOOD_EDGE` | 雾林边缘 | 宁姆格福 | 8×8 | 20 | 100,000 | 2 | `ACH_ASSET_10` | 标准客房 | 餐厅, 户外营地 |
+| `AGHEEL_LAKE` | 亚基尔湖 | 宁姆格福 | 10×10 | 30 | 1,000,000 | 3 | `ACH_ASSET_100` + `ACH_GUEST_5000` | 标准客房 | 餐厅, 温泉泡池 |
+| `CARIA_MANOR` | 卡利亚城寨 | 湖之利耶尼亚 | 8×8 | 20 | 5,000,000 | 3 | `ACH_ASSET_500` + `ACH_GUEST_10000` + `ACH_STAFF_20` | 标准客房 | 餐厅, 茶室书吧, 观景台 |
+| `RAYA_LUCARIA` | 雷亚卢卡利亚学院 | 湖之利耶尼亚 | 12×12 | 30 | 8,000,000 | 3 | `ACH_BUILDING_20` + `ACH_FAMILY_SUITE` | 标准客房 | 餐厅, 茶室书吧, 文创工坊 |
+| `FOUR_BELFRIES` | 四钟楼 | 湖之利耶尼亚 | 15×15 | 30 | 10,000,000 | 3 | `ACH_STAFF_50` + `ACH_MANAGER_LV3` | 标准客房 | 餐厅, 温泉泡池, 观景台 |
 
 > 解锁链按上表顺序逐条判定：例如「卡利亚城寨」需先解锁「亚基尔湖」、再达成其 3 项成就、最后支付 500 万。
+>
+> **地块地图**：每个地块开局生成一张固定地形图（`CONFIG.plotMaps`，由 `MAP_SEED` 派生种子保证可复现）。可建造格**相对连通成片**（四邻扩散生成，共 `buildableCellCount` 个），其余格子随机填入城镇 / 平原 / 山地 / 湖区地形（`buildable=false`，`terrain` 为对应地形；可建造格 `buildable=true`、`terrain=null`）。建筑落格、相邻（上下左右）合并等运行时占用关系由建筑实例坐标维护：玩家在「建筑」页签地图上点击空可建造格建造（建筑占 1 格，施工期同格占用不可再建）；相邻建筑（上下左右）才可合并，合并产物保留其中一座建筑的格位、释放其余格子。
 
 **成就（共 24 个，四类指标）**
 
@@ -533,7 +535,7 @@ beginDay() 次日 0 点:
 | `CHECK_STATUS` / `GET_STATUS` | — | 拉取状态（仅回请求方全量同步） |
 | `GET_CONFIG` | — | 拉取静态配置（形态 / 配方 / 地块 / 成就 / 技能 / 区域客流） |
 | `SET_SIMULATION_SPEED` | `speed` | 0.5 / 1 / 2 / 4 / 8 / 16 |
-| `BUILD_BUILDING` | `buildingType`, `plotId` | 新建建筑（**工程**：立即扣费，工期按母本配置，见 3.5） |
+| `BUILD_BUILDING` | `buildingType`, `plotId`, `cellX`, `cellY` | 在指定格子上新建建筑（**工程**：立即扣费；落格校验地图内 + 可建造 + 空闲，工期按母本配置，见 3.5） |
 | `FORM_LEVEL_UP` | `buildingId` | 形态等级升级 Lv1→Lv2→Lv3（**工程**：工期按形态 × 等级配置） |
 | `BRANCH_EVOLVE` | `buildingId`, `targetFormId` | 分支进化（满级后选定线，**工程**：工期按目标形态配置） |
 | `MERGE_EVOLVE` | `buildingIdA`, `buildingIdB` | 合并进化（按配方二建一，**工程**：工期按配方配置） |
@@ -550,14 +552,14 @@ beginDay() 次日 0 点:
 
 | 消息 | 载荷 / 说明 |
 | :--- | :--- |
-| `CONFIG` | 静态配置全量（开局与新连接时下发）：`regions`（含 `id` / `displayName` / `baseDailyFlow` / `segmentRatios`）/ `buildingForms`（含 `formLevelUpDays` / `evolveDays`）/ `mergeRecipes`（含 `mergeDays`）/ `plots` / `achievements` / `skills` / `speedOptions` / `formMaxLevel` / `staffMaxLevel`，以及**结构化目录** `mothers`（含 `buildDays`）/ `segments` / `abilities` / `positions` / `interiors`（含 `upgradeDaysByLevel` 与 `applicableMothers`，均含 `id` 与 `displayName` 等展示字段） |
-| `RESORT_STATE` | 全量状态（资金 / 日 / 日期 / 建筑 / 员工 / 技能点 / 已解锁技能地块区域成就 / 待生效指令 / 统计 / 末日结），另含 **进行中工程 `projects`**（`id` / `type` / `typeDisplayName` / `displayName` / `plotId` / `buildingId` / `secondBuildingId` / `mother` / `targetFormId` / `interiorType` / `targetLevel` / `totalDays` / `remainingDays` / `elapsedDays` / `startedDay` / `finishDay`）、**今日预计 `todayPreview`（含 `potentialBySegment` / `intentBySegment` / `servedBySegment` 三组客群客流） / 里程碑 `milestones` / 能力供需 `abilitySupply·abilityDemand·abilityRatios` / 解雇补偿 `staffCompensations` / 培训状态 `staffTraining`（本级在岗天数、所需天数、培训费、是否达标） / 单间房屋收益 `roomRevenue`（`base` 基础、`priceMult` 技能、`mergeBonus` 合并、`interiorBonus` 内装、`final` 实际，与日结同源）** |
+| `CONFIG` | 静态配置全量（开局与新连接时下发）：`regions`（含 `id` / `displayName` / `baseDailyFlow` / `segmentRatios`）/ `buildingForms`（含 `formLevelUpDays` / `evolveDays`）/ `mergeRecipes`（含 `mergeDays`）/ `plots`（含 `width` / `height` / `buildableCellCount` 地图尺寸与可建造格数）/ `plotMaps`（每地块的静态地图：`plotId` / `width` / `height` / `cells[]`，每格 `x` / `y` / `terrain` / `buildable`）/ `achievements` / `skills` / `speedOptions` / `formMaxLevel` / `staffMaxLevel`，以及**结构化目录** `mothers`（含 `buildDays`）/ `segments` / `abilities` / `positions` / `interiors`（含 `upgradeDaysByLevel` 与 `applicableMothers`，均含 `id` 与 `displayName` 等展示字段） |
+| `RESORT_STATE` | 全量状态（资金 / 日 / 日期 / 建筑（含 `cellX`/`cellY` 落格坐标）/ 员工 / 技能点 / 已解锁技能地块区域成就 / 待生效指令 / 统计 / 末日结），另含 **进行中工程 `projects`**（`id` / `type` / `typeDisplayName` / `displayName` / `plotId` / `cellX` / `cellY` / `buildingId` / `secondBuildingId` / `mother` / `targetFormId` / `interiorType` / `targetLevel` / `totalDays` / `remainingDays` / `elapsedDays` / `startedDay` / `finishDay`）、**今日预计 `todayPreview`（含 `potentialBySegment` / `intentBySegment` / `servedBySegment` 三组客群客流） / 里程碑 `milestones` / 能力供需 `abilitySupply·abilityDemand·abilityRatios` / 解雇补偿 `staffCompensations` / 培训状态 `staffTraining`（本级在岗天数、所需天数、培训费、是否达标） / 单间房屋收益 `roomRevenue`（`base` 基础、`priceMult` 技能、`mergeBonus` 合并、`interiorBonus` 内装、`final` 实际，与日结同源）** |
 | `TIME_TICK` | `{day, date, progress, speed, paused, funds}`（**约 200ms 广播，仅时间 / 进度 / 资金**） |
 | `DAY_STARTED` | `{day, date, unlocks}`（`unlocks` 同时包含当日完成的工程提示） |
 | `DAY_SETTLED` | `{day, funds, settle}`（日结快照，含收益 / 客流 / 事件） |
 | `ACTION_QUEUED` | `{action, commandId, description, effectiveDay}`（**仅即时类操作**） |
 | `ACTION_FAILED` | `{action, commandId, description, reason}` |
-| `PROJECT_STARTED` | 工程已开工（**只回发起方**）：`{id, type, typeDisplayName, displayName, plotId, buildingId, secondBuildingId, mother, targetFormId, interiorType, targetLevel, totalDays, remainingDays, elapsedDays, startedDay, finishDay}` |
+| `PROJECT_STARTED` | 工程已开工（**只回发起方**）：`{id, type, typeDisplayName, displayName, plotId, cellX, cellY, buildingId, secondBuildingId, mother, targetFormId, interiorType, targetLevel, totalDays, remainingDays, elapsedDays, startedDay, finishDay}` |
 | `PROJECT_COMPLETED` | 工程完成并生效（广播）：载荷同上工程视图 |
 | `PROJECT_FAILED` | 工程完成时二次校验失败（广播）：`{project, reason, refund}`（`refund` 为全额退还金额） |
 | `GAME_STOPPED` | `{reason}` |
@@ -567,8 +569,8 @@ beginDay() 次日 0 点:
 ### 失败原因枚举（示例）
 
 `GAME_NOT_RUNNING`、`INSUFFICIENT_FUNDS`、`MOTHER_NOT_BUILDABLE_IN_PHASE_1`、`MOTHER_NOT_ALLOWED_IN_PLOT`、
-`PLOT_NOT_UNLOCKED`、`PLOT_BUILD_LIMIT_REACHED`、`FORM_NOT_MAX_LEVEL`、`EVOLVE_LINE_LOCKED`、
-`EVOLVE_PATH_NOT_ALLOWED`、`PLOT_EVOLVE_TIER_CAP_EXCEEDED`、`MERGE_RECIPE_NOT_MATCHED`、
+`PLOT_NOT_UNLOCKED`、`PLOT_MAP_NOT_FOUND`、`CELL_OUT_OF_BOUNDS`、`CELL_NOT_BUILDABLE`、`CELL_OCCUPIED`、`FORM_NOT_MAX_LEVEL`、`EVOLVE_LINE_LOCKED`、
+`EVOLVE_PATH_NOT_ALLOWED`、`PLOT_EVOLVE_TIER_CAP_EXCEEDED`、`MERGE_RECIPE_NOT_MATCHED`、`MERGE_SOURCE_NOT_ADJACENT`（两建筑不相邻）、
 `INTERIOR_LEVEL_CAP_REACHED`、`FORM_LEVEL_MAX_REACHED`、`NO_SKILL_POINT`、`PREREQUISITE_NOT_UNLOCKED`、
 `TRAINING_NOT_READY`（在岗时长未达标）、`STAFF_MAX_LEVEL`（员工已满级）、
 `PROJECT_IN_PROGRESS`（该建筑已有进行中工程）、`BUILDING_NOT_FOUND`、`TARGET_FORM_NOT_FOUND`、
@@ -577,7 +579,7 @@ beginDay() 次日 0 点:
 ### JSON 样例
 
 ```json
-{ "command": "BUILD_BUILDING", "buildingType": "STANDARD_ROOM", "plotId": "STORMVEIL_CASTLE" }
+{ "command": "BUILD_BUILDING", "buildingType": "STANDARD_ROOM", "plotId": "STORMVEIL_CASTLE", "cellX": 0, "cellY": 0 }
 ```
 ```json
 { "command": "MERGE_EVOLVE", "buildingIdA": "BLD-a1", "buildingIdB": "BLD-b2" }

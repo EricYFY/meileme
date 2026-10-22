@@ -164,6 +164,9 @@ public class EvolutionService {
         if (!recipe.matches(a.getForm(), a.getFormLevel(), b.getForm(), b.getFormLevel())) {
             return "MERGE_RECIPE_NOT_MATCHED";
         }
+        if (!a.isAdjacentTo(b)) {
+            return "MERGE_SOURCE_NOT_ADJACENT";
+        }
         if (state.getFunds() < mergeCost(state, recipe)) {
             return "INSUFFICIENT_FUNDS";
         }
@@ -181,6 +184,8 @@ public class EvolutionService {
         result.setForm(recipe.getResultForm());
         result.setFormLevel(recipe.getResultLevel());
         result.setPlotId(a.getPlotId());
+        result.setCellX(a.getCellX());
+        result.setCellY(a.getCellY());
         result.setAlive(true);
         result.setBuiltDay(state.getDay());
         result.getMergeSourceIds().add(a.getId());

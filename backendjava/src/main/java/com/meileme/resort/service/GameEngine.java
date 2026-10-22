@@ -270,10 +270,11 @@ public class GameEngine {
                 if (plot == null || !s.getUnlockedPlots().contains(plot.getId())) {
                     return "PLOT_NOT_UNLOCKED";
                 }
-                if (s.aliveBuildingCountInPlot(plot.getId()) >= constructionService.buildLimit(s, plot)) {
-                    return "PLOT_BUILD_LIMIT_REACHED";
+                String cellReason = constructionService.validateCell(s, p.getPlotId(), p.getCellX(), p.getCellY(), p.getId());
+                if (cellReason != null) {
+                    return cellReason;
                 }
-                constructionService.completeBuild(s, p.getMother(), p.getPlotId());
+                constructionService.completeBuild(s, p.getMother(), p.getPlotId(), p.getCellX(), p.getCellY());
                 return null;
             }
             case FORM_LEVEL_UP: {
@@ -340,6 +341,8 @@ public class GameEngine {
         m.put("typeDisplayName", p.getType().getDisplayName());
         m.put("displayName", p.getDisplayName());
         m.put("plotId", p.getPlotId());
+        m.put("cellX", p.getCellX());
+        m.put("cellY", p.getCellY());
         m.put("buildingId", p.getBuildingId());
         m.put("secondBuildingId", p.getSecondBuildingId());
         m.put("mother", p.getMother() == null ? null : p.getMother().name());
@@ -370,9 +373,9 @@ public class GameEngine {
 
     // ===================== 工程开工（立即扣费，按工期完成后生效） =====================
 
-    public void requestBuild(WebSocketSession session, MotherBuildingType mother, String plotId) {
+    public void requestBuild(WebSocketSession session, MotherBuildingType mother, String plotId, int cellX, int cellY) {
         GameState s = repository.get();
-        String reason = constructionService.validateBuild(s, mother, plotId);
+        String reason = constructionService.validateBuild(s, mother, plotId, cellX, cellY);
         if (reason != null) {
             fail(session, "BUILD_BUILDING", reason);
             return;
@@ -381,6 +384,8 @@ public class GameEngine {
         p.setType(ProjectType.BUILD);
         p.setMother(mother);
         p.setPlotId(plotId);
+        p.setCellX(cellX);
+        p.setCellY(cellY);
         p.setDisplayName("新建 " + mother.getDisplayName());
         p.setTotalDays(constructionService.projectDays(mother));
         startProject(session, s, p, constructionService.buildCost(s, mother));
@@ -786,6 +791,7 @@ public class GameEngine {
         m.put("buildingForms", registry.allForms());
         m.put("mergeRecipes", registry.allRecipes());
         m.put("plots", registry.allPlots());
+        m.put("plotMaps", registry.allPlotMaps());
         m.put("achievements", registry.allAchievements());
         m.put("skills", registry.allSkills());
         m.put("mothers", motherList());

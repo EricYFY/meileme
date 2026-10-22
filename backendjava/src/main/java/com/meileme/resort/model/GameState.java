@@ -125,6 +125,40 @@ public class GameState {
         return n;
     }
 
+    /** 指定地块、坐标处的存活建筑（未找到返回 null） */
+    public BuildingInstance findBuildingAt(String plotId, int x, int y) {
+        for (BuildingInstance b : buildings) {
+            if (b.isAlive() && plotId != null && plotId.equals(b.getPlotId())
+                    && b.getCellX() == x && b.getCellY() == y) {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    /** 指定地块、坐标处是否被占用（存活建筑或进行中的新建工程） */
+    public boolean isCellOccupied(String plotId, int x, int y) {
+        return isCellOccupied(plotId, x, y, null);
+    }
+
+    /** 指定地块、坐标处是否被占用；可排除某个工程自身（工程完成二次校验时使用） */
+    public boolean isCellOccupied(String plotId, int x, int y, String excludeProjectId) {
+        if (findBuildingAt(plotId, x, y) != null) {
+            return true;
+        }
+        for (ConstructionProject p : projects) {
+            if (excludeProjectId != null && excludeProjectId.equals(p.getId())) {
+                continue;
+            }
+            if (p.getType() == com.meileme.resort.config.ProjectType.BUILD
+                    && plotId != null && plotId.equals(p.getPlotId())
+                    && p.getCellX() == x && p.getCellY() == y) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** 存活住宿建筑列表 */
     public List<BuildingInstance> aliveAccommodationBuildings() {
         List<BuildingInstance> list = new ArrayList<>();

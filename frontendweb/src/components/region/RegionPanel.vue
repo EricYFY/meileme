@@ -86,7 +86,7 @@ function canAfford(plot) {
                     <div class="plot-cards">
                         <div v-for="plot in g.plots" :key="plot.id" class="plot-card" :class="{ locked: !unlockedPlots.has(plot.id) }">
                             <div class="plot-name">{{ plot.displayName }}</div>
-                            <div class="plot-meta">建筑 {{ plotCount(plot) }} / {{ plot.buildLimit }}</div>
+                            <div class="plot-meta">建筑 {{ plotCount(plot) }} / {{ plot.buildableCellCount }}</div>
                             <div class="plot-meta">
                                 住宿：{{ (plot.accommodationWhitelist || []).map((m) => motherName(m)).join(' / ') || '—' }}
                             </div>

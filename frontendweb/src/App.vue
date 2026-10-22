@@ -3,12 +3,13 @@ import { ref, computed, onMounted } from 'vue';
 import { store, connect } from './services/store.js';
 
 import StatusBar from './components/overview/StatusBar.vue';
-import PlotMapView from './components/overview/PlotMapView.vue';
+import OverviewBuildingList from './components/overview/OverviewBuildingList.vue';
 import DayPreview from './components/overview/DayPreview.vue';
 import GuestMixPanel from './components/overview/GuestMixPanel.vue';
+import AbilityPanel from './components/overview/AbilityPanel.vue';
 import RegionPanel from './components/region/RegionPanel.vue';
 import AchievementProgress from './components/region/AchievementProgress.vue';
-import BuildingListPanel from './components/building/BuildingListPanel.vue';
+import PlotMapPanel from './components/building/PlotMapPanel.vue';
 import StaffPanel from './components/staff/StaffPanel.vue';
 import SkillTreePanel from './components/skill/SkillTreePanel.vue';
 import BuildModal from './components/building/BuildModal.vue';
@@ -28,7 +29,7 @@ const TABS = [
 ];
 
 const activeTab = ref('overview');
-const buildPlot = ref(null);
+const buildTarget = ref(null);
 const detailBuildingId = ref(null);
 const showLog = ref(false);
 
@@ -37,7 +38,7 @@ const detailBuilding = computed(
     () => (store.state?.buildings || []).find((b) => b.id === detailBuildingId.value) || null
 );
 
-function openBuild(plot) { buildPlot.value = plot; }
+function openBuild(payload) { buildTarget.value = payload; }
 function openBuilding(b) { detailBuildingId.value = b.id; }
 </script>
 
@@ -66,7 +67,8 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
                 <div v-if="activeTab === 'overview'" class="grid two">
                     <DayPreview />
                     <GuestMixPanel />
-                    <PlotMapView @open-building="openBuilding" @open-build="openBuild" />
+                    <AbilityPanel />
+                    <OverviewBuildingList @open-building="openBuilding" />
                 </div>
 
                 <div v-else-if="activeTab === 'region'" class="grid">
@@ -75,7 +77,7 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
                 </div>
 
                 <div v-else-if="activeTab === 'building'">
-                    <BuildingListPanel @open-building="openBuilding" />
+                    <PlotMapPanel @open-building="openBuilding" @open-build="openBuild" />
                 </div>
 
                 <div v-else-if="activeTab === 'staff'">
@@ -92,7 +94,7 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
             </template>
         </div>
 
-        <BuildModal v-if="buildPlot" :plot="buildPlot" @close="buildPlot = null" />
+        <BuildModal v-if="buildTarget" :plot="buildTarget.plot" :cellX="buildTarget.cellX" :cellY="buildTarget.cellY" @close="buildTarget = null" />
         <BuildingDetailModal v-if="detailBuilding" :building="detailBuilding" @close="detailBuildingId = null" />
         <SettlementLogModal v-if="showLog" @close="showLog = false" />
 

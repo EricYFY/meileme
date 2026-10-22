@@ -33,6 +33,12 @@ public class BuildingInstance {
     /** 所属地块 ID */
     private String plotId;
 
+    /** 落格坐标（列，从左 0 起；-1 表示未落格） */
+    private int cellX = -1;
+
+    /** 落格坐标（行，从上 0 起；-1 表示未落格） */
+    private int cellY = -1;
+
     /** 是否存活（合并进化的源建筑会被逻辑删除，保留墓碑记录） */
     private boolean alive = true;
 
@@ -48,6 +54,17 @@ public class BuildingInstance {
     /** 进化线（由形态推导） */
     public EvolutionLine line() {
         return form == null ? EvolutionLine.BASE : form.getLine();
+    }
+
+    /** 与另一建筑是否在地图上相邻（同地块且曼哈顿距离 = 1，即上下左右） */
+    public boolean isAdjacentTo(BuildingInstance o) {
+        if (o == null || plotId == null || !plotId.equals(o.plotId)) {
+            return false;
+        }
+        if (cellX < 0 || cellY < 0 || o.cellX < 0 || o.cellY < 0) {
+            return false;
+        }
+        return Math.abs(cellX - o.cellX) + Math.abs(cellY - o.cellY) == 1;
     }
 
     /** 内装提供的指定客群吸引力加成（按各内装等级累加） */

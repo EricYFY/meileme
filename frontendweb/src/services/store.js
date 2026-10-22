@@ -28,7 +28,7 @@ export const api = {
     pause: () => sendCommand('PAUSE_GAME'),
     resume: () => sendCommand('RESUME_GAME'),
     setSpeed: (speed) => sendCommand('SET_SIMULATION_SPEED', { speed }),
-    build: (buildingType, plotId) => sendCommand('BUILD_BUILDING', { buildingType, plotId }),
+    build: (buildingType, plotId, cellX = 0, cellY = 0) => sendCommand('BUILD_BUILDING', { buildingType, plotId, cellX, cellY }),
     formLevelUp: (buildingId) => sendCommand('FORM_LEVEL_UP', { buildingId }),
     branchEvolve: (buildingId, targetFormId) => sendCommand('BRANCH_EVOLVE', { buildingId, targetFormId }),
     mergeEvolve: (buildingIdA, buildingIdB) => sendCommand('MERGE_EVOLVE', { buildingIdA, buildingIdB }),
@@ -80,6 +80,11 @@ const REASONS = {
     PROJECT_IN_PROGRESS: '该建筑已有进行中的工程',
     PLOT_BUILD_LIMIT_REACHED: '地块建造名额已满',
     PLOT_NOT_UNLOCKED: '地块未解锁',
+    CELL_OUT_OF_BOUNDS: '落格坐标越界',
+    CELL_NOT_BUILDABLE: '该格不可建造（非可建造空地）',
+    CELL_OCCUPIED: '该格已被占用',
+    PLOT_MAP_NOT_FOUND: '地块地图不存在',
+    MERGE_SOURCE_NOT_ADJACENT: '两座建筑在地图上不相邻（需上下左右相邻）',
     TARGET_FORM_NOT_FOUND: '目标形态不存在',
     UNKNOWN_PROJECT: '工程类型异常',
     PREREQUISITE_UNMET: '前置技能未解锁',
@@ -99,6 +104,7 @@ function indexConfig(cfg) {
     cfg.regionsById = Object.fromEntries(cfg.regions.map((x) => [x.id, x]));
     cfg.formsById = Object.fromEntries((cfg.buildingForms || []).map((x) => [x.id, x]));
     cfg.plotsById = Object.fromEntries((cfg.plots || []).map((x) => [x.id, x]));
+    cfg.plotMapsById = Object.fromEntries((cfg.plotMaps || []).map((x) => [x.plotId, x]));
     cfg.achievementsById = Object.fromEntries((cfg.achievements || []).map((x) => [x.id, x]));
     cfg.skillsById = Object.fromEntries((cfg.skills || []).map((x) => [x.id, x]));
     cfg.mothersById = Object.fromEntries((cfg.mothers || []).map((x) => [x.id, x]));

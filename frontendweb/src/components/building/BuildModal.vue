@@ -6,6 +6,8 @@ import Modal from '../common/Modal.vue';
 
 const props = defineProps({
     plot: { type: Object, required: true },
+    cellX: { type: Number, default: 0 },
+    cellY: { type: Number, default: 0 },
 });
 const emit = defineEmits(['close']);
 
@@ -28,13 +30,13 @@ const isSupport = computed(() => store.config?.mothersById?.[activeId.value]?.ca
 
 function confirm() {
     if (!activeId.value) return;
-    api.build(activeId.value, props.plot.id);
+    api.build(activeId.value, props.plot.id, props.cellX, props.cellY);
     emit('close');
 }
 </script>
 
 <template>
-    <Modal :title="'新建建筑 @ ' + plot.displayName" @close="emit('close')">
+    <Modal :title="'新建建筑 @ ' + plot.displayName + '（格 ' + plot.id + ' ' + cellX + ',' + cellY + '）'" @close="emit('close')">
         <div v-if="!buildable.length" class="empty faint">当前地块无可建造母本（第一期仅开放标准客房）</div>
 
         <div v-for="m in buildable" :key="m.id" class="bld-row" :class="{ active: m.id === activeId }" @click="selectedId = m.id">

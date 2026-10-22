@@ -7,6 +7,7 @@ import com.meileme.resort.config.AchievementType;
 import com.meileme.resort.config.BuildingForm;
 import com.meileme.resort.config.CustomerSegment;
 import com.meileme.resort.config.EvolutionLine;
+import com.meileme.resort.config.GameConfig;
 import com.meileme.resort.config.MergeRecipe;
 import com.meileme.resort.config.MotherBuildingType;
 import com.meileme.resort.config.Plot;
@@ -15,6 +16,7 @@ import com.meileme.resort.config.SkillCategory;
 import com.meileme.resort.config.SkillEffectKey;
 import com.meileme.resort.config.SkillEffectType;
 import com.meileme.resort.config.SkillNode;
+import com.meileme.resort.model.PlotMap;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -35,6 +37,7 @@ public class ConfigRegistry {
     private final Map<String, BuildingForm> formsById = new LinkedHashMap<>();
     private final List<MergeRecipe> mergeRecipes = new ArrayList<>();
     private final Map<String, Plot> plotsById = new LinkedHashMap<>();
+    private final Map<String, PlotMap> plotMaps = new LinkedHashMap<>();
     private final Map<String, Achievement> achievementsById = new LinkedHashMap<>();
     private final Map<String, SkillNode> skillsById = new LinkedHashMap<>();
 
@@ -251,28 +254,28 @@ public class ConfigRegistry {
         // 规则：每一地块必须先解锁「上一地块」（跨区域同样成立），再达成自身成就条件后解锁；
         // 区域内首个地块解锁即视为该区域解锁。开局仅默认解锁「史东薇尔城」。
         registerPlot(
-                new Plot("STORMVEIL_CASTLE", "史东薇尔城", Region.LIMGRAVE, 1, 8, 0,
+                new Plot("STORMVEIL_CASTLE", "史东薇尔城", Region.LIMGRAVE, 1, 7, 7, 15, 8, 0,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL,
                                 MotherBuildingType.VIEWING_PLATFORM),
                         1, List.of(), true),
-                new Plot("MISTWOOD_EDGE", "雾林边缘", Region.LIMGRAVE, 2, 8, 100000,
+                new Plot("MISTWOOD_EDGE", "雾林边缘", Region.LIMGRAVE, 2, 8, 8, 20, 8, 100000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.OUTDOOR_CAMP),
                         2, List.of("ACH_ASSET_10"), false),
-                new Plot("AGHEEL_LAKE", "亚基尔湖", Region.LIMGRAVE, 3, 10, 1000000,
+                new Plot("AGHEEL_LAKE", "亚基尔湖", Region.LIMGRAVE, 3, 10, 10, 30, 10, 1000000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL),
                         3, List.of("ACH_ASSET_100", "ACH_GUEST_5000"), false),
-                new Plot("CARIA_MANOR", "卡利亚城寨", Region.LIURNIA, 1, 8, 5000000,
+                new Plot("CARIA_MANOR", "卡利亚城寨", Region.LIURNIA, 1, 8, 8, 20, 8, 5000000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.TEA_LIBRARY, MotherBuildingType.VIEWING_PLATFORM),
                         3, List.of("ACH_ASSET_500", "ACH_GUEST_10000", "ACH_STAFF_20"), false),
-                new Plot("RAYA_LUCARIA", "雷亚卢卡利亚学院", Region.LIURNIA, 2, 10, 8000000,
+                new Plot("RAYA_LUCARIA", "雷亚卢卡利亚学院", Region.LIURNIA, 2, 12, 12, 30, 10, 8000000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.TEA_LIBRARY, MotherBuildingType.CULTURE_WORKSHOP),
                         3, List.of("ACH_BUILDING_20", "ACH_FAMILY_SUITE"), false),
-                new Plot("FOUR_BELFRIES", "四钟楼", Region.LIURNIA, 3, 12, 10000000,
+                new Plot("FOUR_BELFRIES", "四钟楼", Region.LIURNIA, 3, 15, 15, 30, 12, 10000000,
                         Set.of(MotherBuildingType.STANDARD_ROOM),
                         Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL, MotherBuildingType.VIEWING_PLATFORM),
                         3, List.of("ACH_STAFF_50", "ACH_MANAGER_LV3"), false));
@@ -356,6 +359,17 @@ public class ConfigRegistry {
                 node("SK_ROOM_PRICE", "房屋收益溢价 I", "房屋收益基准 +10%", SkillCategory.FINANCE,
                         List.of("SK_EVOLVE_COST", "SK_BUILD_COST"),
                         SkillEffectType.MULTIPLIER, SkillEffectKey.ROOM_PRICE_MULT, 0.10));
+
+        generateMaps();
+    }
+
+    /** 依据地块配置 + 固定种子生成六张地块地图（地形与可建造格布局，稳定性可复现） */
+    private void generateMaps() {
+        int index = 0;
+        for (Plot p : plotsById.values()) {
+            plotMaps.put(p.getId(), MapGenerator.generate(p, (int) GameConfig.MAP_SEED + index * 31));
+            index++;
+        }
     }
 
     private static SkillNode node(String id, String name, String desc, SkillCategory cat,
@@ -450,6 +464,14 @@ public class ConfigRegistry {
 
     public List<Plot> allPlots() {
         return Collections.unmodifiableList(new ArrayList<>(plotsById.values()));
+    }
+
+    public List<PlotMap> allPlotMaps() {
+        return Collections.unmodifiableList(new ArrayList<>(plotMaps.values()));
+    }
+
+    public PlotMap plotMap(String id) {
+        return id == null ? null : plotMaps.get(id);
     }
 
     public Achievement achievement(String id) {
