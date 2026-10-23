@@ -803,6 +803,33 @@ public class GameEngine {
             training.put(st.getId(), x);
         }
         m.put("staffTraining", training);
+        // 单建筑综合舒适度分解与分客群吸引力贡献（供中观地图与微观详情展示）
+        Map<String, Map<String, Object>> buildingComfort = new LinkedHashMap<>();
+        Map<AbilityType, Double> ratios = comfortService.supplyRatios(s);
+        double attractMult = skillTree.multiplier(s, SkillEffectKey.SEGMENT_ATTRACTION_MULT);
+        for (BuildingInstance b : s.aliveBuildings()) {
+            if (b.getForm() == null) continue;
+            Map<String, Object> x = new LinkedHashMap<>();
+            double baseComfort = b.getForm().comfortOf(b.getFormLevel());
+            double interiorComfort = comfortService.interiorComfortOf(s, b);
+            double staffFactor = comfortService.staffFactorOf(b, ratios);
+            double totalComfort = (baseComfort + interiorComfort) * staffFactor;
+            x.put("baseComfort", baseComfort);
+            x.put("interiorComfort", interiorComfort);
+            x.put("staffFactor", staffFactor);
+            x.put("totalComfort", totalComfort);
+            x.put("shortages", comfortService.shortageAbilitiesOf(b, ratios));
+
+            Map<String, Double> segAttraction = new LinkedHashMap<>();
+            for (CustomerSegment seg : CustomerSegment.values()) {
+                double attr = (b.getForm().affinityOf(seg) + b.interiorAffinityBonusOf(seg))
+                        * totalComfort * b.getForm().levelWeightOf(b.getFormLevel()) * attractMult;
+                segAttraction.put(seg.name(), attr);
+            }
+            x.put("segmentAttraction", segAttraction);
+            buildingComfort.put(b.getId(), x);
+        }
+        m.put("buildingComfort", buildingComfort);
         return m;
     }
 

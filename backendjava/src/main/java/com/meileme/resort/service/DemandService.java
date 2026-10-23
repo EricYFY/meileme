@@ -187,6 +187,7 @@ public class DemandService {
         }
 
         result.setPotentialBySegment(potential);
+        result.setAttractionBySegment(attraction);
         result.setConversionBySegment(conversion);
         result.setIntentBySegment(intent);
         result.setServedBySegment(served);

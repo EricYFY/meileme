@@ -85,7 +85,29 @@ function terrainMeta(t) {
 const LINE_LABEL = { BASE: '基', FAMILY: '家', BUSINESS: '商', MERGE: '合' };
 const LINE_CLASS = { BASE: 'base', FAMILY: 'family', BUSINESS: 'business', MERGE: 'merge' };
 function lineBadge(b) { return LINE_LABEL[b.form?.line] || '基'; }
-function lineCls(b) { return LINE_CLASS[b.form?.line] || 'base'; }
+const buildingComfortMap = computed(() => store.state?.buildingComfort || {});
+const mapLayer = ref('normal'); // 'normal' | 'comfort'
+
+function getComfortData(buildingId) {
+    return buildingComfortMap.value?.[buildingId] || null;
+}
+
+function cellTitle(v) {
+    if (v.kind === 'terrain') return terrainMeta(v.data?.terrain).name;
+    if (v.kind === 'buildable') return '可建造空地';
+    if (v.kind === 'building') {
+        const c = getComfortData(v.data.id);
+        const name = v.data.form?.displayName || v.data.mother;
+        const total = c?.totalComfort ? c.totalComfort.toFixed(1) : '-';
+        let tip = `${name} (Lv${v.data.formLevel}) · 综合舒适度: ${total}`;
+        if (c?.staffFactor < 0.999) {
+            const shortStr = (c.shortages || []).map(s => `${s.name}(${(s.ratio*100).toFixed(0)}%)`).join('、');
+            tip += `\n⚠️ 人力保障不足: 舒适度打折至 ${(c.staffFactor * 100).toFixed(0)}% (短缺: ${shortStr || '无'})`;
+        }
+        return tip;
+    }
+    return '';
+}
 
 function onCellClick(v) {
     if (v.kind === 'building') {
@@ -146,6 +168,10 @@ function confirmMerge() {
         <div class="panel-head">
             <span class="title">地块地图</span>
             <span class="extra">
+                <div class="layer-toggle">
+                    <button class="layer-btn" :class="{ active: mapLayer === 'normal' }" @click="mapLayer = 'normal'">标准</button>
+                    <button class="layer-btn" :class="{ active: mapLayer === 'comfort' }" @click="mapLayer = 'comfort'">舒适度热力</button>
+                </div>
                 <button v-for="p in unlockedPlots" :key="p.id" class="ghost" :class="{ primary: p.id === selectedPlotId }"
                         @click="selectedPlotId = p.id">{{ p.displayName }}</button>
                 <button class="gold" :class="{ danger: mergeMode }" @click="mergeMode = !mergeMode; mergeSel = []">
@@ -160,19 +186,33 @@ function confirmMerge() {
             <template v-else>
                 <div class="map-toolbar">
                     <span v-if="mergeMode" class="gold">合并模式：点击选择两座相邻建筑（消耗两个、新建一个）。已选 {{ mergeSel.length }} / 2</span>
+                    <span v-else-if="mapLayer === 'comfort'" class="pos">舒适度热力视图：绿色高舒适，带 ⚠ 表示人力短缺打折受损</span>
                     <span v-else class="faint">点击空可建造格新建建筑 · 点击建筑查看详情（升级 / 进化 / 内装）</span>
                 </div>
 
                 <div class="map-grid" :style="gridStyle">
                     <div v-for="v in cellsView" :key="v.key"
                          class="map-cell"
-                         :class="[v.kind, { selected: v.selected }]"
-                         :title="v.kind === 'terrain' ? terrainMeta(v.data?.terrain).name : (v.kind === 'buildable' ? '可建造空地' : '')"
+                         :class="[
+                             v.kind,
+                             {
+                                 selected: v.selected,
+                                 'is-shortage': v.kind === 'building' && getComfortData(v.data.id)?.staffFactor < 0.999,
+                                 'comfort-heat': mapLayer === 'comfort' && v.kind === 'building'
+                             }
+                         ]"
+                         :title="cellTitle(v)"
                          @click="onCellClick(v)">
                         <template v-if="v.kind === 'building'">
-                            <span class="cb-badge" :class="lineCls(v.data)">{{ lineBadge(v.data) }}</span>
+                            <span class="cb-badge" :class="lineBadge(v.data).toLowerCase()">{{ lineBadge(v.data) }}</span>
+                            <span v-if="getComfortData(v.data.id)?.staffFactor < 0.999" class="warn-badge" title="人力保障不足">⚠</span>
                             <span class="cb-name">{{ v.data.form?.displayName || v.data.mother }}</span>
-                            <span class="cb-lv">Lv{{ v.data.formLevel }}</span>
+                            <div class="cb-bottom">
+                                <span class="cb-lv">Lv{{ v.data.formLevel }}</span>
+                                <span class="cb-comfort" :class="{ 'comfort-dim': getComfortData(v.data.id)?.staffFactor < 0.999 }">
+                                    ★{{ (getComfortData(v.data.id)?.totalComfort || 0).toFixed(0) }}
+                                </span>
+                            </div>
                         </template>
                         <template v-else-if="v.kind === 'project'">
                             <span class="ghost-dot">建</span>
@@ -188,12 +228,14 @@ function confirmMerge() {
                 </div>
 
                 <div class="legend">
-                    <span class="faint">地形：</span>
+                    <span class="faint">图例：</span>
                     <span class="lg"><i class="dot town"></i>城镇</span>
                     <span class="lg"><i class="dot plain"></i>平原</span>
                     <span class="lg"><i class="dot mountain"></i>山地</span>
                     <span class="lg"><i class="dot lake"></i>湖区</span>
-                    <span class="lg"><i class="dot buildable"></i>可建造空地</span>
+                    <span class="lg"><i class="dot buildable"></i>可建</span>
+                    <span class="lg"><b class="warn-star">★</b>舒适度</span>
+                    <span class="lg"><b class="warn-dot">⚠</b>人力短缺</span>
                 </div>
             </template>
 
@@ -290,4 +332,85 @@ function confirmMerge() {
 .dot.mountain { background: #4a4f58; }
 .dot.lake { background: #21435c; }
 .dot.buildable { background: transparent; border: 1px dashed var(--accent); }
+
+/* 图层切换器 */
+.layer-toggle {
+    display: inline-flex;
+    background: var(--panel-3, #1e2433);
+    padding: 2px;
+    border-radius: 6px;
+    margin-right: 8px;
+    gap: 2px;
+}
+.layer-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim, #8b9bc0);
+    padding: 3px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .2s;
+}
+.layer-btn.active {
+    background: var(--accent, #6366f1);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* 建筑格子舒适度与短缺细节 */
+.cb-bottom {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 8px;
+    margin-top: 1px;
+}
+.cb-comfort {
+    color: #5eead4;
+    font-weight: 600;
+}
+.cb-comfort.comfort-dim {
+    color: #ff8787;
+}
+
+.map-cell.building {
+    position: relative;
+    transition: all .25s ease;
+}
+
+/* 短缺警告角标 */
+.warn-badge {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 10px;
+    color: #ff8787;
+    animation: warnPulse 1.8s infinite;
+}
+
+@keyframes warnPulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.25); opacity: 1; text-shadow: 0 0 6px rgba(255, 107, 107, 0.8); }
+}
+
+.map-cell.building.is-shortage {
+    border-color: rgba(255, 135, 135, 0.6);
+}
+
+/* 舒适度热力视图 */
+.map-cell.building.comfort-heat {
+    background: linear-gradient(135deg, rgba(94, 234, 212, 0.12), rgba(16, 185, 129, 0.18));
+    border-color: rgba(94, 234, 212, 0.4);
+    box-shadow: 0 0 8px rgba(94, 234, 212, 0.15) inset;
+}
+
+.map-cell.building.comfort-heat.is-shortage {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(245, 158, 11, 0.15));
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.15) inset;
+}
+
+.warn-star { color: #5eead4; margin-right: 2px; }
+.warn-dot { color: #ff8787; margin-right: 2px; }
 </style>

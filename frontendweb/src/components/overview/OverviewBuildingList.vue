@@ -18,6 +18,18 @@ const groups = computed(() => {
     return out;
 });
 
+const buildingComfortMap = computed(() => store.state?.buildingComfort || {});
+
+function comfortVal(bid) {
+    const c = buildingComfortMap.value?.[bid];
+    return c?.totalComfort ? c.totalComfort.toFixed(1) : '-';
+}
+
+function isShortage(bid) {
+    const c = buildingComfortMap.value?.[bid];
+    return c && c.staffFactor < 0.999;
+}
+
 function catLabel(b) {
     return store.config?.mothersById?.[b.mother]?.category === 'ACCOMMODATION' ? '住宿' : '配套';
 }
@@ -58,6 +70,10 @@ function motherName(mid) {
                             <div class="title">{{ b.form.displayName || b.mother }}</div>
                             <div class="sub">{{ catLabel(b) }} · 格 ({{ b.cellX }}, {{ b.cellY }})</div>
                         </div>
+                        <span class="tag comfort" :class="{ 'has-warn': isShortage(b.id) }">
+                            ★ {{ comfortVal(b.id) }}
+                        </span>
+                        <span v-if="isShortage(b.id)" class="tag warn-pill">短缺</span>
                         <span class="tag" :class="(b.form.line || 'base').toLowerCase()">{{ b.form.line || 'BASE' }}</span>
                         <span class="num dim">Lv{{ b.formLevel }}</span>
                     </div>
@@ -73,4 +89,19 @@ function motherName(mid) {
 .group-head { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
 .project-row { cursor: default; border-color: rgba(242, 181, 60, .45); }
 .project-row .tag.gold { background: rgba(242, 181, 60, .18); color: var(--gold); }
+
+.tag.comfort {
+    background: rgba(94, 234, 212, 0.12);
+    color: #5eead4;
+    border: 1px solid rgba(94, 234, 212, 0.3);
+}
+.tag.comfort.has-warn {
+    background: rgba(255, 135, 135, 0.12);
+    color: #ff8787;
+    border-color: rgba(255, 135, 135, 0.3);
+}
+.tag.warn-pill {
+    background: rgba(255, 135, 135, 0.2);
+    color: #ff8787;
+}
 </style>

@@ -38,6 +38,61 @@ const hasSkillBonus = computed(() => {
     return (r.priceMult || 1) > 1.0001 || (r.mergeBonus || 0) > 0;
 });
 
+// 单建筑舒适度分解与人力保障
+const comfortData = computed(() => store.state?.buildingComfort?.[props.building.id] || null);
+const totalComfort = computed(() => comfortData.value?.totalComfort ?? baseComfort.value);
+const interiorComfort = computed(() => comfortData.value?.interiorComfort ?? 0);
+const staffFactor = computed(() => comfortData.value?.staffFactor ?? 1.0);
+const shortages = computed(() => comfortData.value?.shortages ?? []);
+
+// 客群相性与吸引力贡献
+const SEGMENT_COLORS = {
+    FAMILY: '#7ee0a3',
+    BUSINESS: '#8ab4ff',
+    ROMANTIC: '#f4a5d0',
+    WELLNESS: '#ffd37a',
+};
+const SEGMENT_ICONS = {
+    FAMILY: '👨👩👧',
+    BUSINESS: '💼',
+    ROMANTIC: '👩❤️👨',
+    WELLNESS: '🧘',
+};
+
+const segmentAffinities = computed(() => {
+    const f = form.value;
+    const b = props.building;
+    const segAttractions = comfortData.value?.segmentAttraction || {};
+    return (store.config?.segments || []).map((seg) => {
+        const baseAff = Number(f.affinities?.[seg.id] ?? 0);
+        let interiorAff = 0;
+        for (const it of (b.interiors || [])) {
+            const def = store.config?.interiorsById?.[it.interiorType];
+            if (def && def.affinitySegment === seg.id) {
+                interiorAff += (def.affinityPerLevel || 0) * (it.level || 0);
+            }
+        }
+        const totalAff = baseAff + interiorAff;
+        const attrScore = Number(segAttractions[seg.id] ?? 0);
+        let grade = 'C';
+        if (totalAff >= 0.75) grade = 'S';
+        else if (totalAff >= 0.45) grade = 'A';
+        else if (totalAff >= 0.15) grade = 'B';
+        else if (totalAff <= 0) grade = '—';
+        return {
+            id: seg.id,
+            name: seg.displayName,
+            icon: SEGMENT_ICONS[seg.id] || '👥',
+            color: SEGMENT_COLORS[seg.id] || '#8b9bc0',
+            baseAff,
+            interiorAff,
+            totalAff,
+            attrScore,
+            grade,
+        };
+    });
+});
+
 // 该建筑进行中的工程（作为主目标或合并源）
 const activeProject = computed(() => (store.state?.projects || []).find(
     (p) => p.buildingId === props.building.id || p.secondBuildingId === props.building.id
@@ -142,7 +197,6 @@ function affinityText(it) {
                     <span class="k">满员日收益上限</span>
                     <span class="v num gold">{{ fmtMoney(serviceCapacity * unitPrice) }}</span>
                 </div>
-                <div class="kv"><span class="k">基础舒适度</span><span class="v num">{{ baseComfort }}</span></div>
             </div>
             <div class="panel-body" v-else>
                 <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ capacity }} 人</span></div>
@@ -163,7 +217,67 @@ function affinityText(it) {
                     <span class="k">当前房屋收益（每间）</span>
                     <span class="v num gold">{{ fmtMoney(effectivePrice) }}</span>
                 </div>
-                <div class="kv"><span class="k">基础舒适度</span><span class="v num">{{ baseComfort }}</span></div>
+            </div>
+        </div>
+
+        <!-- 综合舒适度分析卡片 -->
+        <div class="detail-card">
+            <div class="card-head">
+                <span class="card-title">综合舒适度剖析</span>
+                <span class="score-badge" :class="staffFactor < 0.999 ? 'warn' : 'pos'">
+                    ★ {{ totalComfort.toFixed(1) }}
+                </span>
+            </div>
+            <div class="comfort-breakdown">
+                <div class="bd-row">
+                    <span class="lbl">形态基础 (Lv{{ level }})</span>
+                    <span class="val">{{ baseComfort.toFixed(1) }}</span>
+                </div>
+                <div class="bd-row">
+                    <span class="lbl">内装舒适加成</span>
+                    <span class="val pos">+{{ interiorComfort.toFixed(1) }}</span>
+                </div>
+                <div class="bd-row">
+                    <span class="lbl">人力供给系数</span>
+                    <span class="val" :class="staffFactor < 0.999 ? 'neg' : 'dim'">
+                        × {{ (staffFactor * 100).toFixed(0) }}%
+                    </span>
+                </div>
+            </div>
+            <div v-if="staffFactor < 0.999" class="shortage-alert">
+                ⚠️ 人力供给不足导致舒适度打折！短缺项：
+                <span v-for="s in shortages" :key="s.ability" class="short-pill">
+                    {{ s.name }} ({{ (s.ratio * 100).toFixed(0) }}%)
+                </span>
+            </div>
+        </div>
+
+        <!-- 客群相性与吸引力贡献卡片 -->
+        <div class="detail-card">
+            <div class="card-head">
+                <span class="card-title">客群吸引力与相性贡献</span>
+                <span class="faint small">影响每日客流转化分配</span>
+            </div>
+            <div class="affinity-grid">
+                <div v-for="seg in segmentAffinities" :key="seg.id" class="aff-card" :style="{ borderColor: seg.color }">
+                    <div class="aff-top">
+                        <span class="seg-info">
+                            <span class="aff-icon">{{ seg.icon }}</span>
+                            <span class="aff-name" :style="{ color: seg.color }">{{ seg.name }}</span>
+                        </span>
+                        <span class="grade-tag" :style="{ background: seg.color }">{{ seg.grade }}</span>
+                    </div>
+                    <div class="aff-mid">
+                        <span class="faint">相性系数</span>
+                        <span class="num bold">{{ seg.totalAff.toFixed(2) }}
+                            <span class="faint" v-if="seg.interiorAff > 0">(+{{ seg.interiorAff.toFixed(2) }})</span>
+                        </span>
+                    </div>
+                    <div class="aff-bot">
+                        <span class="faint">吸引力贡献</span>
+                        <span class="score gold">{{ seg.attrScore.toFixed(0) }}</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -234,4 +348,124 @@ function affinityText(it) {
 .project-banner .main { flex: 1; }
 .project-banner .title { font-weight: 600; }
 .project-banner .sub { font-size: 12px; margin-top: 2px; line-height: 1.6; }
+
+/* 舒适度与吸引力详情卡片 */
+.detail-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: var(--radius-sm, 8px);
+    padding: 10px 12px;
+    margin-top: 10px;
+}
+.card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.score-badge {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+.score-badge.pos {
+    color: #5eead4;
+    background: rgba(94, 234, 212, 0.12);
+    border: 1px solid rgba(94, 234, 212, 0.3);
+}
+.score-badge.warn {
+    color: #ff8787;
+    background: rgba(255, 135, 135, 0.12);
+    border: 1px solid rgba(255, 135, 135, 0.3);
+}
+
+.comfort-breakdown {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 8px 10px;
+    border-radius: 6px;
+}
+.bd-row {
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+}
+.bd-row .lbl {
+    color: var(--text-dim, #8b9bc0);
+    font-size: 10px;
+    margin-bottom: 2px;
+}
+.bd-row .val {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.shortage-alert {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #ff8787;
+    background: rgba(255, 135, 135, 0.08);
+    border: 1px solid rgba(255, 135, 135, 0.2);
+    border-radius: 4px;
+    padding: 6px 8px;
+    line-height: 1.5;
+}
+.short-pill {
+    display: inline-block;
+    background: rgba(255, 135, 135, 0.2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin: 0 2px;
+    font-weight: 600;
+}
+
+/* 客群相性四宫格 */
+.affinity-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+.aff-card {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+.aff-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.seg-info {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.grade-tag {
+    color: #000;
+    font-weight: 800;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+.aff-mid, .aff-bot {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-top: 2px;
+}
+.aff-bot .score {
+    font-weight: 700;
+}
 </style>

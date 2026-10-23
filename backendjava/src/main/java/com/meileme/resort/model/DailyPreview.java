@@ -18,6 +18,12 @@ public class DailyPreview {
     /** 各客群原始潜在客流 */
     private Map<CustomerSegment, Double> potentialBySegment = new EnumMap<>(CustomerSegment.class);
 
+    /** 各客群吸引力得分 */
+    private Map<CustomerSegment, Double> attractionBySegment = new EnumMap<>(CustomerSegment.class);
+
+    /** 各客群转化率 */
+    private Map<CustomerSegment, Double> conversionBySegment = new EnumMap<>(CustomerSegment.class);
+
     /** 各客群意向客流（潜在 × 转化率） */
     private Map<CustomerSegment, Double> intentBySegment = new EnumMap<>(CustomerSegment.class);
 

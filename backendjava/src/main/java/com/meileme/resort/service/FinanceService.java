@@ -49,6 +49,8 @@ public class FinanceService {
     public DailyPreview projection(GameState state, DemandResult demand) {
         DailyPreview p = new DailyPreview();
         p.setPotentialBySegment(new java.util.EnumMap<>(demand.getPotentialBySegment()));
+        p.setAttractionBySegment(new java.util.EnumMap<>(demand.getAttractionBySegment()));
+        p.setConversionBySegment(new java.util.EnumMap<>(demand.getConversionBySegment()));
         p.setIntentBySegment(new java.util.EnumMap<>(demand.getIntentBySegment()));
         p.setServedBySegment(new java.util.EnumMap<>(demand.getServedBySegment()));
         p.setTotalRooms(demand.getTotalRooms());

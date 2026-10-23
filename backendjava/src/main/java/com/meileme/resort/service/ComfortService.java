@@ -10,7 +10,9 @@ import com.meileme.resort.model.InteriorInstance;
 import com.meileme.resort.model.StaffInstance;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -77,22 +79,22 @@ public class ComfortService {
         return ratios;
     }
 
-    /** 单建筑综合舒适度 */
-    public double comfortOf(GameState state, BuildingInstance b, Map<AbilityType, Double> ratios) {
-        BuildingForm f = b.getForm();
-        if (f == null) {
-            return 0;
-        }
+    /** 单建筑内装舒适度加成 */
+    public double interiorComfortOf(GameState state, BuildingInstance b) {
         double interiorComfortMult = skillTree.multiplier(state, SkillEffectKey.INTERIOR_COMFORT_MULT);
         double interiorComfort = 0;
         for (InteriorInstance it : b.getInteriors()) {
             interiorComfort += it.getInteriorType().getComfortPerLevel() * it.getLevel();
         }
-        interiorComfort *= interiorComfortMult;
+        return interiorComfort * interiorComfortMult;
+    }
 
-        double base = f.comfortOf(b.getFormLevel()) + interiorComfort;
-
-        // 人力供给系数：取该建筑所需各项能力 ratio 的最小值，并做保底
+    /** 单建筑人力供给保障系数 */
+    public double staffFactorOf(BuildingInstance b, Map<AbilityType, Double> ratios) {
+        BuildingForm f = b.getForm();
+        if (f == null) {
+            return 1.0;
+        }
         double factor = 1.0;
         boolean hasDemand = false;
         for (AbilityType a : AbilityType.values()) {
@@ -102,11 +104,41 @@ public class ComfortService {
             }
         }
         if (hasDemand) {
-            factor = Math.max(GameConfig.STAFF_SHORTAGE_MIN_COMFORT_RATIO, factor);
-        } else {
-            factor = 1.0;
+            return Math.max(GameConfig.STAFF_SHORTAGE_MIN_COMFORT_RATIO, factor);
         }
-        return base * factor;
+        return 1.0;
+    }
+
+    /** 单建筑短缺的能力名称列表（含实际供给率） */
+    public List<Map<String, Object>> shortageAbilitiesOf(BuildingInstance b, Map<AbilityType, Double> ratios) {
+        BuildingForm f = b.getForm();
+        if (f == null) {
+            return List.of();
+        }
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (AbilityType a : AbilityType.values()) {
+            if (f.abilityDemandOf(a) > 0) {
+                double r = ratios.getOrDefault(a, 1.0);
+                if (r < 0.999) {
+                    list.add(Map.of(
+                            "ability", a.name(),
+                            "name", a.getDisplayName(),
+                            "ratio", r
+                    ));
+                }
+            }
+        }
+        return list;
+    }
+
+    /** 单建筑综合舒适度 */
+    public double comfortOf(GameState state, BuildingInstance b, Map<AbilityType, Double> ratios) {
+        BuildingForm f = b.getForm();
+        if (f == null) {
+            return 0;
+        }
+        double base = f.comfortOf(b.getFormLevel()) + interiorComfortOf(state, b);
+        return base * staffFactorOf(b, ratios);
     }
 
     /** 单建筑承载容量（住宿 = 每间可接待人数 + 承载型内装容量） */
