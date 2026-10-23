@@ -114,7 +114,6 @@ public class DemandService {
 
                 double conv = attr / GameConfig.CONVERSION_DENOMINATOR * conversionMult;
                 conv = Math.max(GameConfig.MIN_CONVERSION_RATE, Math.min(GameConfig.MAX_CONVERSION_RATE, conv));
-                conversion.merge(seg, conv, Double::sum);
 
                 double regionIntentValue = regionPotential * conv;
                 regionIntent.put(seg, regionIntentValue);
@@ -179,9 +178,12 @@ public class DemandService {
         double totalIntent = 0;
         double totalServed = 0;
         for (CustomerSegment seg : CustomerSegment.values()) {
-            totalPotential += potential.get(seg);
-            totalIntent += intent.get(seg);
+            double segPot = potential.get(seg);
+            double segIntent = intent.get(seg);
+            totalPotential += segPot;
+            totalIntent += segIntent;
             totalServed += served.get(seg);
+            conversion.put(seg, segPot <= 0 ? 0 : Math.min(GameConfig.MAX_CONVERSION_RATE, segIntent / segPot));
         }
 
         result.setPotentialBySegment(potential);

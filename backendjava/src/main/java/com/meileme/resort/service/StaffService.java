@@ -63,7 +63,7 @@ public class StaffService {
 
     /** 校验招聘；返回 null 表示可执行 */
     public String validateHire(GameState state, PositionType position) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (position == null) {
@@ -77,7 +77,7 @@ public class StaffService {
 
     /** 校验培训升级；返回 null 表示可执行 */
     public String validateTrain(GameState state, StaffInstance staff) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (staff == null) {
@@ -97,7 +97,7 @@ public class StaffService {
 
     /** 校验解雇；返回 null 表示可执行 */
     public String validateFire(GameState state, StaffInstance staff) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (staff == null) {

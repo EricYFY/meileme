@@ -45,11 +45,26 @@ const activeProject = computed(() => (store.state?.projects || []).find(
 
 function interiorProject(typeId) {
     return (store.state?.projects || []).find(
-        (p) => p.type === 'INTERIOR_UPGRADE' && p.buildingId === props.building.id && p.interiorType === typeId
+        (p) => (p.projectType || p.type) === 'INTERIOR_UPGRADE' && p.buildingId === props.building.id && p.interiorType === typeId
     ) || null;
 }
 
 const levelUpDays = computed(() => form.value.formLevelUpDays?.[level.value - 1] ?? 0);
+
+function discount(key) {
+    let m = 1.0;
+    const unlocked = store.state?.unlockedSkills || [];
+    for (const sid of unlocked) {
+        const node = store.config?.skillsById?.[sid];
+        if (node && node.effectType === 'COST_DISCOUNT' && node.effectKey === key) {
+            m *= Math.max(0, 1 - (node.value || 0));
+        }
+    }
+    return m;
+}
+
+const interiorDiscount = computed(() => discount('INTERIOR_UPGRADE_COST_DISCOUNT'));
+const evolveDiscount = computed(() => discount('EVOLVE_COST_DISCOUNT'));
 
 const interiorRows = computed(() => {
     const cap = form.value.maxInteriorLevel?.[level.value - 1] ?? 3;
@@ -60,14 +75,15 @@ const interiorRows = computed(() => {
             const inst = (props.building.interiors || []).find((x) => x.interiorType === it.id);
             const cur = inst?.level || 0;
             const rem = Math.max(0, cap - cur);
-            const cost = rem > 0 ? it.upgradeCostByLevel?.[cur] : 0;
+            const rawCost = rem > 0 ? (it.upgradeCostByLevel?.[cur] ?? 0) : 0;
+            const cost = Math.round(rawCost * interiorDiscount.value);
             const days = rem > 0 ? (it.upgradeDaysByLevel?.[cur] ?? 0) : 0;
             const proj = interiorProject(it.id);
             return { ...it, cur, cap, rem, cost, days, proj, canUp: !proj && rem > 0 && funds.value >= cost };
         });
 });
 
-const levelUpCost = computed(() => form.value.formLevelUpCost?.[level.value - 1] ?? 0);
+const levelUpCost = computed(() => Math.round((form.value.formLevelUpCost?.[level.value - 1] ?? 0) * evolveDiscount.value));
 const canLevelUp = computed(
     () => !activeProject.value && level.value < maxLevel.value && funds.value >= levelUpCost.value
 );
@@ -78,8 +94,9 @@ const branchTargets = computed(() => {
 });
 
 function branchMeta(t) {
-    const cost = t.evolveCost || 0;
-    return { cost, days: t.evolveDays || 0, can: funds.value >= cost };
+    const cost = Math.round((t.evolveCost || 0) * evolveDiscount.value);
+    const tierOk = !plot.value || (t.tier || 0) <= (plot.value.evolveTierCap || 3);
+    return { cost, days: t.evolveDays || 0, can: funds.value >= cost && tierOk && !activeProject.value };
 }
 
 /** 百分比格式化：0.02 → 2%，0.015 → 1.5% */

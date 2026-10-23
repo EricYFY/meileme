@@ -10,8 +10,8 @@
 
 > **历史沿革（简述）**：本工程最初是「外卖调度模拟系统」（骑手 / 订单 / 派单 + Vue 地图 + Python 寻路可视化）；
 > 其后整体改造为一版「度假村机制」（口碑 / 四季 / 随机事件 / 定价 / 团建 / 建筑停用拆除 / 旧 `BuildingType+StaffType`）；
-> **本轮又彻底推翻该度假村机制，重做为全新玩法**：删除旧 `com.meileme.backend.*`（仅保留 `BackendApplication`），
-> 新领域全部落在 `com.meileme.resort.*`。旧玩法（口碑、季节、事件、定价、团建、停用/拆除）均已移除。
+> **本轮又彻底推翻该度假村机制，重做为全新玩法**：删除旧 `com.meileme.backend.*`，
+> 新领域全部落在 `com.meileme.resort.*`（启动类为 `ResortApplication`）。旧玩法（口碑、季节、事件、定价、团建、停用/拆除）均已移除。
 
 > ⚠️ **本轮已完成后端玩法 + Vue3 前端全新深色 UI**（总览 / 区块 / 建筑 / 员工 / 技能 / 成就 / 日志 七大面板，全部基于新协议联调）。
 > **Python 可视化引擎尚未适配新玩法**（旧地图 / A\* 寻路 / NPC 动画已弃用，本期无地形），属**待适配**状态。
@@ -29,10 +29,10 @@
 ```mermaid
 flowchart TB
     subgraph Implemented["✅ 本轮已实现（后端 + 前端）"]
-        APP["BackendApplication<br/>@SpringBootApplication(scanBasePackages=com.meileme)<br/>@EnableScheduling"]
+        APP["ResortApplication<br/>@SpringBootApplication(scanBasePackages=com.meileme.resort)<br/>@EnableScheduling"]
         WS["GameWebSocketHandler / WebSocketConfig<br/>路由 /game"]
         ENG["GameEngine 挂机主循环 @Scheduled(1s)"]
-        SVC["resort.service.*（12 个业务服务）"]
+        SVC["resort.service.*（业务服务）"]
         CFG["resort.config.*<br/>GameConfig + ConfigRegistry + 枚举/数据类"]
         REPO["GameStateRepository 内存态"]
         MODEL["resort.model.*（GameState / BuildingInstance / ...）"]
@@ -333,7 +333,7 @@ flowchart TB
 
 - 每个配套有独立的**服务容量上限**；
 - 配套当日**服务人次 = min(本区域入住总人数, 配套服务容量上限)**（按区域口径）；
-- 配套收益 = `服务人次 × 该形态固定单人收益 × 配套收益技能倍率`；
+- 配套收益 = `服务人次 × 该形态固定单人收益 × (1 + 该建筑内装收益加成) × 配套收益技能倍率`；
 - **接待大堂 / 后勤库房**：容量与单人收益均为 **0**（**仅贡献吸引力**，不产生收益）。
 
 ---
@@ -490,7 +490,7 @@ beginDay() 次日 0 点:
 | 财务 | 总资产 | 总资产 10 万 / 100 万 / 500 万 / 1000 万 / 10000 万 |
 | 建筑 | 已建建筑总数 / 特定形态 | 建筑 5 / 10 / 20 / 50 / 100 座；建造亲子套房、行政套房 |
 | 客流 | 累计接待总人数 | 累计接待 100 / 1000 / 5000 / 10000 / 100000 人 |
-| 雇佣 | 员工总数 / 特定岗位等级 | 员工 5 / 10 / 20 / 50 / 500 人；招聘 3 级厨师、3 级店长 |
+| 雇佣 | 员工总数 / 特定岗位等级 | 员工 5 / 10 / 20 / 50 / 500 人；拥有 3 级厨师、3 级店长（通过培训升级） |
 
 完整 ID：`ACH_ASSET_10`、`ACH_ASSET_100`、`ACH_ASSET_500`、`ACH_ASSET_1000`、`ACH_ASSET_10000`、
 `ACH_BUILDING_5`、`ACH_BUILDING_10`、`ACH_BUILDING_20`、`ACH_BUILDING_50`、`ACH_BUILDING_100`、
@@ -584,13 +584,13 @@ beginDay() 次日 0 点:
 { "command": "BUILD_BUILDING", "buildingType": "STANDARD_ROOM", "plotId": "STORMVEIL_CASTLE", "cellX": 0, "cellY": 0 }
 ```
 ```json
-{ "command": "MERGE_EVOLVE", "buildingIdA": "BLD-a1", "buildingIdB": "BLD-b2" }
+{ "command": "MERGE_EVOLVE", "buildingIdA": "BLD_1", "buildingIdB": "BLD_2" }
 ```
 ```json
-{ "type": "PROJECT_STARTED", "id": "PJT-3a1c", "type": "BUILD", "typeDisplayName": "建造中", "displayName": "新建 标准客房", "plotId": "STORMVEIL_CASTLE", "totalDays": 3, "remainingDays": 3, "elapsedDays": 0, "startedDay": 1, "finishDay": 4 }
+{ "type": "PROJECT_STARTED", "id": "PJT_1", "projectType": "BUILD", "typeDisplayName": "建造中", "displayName": "新建 标准客房", "plotId": "STORMVEIL_CASTLE", "totalDays": 3, "remainingDays": 3, "elapsedDays": 0, "startedDay": 1, "finishDay": 4 }
 ```
 ```json
-{ "type": "PROJECT_COMPLETED", "id": "PJT-3a1c", "type": "BUILD", "typeDisplayName": "建造中", "displayName": "新建 标准客房", "totalDays": 3, "remainingDays": 0, "elapsedDays": 3, "startedDay": 1, "finishDay": 4 }
+{ "type": "PROJECT_COMPLETED", "id": "PJT_1", "projectType": "BUILD", "typeDisplayName": "建造中", "displayName": "新建 标准客房", "totalDays": 3, "remainingDays": 0, "elapsedDays": 3, "startedDay": 1, "finishDay": 4 }
 ```
 ```json
 { "type": "ACTION_FAILED", "action": "BRANCH_EVOLVE", "reason": "FORM_NOT_MAX_LEVEL" }
@@ -605,8 +605,8 @@ meileme/
 ├── backendjava/                          # ✅ Java 挂机后端 (:8080)
 │   ├── pom.xml                           # Spring Boot 3.2.4 + WebSocket + Jackson（+ 未被新业务使用的 redis 依赖）
 │   └── src/main/java/com/meileme/
-│       ├── backend/BackendApplication.java   # 仅保留：scanBasePackages=com.meileme + @EnableScheduling
 │       └── resort/
+│           ├── ResortApplication.java        # Spring Boot 启动类（@SpringBootApplication + @EnableScheduling）
 │           ├── config/      # 数值配置（唯一来源）：GameConfig、ConfigRegistry、BuildingForm、
 │           │                #   MotherBuildingType、InteriorType、MergeRecipe、EvolutionLine、Region、
 │           │                #   CustomerSegment、AbilityType、PositionType、Plot、Achievement、
@@ -632,9 +632,9 @@ meileme/
         │   └── guestAnimation.js         # 游客光点纯 CSS 漂移（前端简化模拟）
         └── components/
             ├── common/                   # Modal / ProgressBar / Toast
-            ├── overview/                 # StatusBar / DayPreview / GuestMixPanel / PlotMapView / BuildingIcon / BuildSlot
+            ├── overview/                 # StatusBar / DayPreview / GuestMixPanel / AbilityPanel / OverviewBuildingList / BuildingIcon
             ├── region/                   # RegionPanel / AchievementProgress
-            ├── building/                 # BuildModal / BuildingDetailModal / BuildingListPanel
+            ├── building/                 # BuildModal / BuildingDetailModal / PlotMapPanel
             ├── staff/                    # StaffPanel
             ├── skill/                    # SkillTreePanel（SVG 分层 DAG 布局）
             └── log/                      # SettlementLogModal（逐日日志 + 区间报告）

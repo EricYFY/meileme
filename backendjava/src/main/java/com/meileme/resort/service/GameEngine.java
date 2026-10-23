@@ -97,13 +97,13 @@ public class GameEngine {
 
     // ===================== 生命周期 =====================
 
-    public boolean isRunning() {
+    public synchronized boolean isRunning() {
         GameState s = repository.get();
         return s != null && s.isRunning();
     }
 
     /** 开新局：清空上一局残留（直接重建 GameState），并初始化区域 / 地块 */
-    public void startGame() {
+    public synchronized void startGame() {
         GameState state = new GameState();
         state.setFunds(GameConfig.STARTING_FUNDS);
         state.setDay(1);
@@ -116,8 +116,8 @@ public class GameEngine {
 
         List<String> initMessages = regionService.initialize(state);
         statsService.rebuild(state);
-        refreshPreview();
         repository.save(state);
+        refreshPreview();
 
         broadcast("DAY_STARTED", Map.of("day", state.getDay(), "date", state.currentDateDisplay(),
                 "unlocks", initMessages));
@@ -126,7 +126,7 @@ public class GameEngine {
     }
 
     /** 结束对局 */
-    public void stopGame() {
+    public synchronized void stopGame() {
         GameState s = repository.get();
         if (s == null) {
             return;
@@ -135,7 +135,7 @@ public class GameEngine {
         broadcast("GAME_STOPPED", Map.of("reason", "STOPPED"));
     }
 
-    public void pauseGame() {
+    public synchronized void pauseGame() {
         GameState s = repository.get();
         if (s != null) {
             s.setPaused(true);
@@ -143,7 +143,7 @@ public class GameEngine {
         }
     }
 
-    public void resumeGame() {
+    public synchronized void resumeGame() {
         GameState s = repository.get();
         if (s != null) {
             s.setPaused(false);
@@ -151,9 +151,25 @@ public class GameEngine {
         }
     }
 
-    public void setSimulationSpeed(double speed) {
+    public synchronized void setSimulationSpeed(double speed) {
+        setSimulationSpeed(null, speed);
+    }
+
+    public synchronized void setSimulationSpeed(WebSocketSession session, double speed) {
         GameState s = repository.get();
         if (s == null) {
+            fail(session, "SET_SIMULATION_SPEED", "GAME_NOT_RUNNING");
+            return;
+        }
+        boolean valid = false;
+        for (double opt : GameConfig.SPEED_OPTIONS) {
+            if (Math.abs(opt - speed) < 1e-4) {
+                valid = true;
+                break;
+            }
+        }
+        if (!valid) {
+            fail(session, "SET_SIMULATION_SPEED", "INVALID_SPEED");
             return;
         }
         s.setSpeed(speed);
@@ -163,7 +179,7 @@ public class GameEngine {
     // ===================== 时钟推进 =====================
 
     @Scheduled(fixedRate = GameConfig.TICK_INTERVAL_MS)
-    public void scheduledLoop() {
+    public synchronized void scheduledLoop() {
         GameState s = repository.get();
         if (s == null || !s.isRunning() || s.isPaused()) {
             return;
@@ -179,7 +195,7 @@ public class GameEngine {
     }
 
     @Scheduled(fixedRate = 200)
-    public void tickBroadcastLoop() {
+    public synchronized void tickBroadcastLoop() {
         GameState s = repository.get();
         if (s == null || !s.isRunning()) {
             return;
@@ -195,6 +211,8 @@ public class GameEngine {
             DemandResult demand = demandService.compute(s);
             settle = financeService.settle(s, demand);
         } catch (Exception e) {
+            System.err.println("[GameEngine] 日结异常: " + e.getMessage());
+            e.printStackTrace();
             settle = new DailySettle();
             settle.setDay(s.getDay());
             settle.setDateDisplay(s.currentDateDisplay());
@@ -221,6 +239,7 @@ public class GameEngine {
     private void beginDay() {
         GameState s = repository.get();
         s.setDay(s.getDay() + 1);
+        s.getStats().setTotalAssets(s.getFunds());
         // 工程工期从次日起累计，达标后在本日 0 点生效
         List<String> projectDone = progressProjects(s);
         applyPendingCommands();
@@ -338,6 +357,7 @@ public class GameEngine {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", p.getId());
         m.put("type", p.getType().name());
+        m.put("projectType", p.getType().name());
         m.put("typeDisplayName", p.getType().getDisplayName());
         m.put("displayName", p.getDisplayName());
         m.put("plotId", p.getPlotId());
@@ -373,7 +393,7 @@ public class GameEngine {
 
     // ===================== 工程开工（立即扣费，按工期完成后生效） =====================
 
-    public void requestBuild(WebSocketSession session, MotherBuildingType mother, String plotId, int cellX, int cellY) {
+    public synchronized void requestBuild(WebSocketSession session, MotherBuildingType mother, String plotId, int cellX, int cellY) {
         GameState s = repository.get();
         String reason = constructionService.validateBuild(s, mother, plotId, cellX, cellY);
         if (reason != null) {
@@ -391,7 +411,7 @@ public class GameEngine {
         startProject(session, s, p, constructionService.buildCost(s, mother));
     }
 
-    public void requestFormLevelUp(WebSocketSession session, String buildingId) {
+    public synchronized void requestFormLevelUp(WebSocketSession session, String buildingId) {
         GameState s = repository.get();
         BuildingInstance b = s == null ? null : s.findAliveBuilding(buildingId);
         String reason = evolutionService.validateFormLevelUp(s, b);
@@ -409,7 +429,7 @@ public class GameEngine {
         startProject(session, s, p, evolutionService.formLevelUpCost(s, b));
     }
 
-    public void requestBranchEvolve(WebSocketSession session, String buildingId, String targetFormId) {
+    public synchronized void requestBranchEvolve(WebSocketSession session, String buildingId, String targetFormId) {
         GameState s = repository.get();
         BuildingInstance b = s == null ? null : s.findAliveBuilding(buildingId);
         BuildingForm target = registry.form(targetFormId);
@@ -428,7 +448,7 @@ public class GameEngine {
         startProject(session, s, p, evolutionService.branchEvolveCost(s, target));
     }
 
-    public void requestMergeEvolve(WebSocketSession session, String buildingIdA, String buildingIdB) {
+    public synchronized void requestMergeEvolve(WebSocketSession session, String buildingIdA, String buildingIdB) {
         GameState s = repository.get();
         if (s == null) {
             fail(session, "MERGE_EVOLVE", "GAME_NOT_RUNNING");
@@ -458,7 +478,7 @@ public class GameEngine {
         startProject(session, s, p, evolutionService.mergeCost(s, recipe));
     }
 
-    public void requestInteriorUpgrade(WebSocketSession session, String buildingId, InteriorType type) {
+    public synchronized void requestInteriorUpgrade(WebSocketSession session, String buildingId, InteriorType type) {
         GameState s = repository.get();
         BuildingInstance b = s == null ? null : s.findAliveBuilding(buildingId);
         String reason = interiorService.validateUpgrade(s, b, type);
@@ -492,7 +512,7 @@ public class GameEngine {
 
     // ===================== 指令入队（立即校验，次日生效） =====================
 
-    public void requestHire(WebSocketSession session, PositionType position) {
+    public synchronized void requestHire(WebSocketSession session, PositionType position) {
         GameState s = repository.get();
         String reason = staffService.validateHire(s, position);
         if (reason != null) {
@@ -505,7 +525,7 @@ public class GameEngine {
                 "招聘 " + position.getDisplayName() + " Lv1");
     }
 
-    public void requestTrain(WebSocketSession session, String staffId) {
+    public synchronized void requestTrain(WebSocketSession session, String staffId) {
         GameState s = repository.get();
         StaffInstance staff = s == null ? null : s.findAliveStaff(staffId);
         String reason = staffService.validateTrain(s, staff);
@@ -520,7 +540,7 @@ public class GameEngine {
                         + (staff.getLevel() + 1));
     }
 
-    public void requestFire(WebSocketSession session, String staffId) {
+    public synchronized void requestFire(WebSocketSession session, String staffId) {
         GameState s = repository.get();
         StaffInstance staff = s == null ? null : s.findAliveStaff(staffId);
         String reason = staffService.validateFire(s, staff);
@@ -534,7 +554,7 @@ public class GameEngine {
                 "解雇 " + staff.getPosition().getDisplayName() + " Lv" + staff.getLevel());
     }
 
-    public void requestSkillUnlock(WebSocketSession session, String skillId) {
+    public synchronized void requestSkillUnlock(WebSocketSession session, String skillId) {
         GameState s = repository.get();
         String reason = skillTree.validateUnlock(s, skillId);
         if (reason != null) {
@@ -547,7 +567,7 @@ public class GameEngine {
                 "解锁技能 " + registry.skill(skillId).getDisplayName());
     }
 
-    public void requestUnlockPlot(WebSocketSession session, String plotId) {
+    public synchronized void requestUnlockPlot(WebSocketSession session, String plotId) {
         GameState s = repository.get();
         Plot plot = registry.plot(plotId);
         String reason = regionService.validateUnlock(s, plot);
@@ -664,7 +684,7 @@ public class GameEngine {
     }
 
     /** 全量每日日志（游戏结束时用于复盘） */
-    public void sendDailyLog(WebSocketSession session) {
+    public synchronized void sendDailyLog(WebSocketSession session) {
         GameState s = repository.get();
         if (s == null) {
             return;
@@ -673,13 +693,14 @@ public class GameEngine {
     }
 
     /** 区间报告：过去 1 / 7 / 30 / 365 天聚合，仅回请求方 */
-    public void sendRangeReport(WebSocketSession session, int rangeDays) {
+    public synchronized void sendRangeReport(WebSocketSession session, int rangeDays) {
         GameState s = repository.get();
         if (s == null) {
             return;
         }
+        int effectiveRange = rangeDays <= 0 ? 7 : rangeDays;
         List<DailySettle> history = s.getDailyHistory();
-        int from = Math.max(0, history.size() - rangeDays);
+        int from = Math.max(0, history.size() - effectiveRange);
         List<DailySettle> slice = new ArrayList<>(history.subList(from, history.size()));
 
         double revenue = 0;
@@ -695,7 +716,7 @@ public class GameEngine {
             occupied += d.getOccupiedRooms();
         }
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("rangeDays", rangeDays);
+        payload.put("rangeDays", effectiveRange);
         payload.put("days", slice.size());
         payload.put("totalRevenue", revenue);
         payload.put("netProfit", revenue);
@@ -937,8 +958,8 @@ public class GameEngine {
     private String toJson(String type, Map<String, Object> payload) {
         try {
             Map<String, Object> msg = new LinkedHashMap<>();
-            msg.put("type", type);
             msg.putAll(payload);
+            msg.put("type", type);
             return objectMapper.writeValueAsString(msg);
         } catch (Exception e) {
             return "{\"type\":\"ERROR\"}";

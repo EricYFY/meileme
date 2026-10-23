@@ -33,8 +33,6 @@ export default class WebSocketClient {
             console.log('[WS] 连接成功');
             this.isConnected = true;
             if (this.onStatusChange) this.onStatusChange(true);
-            this.send({ command: 'CHECK_STATUS' });
-            this.send({ command: 'GET_CONFIG' });
         };
 
         this.ws.onclose = () => {

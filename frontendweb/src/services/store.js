@@ -96,6 +96,8 @@ const REASONS = {
     NO_SKILL_POINT: '技能点不足',
     PREREQUISITE_NOT_UNLOCKED: '前置技能未解锁',
     UNKNOWN_PROJECT: '工程类型异常',
+    UNKNOWN_COMMAND: '未知指令',
+    INVALID_SPEED: '倍速参数无效',
 };
 function translateReason(reason) {
     return REASONS[reason] || reason || '未知原因';
@@ -152,6 +154,9 @@ ws.onDaySettled = (msg) => {
 
 ws.onGameStopped = () => {
     store.booting = false;
+    if (store.state) {
+        store.state.running = false;
+    }
 };
 
 ws.onActionQueued = (msg) => {

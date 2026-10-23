@@ -12,16 +12,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** WebSocket 网关：接收玩家操作指令、下发游戏状态与报告。 */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
-    private static final CopyOnWriteArrayList<WebSocketSession> SESSIONS = new CopyOnWriteArrayList<>();
+    private static final Map<String, WebSocketSession> SESSIONS = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -31,21 +32,23 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        SESSIONS.add(session);
+        WebSocketSession decorator = new ConcurrentWebSocketSessionDecorator(session, 5000, 64 * 1024);
+        SESSIONS.put(session.getId(), decorator);
         System.out.println("Client connected: " + session.getId());
         if (gameEngine != null) {
-            gameEngine.syncStateToSession(session);
+            gameEngine.syncStateToSession(decorator);
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        SESSIONS.remove(session);
+        SESSIONS.remove(session.getId());
         System.out.println("Client disconnected: " + session.getId());
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+    protected void handleTextMessage(WebSocketSession rawSession, TextMessage message) {
+        WebSocketSession session = SESSIONS.getOrDefault(rawSession.getId(), rawSession);
         String payload = message.getPayload();
         System.out.println(">>> [来自 Client] " + payload);
         try {
@@ -75,11 +78,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     gameEngine.sendConfig(session);
                     break;
                 case "SET_SIMULATION_SPEED":
-                    gameEngine.setSimulationSpeed(node.has("speed") ? node.get("speed").asDouble() : 1.0);
+                    gameEngine.setSimulationSpeed(session, node.has("speed") ? node.get("speed").asDouble() : 1.0);
                     break;
                 case "BUILD_BUILDING": {
-                    MotherBuildingType type = MotherBuildingType.valueOf(node.get("buildingType").asText());
-                    String plotId = node.has("plotId") ? node.get("plotId").asText() : "A_COUNTRYSIDE";
+                    String typeStr = node.has("buildingType") ? node.get("buildingType").asText() : "";
+                    MotherBuildingType type = null;
+                    try {
+                        type = MotherBuildingType.valueOf(typeStr);
+                    } catch (Exception ignored) {
+                    }
+                    if (type == null) {
+                        sendActionFailed(session, "BUILD_BUILDING", "BUILDING_TYPE_NOT_FOUND");
+                        break;
+                    }
+                    String plotId = node.has("plotId") ? node.get("plotId").asText() : "STORMVEIL_CASTLE";
                     int cellX = node.has("cellX") ? node.get("cellX").asInt() : -1;
                     int cellY = node.has("cellY") ? node.get("cellY").asInt() : -1;
                     gameEngine.requestBuild(session, type, plotId, cellX, cellY);
@@ -100,13 +112,31 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                             node.has("buildingIdB") ? node.get("buildingIdB").asText() : "");
                     break;
                 case "INTERIOR_UPGRADE": {
-                    InteriorType type = InteriorType.valueOf(node.get("interiorType").asText());
+                    String typeStr = node.has("interiorType") ? node.get("interiorType").asText() : "";
+                    InteriorType type = null;
+                    try {
+                        type = InteriorType.valueOf(typeStr);
+                    } catch (Exception ignored) {
+                    }
+                    if (type == null) {
+                        sendActionFailed(session, "INTERIOR_UPGRADE", "INTERIOR_NOT_FOUND");
+                        break;
+                    }
                     gameEngine.requestInteriorUpgrade(session,
                             node.has("buildingId") ? node.get("buildingId").asText() : "", type);
                     break;
                 }
                 case "HIRE_STAFF": {
-                    PositionType position = PositionType.valueOf(node.get("position").asText());
+                    String posStr = node.has("position") ? node.get("position").asText() : "";
+                    PositionType position = null;
+                    try {
+                        position = PositionType.valueOf(posStr);
+                    } catch (Exception ignored) {
+                    }
+                    if (position == null) {
+                        sendActionFailed(session, "HIRE_STAFF", "POSITION_NOT_FOUND");
+                        break;
+                    }
                     gameEngine.requestHire(session, position);
                     break;
                 }
@@ -132,15 +162,28 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     break;
                 default:
                     System.out.println(">>> 未知指令: " + cmd);
+                    sendActionFailed(session, cmd, "UNKNOWN_COMMAND");
             }
         } catch (Exception e) {
             System.err.println("解析客户端消息失败: " + e.getMessage());
         }
     }
 
+    private void sendActionFailed(WebSocketSession session, String action, String reason) {
+        try {
+            String json = objectMapper.writeValueAsString(Map.of(
+                    "type", "ACTION_FAILED",
+                    "action", action,
+                    "reason", reason
+            ));
+            sendToSession(session, json);
+        } catch (Exception ignored) {
+        }
+    }
+
     /** 向所有客户端广播 */
     public void broadcastMessage(String message) {
-        for (WebSocketSession session : SESSIONS) {
+        for (WebSocketSession session : SESSIONS.values()) {
             sendToSession(session, message);
         }
     }
@@ -152,7 +195,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
         try {
             session.sendMessage(new TextMessage(message));
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("发送失败: " + e.getMessage());
         }
     }

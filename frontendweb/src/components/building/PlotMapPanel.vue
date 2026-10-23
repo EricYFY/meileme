@@ -51,7 +51,7 @@ const buildingAt = computed(() => {
 const projectAt = computed(() => {
     const m = {};
     for (const p of store.state?.projects || []) {
-        if (p.type === 'BUILD' && p.plotId === selectedPlotId.value) m[p.cellX + ',' + p.cellY] = p;
+        if (((p.projectType || p.type) === 'BUILD') && p.plotId === selectedPlotId.value) m[p.cellX + ',' + p.cellY] = p;
     }
     return m;
 });

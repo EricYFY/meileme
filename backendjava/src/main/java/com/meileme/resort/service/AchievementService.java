@@ -31,7 +31,7 @@ public class AchievementService {
             case CUMULATIVE_INCOME:
                 return state.getStats().getCumulativeIncome() >= target;
             case BUILDING_COUNT:
-                return state.aliveBuildings().size() >= target;
+                return Math.max(state.aliveBuildings().size(), state.getStats().getBuildingsBuiltCount()) >= target;
             case FORM_LEVEL_COUNT:
                 return formLevelCount(state, a.getParam()) >= target;
             case CUMULATIVE_GUESTS:
@@ -79,22 +79,19 @@ public class AchievementService {
     }
 
     private double positionLevelCount(GameState state, String param) {
-        return state.getStats().positionLevelCount(param, parseIntSafe(param));
-    }
-
-    private int parseIntSafe(String param) {
-        if (param == null) {
-            return 0;
-        }
-        int idx = param.lastIndexOf('_');
+        String p = param == null ? "" : param;
+        int idx = p.lastIndexOf('_');
         if (idx <= 0) {
             return 0;
         }
+        String positionName = p.substring(0, idx);
+        int level;
         try {
-            return Integer.parseInt(param.substring(idx + 1));
+            level = Integer.parseInt(p.substring(idx + 1));
         } catch (NumberFormatException e) {
             return 0;
         }
+        return state.getStats().positionLevelCount(positionName, level);
     }
 
     private double segmentGuests(GameState state, String param) {

@@ -33,7 +33,7 @@ public class InteriorService {
 
     /** 校验内装升级；返回 null 表示可执行 */
     public String validateUpgrade(GameState state, BuildingInstance building, InteriorType type) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (building == null) {

@@ -8,6 +8,7 @@ import com.meileme.resort.config.Plot;
 import com.meileme.resort.config.SkillEffectKey;
 import com.meileme.resort.model.BuildingInstance;
 import com.meileme.resort.model.GameState;
+import com.meileme.resort.model.InteriorInstance;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ public class EvolutionService {
     }
 
     public String validateFormLevelUp(GameState state, BuildingInstance building) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (building == null) {
@@ -84,7 +85,7 @@ public class EvolutionService {
     }
 
     public String validateBranchEvolve(GameState state, BuildingInstance building, BuildingForm target) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (building == null) {
@@ -121,10 +122,16 @@ public class EvolutionService {
         return null;
     }
 
-    /** 工程完成时分支进化：形态替换为目标形态并回到 Lv1（费用已在开工时扣除） */
+    /** 工程完成时分支进化：形态替换为目标形态并回到 Lv1（费用已在开工时扣除，多余内装等级修剪至当前上限） */
     public void completeBranchEvolve(BuildingInstance building, BuildingForm target) {
         building.setForm(target);
         building.setFormLevel(GameConfig.FORM_MIN_LEVEL);
+        int maxInterior = target.maxInteriorLevelOf(GameConfig.FORM_MIN_LEVEL);
+        for (InteriorInstance it : building.getInteriors()) {
+            if (it.getLevel() > maxInterior) {
+                it.setLevel(maxInterior);
+            }
+        }
     }
 
     /** 某建筑当前可分支进化的目标形态列表 */
@@ -146,7 +153,7 @@ public class EvolutionService {
     }
 
     public String validateMerge(GameState state, BuildingInstance a, BuildingInstance b, MergeRecipe recipe) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (a == null || b == null) {
@@ -166,6 +173,10 @@ public class EvolutionService {
         }
         if (!a.isAdjacentTo(b)) {
             return "MERGE_SOURCE_NOT_ADJACENT";
+        }
+        Plot plot = registry.plot(a.getPlotId());
+        if (plot != null && recipe.getResultForm().getTier() > plot.getEvolveTierCap()) {
+            return "PLOT_EVOLVE_TIER_CAP_EXCEEDED";
         }
         if (state.getFunds() < mergeCost(state, recipe)) {
             return "INSUFFICIENT_FUNDS";

@@ -64,7 +64,7 @@ public class SkillTreeService {
 
     /** 校验技能是否可解锁；返回 null 表示可解锁，否则返回失败原因 */
     public String validateUnlock(GameState state, String skillId) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         SkillNode node = registry.skill(skillId);

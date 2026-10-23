@@ -38,7 +38,7 @@ public class RegionService {
 
     /** 校验付费解锁；返回 null 表示可执行 */
     public String validateUnlock(GameState state, Plot plot) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (plot == null) {

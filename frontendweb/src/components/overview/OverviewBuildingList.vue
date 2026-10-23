@@ -8,7 +8,7 @@ const emit = defineEmits(['open-building']);
 const groups = computed(() => {
     const plots = store.config?.plots || [];
     const buildings = (store.state?.buildings || []).filter((b) => b.alive);
-    const projects = (store.state?.projects || []).filter((p) => p.type === 'BUILD');
+    const projects = (store.state?.projects || []).filter((p) => (p.projectType || p.type) === 'BUILD');
     const out = [];
     for (const plot of plots) {
         const list = buildings.filter((b) => b.plotId === plot.id);

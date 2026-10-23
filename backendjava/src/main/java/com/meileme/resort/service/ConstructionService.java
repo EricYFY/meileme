@@ -64,7 +64,7 @@ public class ConstructionService {
 
     /** 校验新建；返回 null 表示可执行 */
     public String validateBuild(GameState state, MotherBuildingType mother, String plotId, int cellX, int cellY) {
-        if (state == null) {
+        if (state == null || !state.isRunning()) {
             return "GAME_NOT_RUNNING";
         }
         if (mother == null) {
