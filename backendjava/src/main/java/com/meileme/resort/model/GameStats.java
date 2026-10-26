@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -20,7 +21,7 @@ public class GameStats {
     private double totalGuests = 0;
 
     /** 分客群累计接待总数 */
-    private Map<CustomerSegment, Double> segmentGuests = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> segmentGuests = new LinkedHashMap<>();
 
     /** 历史累计新建建筑数 */
     private int buildingsBuiltCount = 0;
@@ -35,17 +36,29 @@ public class GameStats {
     private double totalAssets = 0;
 
     /** 取指定客群的累计接待数 */
-    public double segmentGuestsOf(CustomerSegment segment) {
-        Double v = segmentGuests.get(segment);
+    public double segmentGuestsOf(String segmentId) {
+        if (segmentId == null) return 0d;
+        Double v = segmentGuests.get(segmentId);
         return v == null ? 0d : v;
     }
 
+    /** 取指定客群的累计接待数（枚举兼容） */
+    public double segmentGuestsOf(CustomerSegment segment) {
+        return segment == null ? 0d : segmentGuestsOf(segment.name());
+    }
+
     /** 指定客群累计接待数累加 */
-    public void addSegmentGuests(CustomerSegment segment, double value) {
-        if (value <= 0) {
+    public void addSegmentGuests(String segmentId, double value) {
+        if (segmentId == null || value <= 0) {
             return;
         }
-        segmentGuests.merge(segment, value, Double::sum);
+        segmentGuests.merge(segmentId, value, Double::sum);
+    }
+
+    /** 指定客群累计接待数累加（枚举兼容） */
+    public void addSegmentGuests(CustomerSegment segment, double value) {
+        if (segment == null) return;
+        addSegmentGuests(segment.name(), value);
     }
 
     /** 取「形态 + 等级」当前计数 */

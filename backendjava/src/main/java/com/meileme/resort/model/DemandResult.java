@@ -3,8 +3,8 @@ package com.meileme.resort.model;
 import com.meileme.resort.config.CustomerSegment;
 import lombok.Data;
 
-import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -14,15 +14,15 @@ import java.util.Map;
 public class DemandResult {
 
     /** 各客群原始潜在客流 */
-    private Map<CustomerSegment, Double> potentialBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> potentialBySegment = new LinkedHashMap<>();
     /** 各客群吸引力得分 */
-    private Map<CustomerSegment, Double> attractionBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> attractionBySegment = new LinkedHashMap<>();
     /** 各客群转化率 */
-    private Map<CustomerSegment, Double> conversionBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> conversionBySegment = new LinkedHashMap<>();
     /** 各客群意向客流（潜在 × 转化率） */
-    private Map<CustomerSegment, Double> intentBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> intentBySegment = new LinkedHashMap<>();
     /** 各客群实际接待人数（床位容量截断后） */
-    private Map<CustomerSegment, Double> servedBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> servedBySegment = new LinkedHashMap<>();
 
     /** 单建筑售出间数（住宿） */
     private Map<String, Integer> soldRoomsByBuilding = new HashMap<>();
@@ -42,4 +42,12 @@ public class DemandResult {
     private int totalRooms;
     /** 售出间数 */
     private int occupiedRooms;
+
+    public double getServedOf(String segmentId) {
+        return servedBySegment.getOrDefault(segmentId, 0.0);
+    }
+
+    public double getServedOf(CustomerSegment seg) {
+        return seg == null ? 0.0 : getServedOf(seg.name());
+    }
 }

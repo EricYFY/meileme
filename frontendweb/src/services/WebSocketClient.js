@@ -59,8 +59,10 @@ export default class WebSocketClient {
     send(data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(data));
+            return true;
         } else {
             console.warn('[WS] 未连接，无法发送', data);
+            return false;
         }
     }
 
@@ -106,8 +108,18 @@ export default class WebSocketClient {
             case 'RANGE_REPORT':
                 if (this.onRangeReport) this.onRangeReport(msg);
                 break;
+            case 'ADMIN_CONFIG_DATA':
+                if (this.onAdminConfigData) this.onAdminConfigData(msg);
+                break;
+            case 'ADMIN_CONFIG_SAVED':
+                if (this.onAdminConfigSaved) this.onAdminConfigSaved(msg);
+                break;
+            case 'ADMIN_CONFIG_RESET':
+                if (this.onAdminConfigReset) this.onAdminConfigReset(msg);
+                break;
             case 'ERROR':
                 console.warn('[WS] 服务端错误', msg);
+                if (this.onError) this.onError(msg);
                 break;
         }
     }

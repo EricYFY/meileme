@@ -56,6 +56,9 @@ public class AchievementService {
             }
             if (isMet(state, a)) {
                 state.getUnlockedAchievements().add(a.getId());
+                if (a.getRewardSkillPoints() > 0) {
+                    state.setSkillPoints(state.getSkillPoints() + a.getRewardSkillPoints());
+                }
                 unlocked.add(a);
             }
         }
@@ -95,11 +98,6 @@ public class AchievementService {
     }
 
     private double segmentGuests(GameState state, String param) {
-        for (CustomerSegment seg : CustomerSegment.values()) {
-            if (seg.name().equals(param)) {
-                return state.getStats().segmentGuestsOf(seg);
-            }
-        }
-        return 0;
+        return state.getStats().segmentGuestsOf(param);
     }
 }

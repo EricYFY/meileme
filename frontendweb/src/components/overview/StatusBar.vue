@@ -10,6 +10,8 @@ const day = computed(() => store.tick.day ?? store.state?.day ?? 1);
 const date = computed(() => store.tick.date || store.state?.date || '');
 const funds = computed(() => store.tick.funds ?? store.state?.funds ?? 0);
 
+const emit = defineEmits(['open-admin']);
+
 function setSpeed(v) { api.setSpeed(v); }
 </script>
 
@@ -44,6 +46,7 @@ function setSpeed(v) { api.setSpeed(v); }
             <button v-else class="primary" @click="api.resume()">继续</button>
         </div>
 
+        <button v-if="!running" class="gold" @click="emit('open-admin')">⚙️ 管理员模式</button>
         <button v-if="!running" class="primary" @click="api.startGame()">开始对局</button>
         <button v-if="running" class="danger" @click="api.stopGame()">结束</button>
     </div>

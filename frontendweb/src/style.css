@@ -263,7 +263,7 @@ button.ghost:hover { color: var(--text); border-color: var(--text-faint); }
 .modal-foot { padding: 14px 18px; border-top: 1px solid var(--border-soft); display: flex; justify-content: flex-end; gap: 10px; }
 
 /* Toast */
-.toast-layer { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
+.toast-layer { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 100000; }
 .toast { padding: 10px 16px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 13px; max-width: 340px; animation: slidein .18s ease; }
 .toast.unlock { border-color: var(--gold); }
 .toast.queued { border-color: var(--accent); }

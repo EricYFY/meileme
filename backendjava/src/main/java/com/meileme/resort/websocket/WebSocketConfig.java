@@ -20,4 +20,12 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(gameWebSocketHandler, "/game").setAllowedOrigins("*");
     }
+
+    @org.springframework.context.annotation.Bean
+    public org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean createWebSocketContainer() {
+        org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean container = new org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean();
+        container.setMaxTextMessageBufferSize(512 * 1024);
+        container.setMaxBinaryMessageBufferSize(512 * 1024);
+        return container;
+    }
 }

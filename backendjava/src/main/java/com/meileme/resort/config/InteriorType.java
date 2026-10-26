@@ -124,12 +124,37 @@ public enum InteriorType {
 
     /** 指定客群每级吸引力加成 */
     public double segmentAffinityOf(CustomerSegment segment) {
-        return segmentAffinityPerLevel.getOrDefault(segment, 0d);
+        return segment == null ? 0d : segmentAffinityOf(segment.name());
+    }
+
+    /** 指定客群每级吸引力加成（字符串 ID） */
+    public double segmentAffinityOf(String segmentId) {
+        if (segmentId == null) return 0d;
+        try {
+            CustomerSegment seg = CustomerSegment.valueOf(segmentId);
+            return segmentAffinityPerLevel.getOrDefault(seg, 0d);
+        } catch (Exception ignored) {
+            return 0d;
+        }
     }
 
     /** 该内装是否可安装到指定母本 */
     public boolean isApplicableTo(MotherBuildingType mother) {
         return mother != null && applicableMothers.contains(mother);
+    }
+
+    /** 该内装是否可安装到指定建筑形态与母本（形态声明了可用内装列表时以形态为准；否则按母本或大类匹配） */
+    public boolean isApplicableTo(BuildingForm form, MotherBuildingType mother) {
+        if (form != null && form.getAvailableInteriors() != null && !form.getAvailableInteriors().isEmpty()) {
+            return form.isInteriorAllowed(name());
+        }
+        if (mother != null) {
+            return applicableMothers.contains(mother);
+        }
+        if (form != null && form.isAccommodation()) {
+            return applicableMothers.contains(MotherBuildingType.STANDARD_ROOM);
+        }
+        return true;
     }
 
     /** 构造客群吸引力加成表：参数为「客群, 数值」交替 */

@@ -8,6 +8,8 @@ import com.meileme.resort.model.BuildingInstance;
 import com.meileme.resort.model.GameState;
 import com.meileme.resort.model.InteriorInstance;
 import com.meileme.resort.model.StaffInstance;
+import com.meileme.resort.config.InteriorConfig;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -25,9 +27,11 @@ import java.util.Map;
 public class ComfortService {
 
     private final SkillTreeService skillTree;
+    private final ConfigRegistry registry;
 
-    public ComfortService(SkillTreeService skillTree) {
+    public ComfortService(SkillTreeService skillTree, @Autowired(required = false) ConfigRegistry registry) {
         this.skillTree = skillTree;
+        this.registry = registry;
     }
 
     /** 全局各能力总需求（全部存活建筑） */
@@ -59,8 +63,18 @@ public class ComfortService {
             supply.put(a, 0d);
         }
         for (StaffInstance s : state.aliveStaffs()) {
-            double v = s.abilityValue() * abilityMult;
             for (AbilityType a : s.abilities()) {
+                double v;
+                if (registry != null && s.getPosition() != null) {
+                    com.meileme.resort.config.PositionConfig pcfg = registry.getPosition(s.getPosition().name());
+                    if (pcfg != null) {
+                        v = pcfg.abilityValueOf(a, s.getLevel()) * abilityMult;
+                    } else {
+                        v = s.abilityValue() * abilityMult;
+                    }
+                } else {
+                    v = s.abilityValue() * abilityMult;
+                }
                 supply.merge(a, v, Double::sum);
             }
         }
@@ -84,7 +98,14 @@ public class ComfortService {
         double interiorComfortMult = skillTree.multiplier(state, SkillEffectKey.INTERIOR_COMFORT_MULT);
         double interiorComfort = 0;
         for (InteriorInstance it : b.getInteriors()) {
-            interiorComfort += it.getInteriorType().getComfortPerLevel() * it.getLevel();
+            double cPerLvl = it.getInteriorType().getComfortPerLevel();
+            if (registry != null) {
+                InteriorConfig cfg = registry.getInterior(it.getInteriorType().name());
+                if (cfg != null) {
+                    cPerLvl = cfg.getComfortPerLevel();
+                }
+            }
+            interiorComfort += cPerLvl * it.getLevel();
         }
         return interiorComfort * interiorComfortMult;
     }
@@ -141,33 +162,47 @@ public class ComfortService {
         return base * staffFactorOf(b, ratios);
     }
 
-    /** 单建筑承载容量（住宿 = 每间可接待人数 + 承载型内装容量） */
+    /** 单建筑内装提供的额外承载/服务容量（必须严格匹配该形态指定的 capacityInterior 内装） */
+    public double interiorCapacityBonusOf(GameState state, BuildingInstance b) {
+        if (b == null || b.getForm() == null) {
+            return 0;
+        }
+        String targetInterior = b.getForm().getCapacityInterior();
+        if (targetInterior == null || targetInterior.isBlank()) {
+            return 0;
+        }
+        double extra = 0;
+        double capacityMult = skillTree.multiplier(state, SkillEffectKey.INTERIOR_CAPACITY_MULT);
+        for (InteriorInstance it : b.getInteriors()) {
+            if (it.getInteriorType() != null && targetInterior.equalsIgnoreCase(it.getInteriorType().name())) {
+                double capPerLvl = it.getInteriorType().getCapacityPerLevel();
+                if (registry != null) {
+                    InteriorConfig cfg = registry.getInterior(it.getInteriorType().name());
+                    if (cfg != null) {
+                        capPerLvl = cfg.getCapacityPerLevel();
+                    }
+                }
+                extra += capPerLvl * it.getLevel();
+            }
+        }
+        return extra * capacityMult;
+    }
+
+    /** 单建筑承载容量（住宿 = 每间基础人数 + 指定内装额外承载容量） */
     public double capacityOf(GameState state, BuildingInstance b) {
         BuildingForm f = b.getForm();
         if (f == null) {
             return 0;
         }
-        double capacityMult = skillTree.multiplier(state, SkillEffectKey.INTERIOR_CAPACITY_MULT);
-        double extra = 0;
-        for (InteriorInstance it : b.getInteriors()) {
-            extra += it.getInteriorType().getCapacityPerLevel() * it.getLevel();
-        }
-        extra *= capacityMult;
-        return f.getCapacityPerRoom() + extra;
+        return f.getCapacityPerRoom() + interiorCapacityBonusOf(state, b);
     }
 
-    /** 配套服务容量（配套 = 形态服务容量上限 + 承载型内装容量） */
+    /** 配套服务容量（配套 = 形态基础服务容量 + 指定内装额外服务容量） */
     public double supportCapacityOf(GameState state, BuildingInstance b) {
         BuildingForm f = b.getForm();
         if (f == null) {
             return 0;
         }
-        double capacityMult = skillTree.multiplier(state, SkillEffectKey.INTERIOR_CAPACITY_MULT);
-        double extra = 0;
-        for (InteriorInstance it : b.getInteriors()) {
-            extra += it.getInteriorType().getCapacityPerLevel() * it.getLevel();
-        }
-        extra *= capacityMult;
-        return f.getServiceCapacity() + extra;
+        return f.getServiceCapacity() + interiorCapacityBonusOf(state, b);
     }
 }

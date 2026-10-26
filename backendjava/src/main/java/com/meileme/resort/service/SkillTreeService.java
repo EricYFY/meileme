@@ -74,7 +74,7 @@ public class SkillTreeService {
         if (state.getUnlockedSkills().contains(skillId)) {
             return "SKILL_ALREADY_UNLOCKED";
         }
-        if (state.getSkillPoints() <= 0) {
+        if (state.getSkillPoints() < node.getCostPoints()) {
             return "NO_SKILL_POINT";
         }
         for (String pre : node.getPrerequisites()) {
@@ -91,7 +91,7 @@ public class SkillTreeService {
         if (node == null) {
             return;
         }
-        state.setSkillPoints(Math.max(0, state.getSkillPoints() - 1));
+        state.setSkillPoints(Math.max(0, state.getSkillPoints() - node.getCostPoints()));
         state.getUnlockedSkills().add(skillId);
     }
 

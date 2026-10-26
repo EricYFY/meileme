@@ -1,407 +1,637 @@
 package com.meileme.resort.service;
 
-import com.meileme.resort.config.AbilityType;
-import com.meileme.resort.config.Achievement;
-import com.meileme.resort.config.AchievementCategory;
-import com.meileme.resort.config.AchievementType;
-import com.meileme.resort.config.BuildingForm;
-import com.meileme.resort.config.CustomerSegment;
-import com.meileme.resort.config.EvolutionLine;
-import com.meileme.resort.config.GameConfig;
-import com.meileme.resort.config.MergeRecipe;
-import com.meileme.resort.config.MotherBuildingType;
-import com.meileme.resort.config.Plot;
-import com.meileme.resort.config.Region;
-import com.meileme.resort.config.SkillCategory;
-import com.meileme.resort.config.SkillEffectKey;
-import com.meileme.resort.config.SkillEffectType;
-import com.meileme.resort.config.SkillNode;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.meileme.resort.config.*;
 import com.meileme.resort.model.PlotMap;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.io.File;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
 
 /**
- * 静态配置注册表：集中注册全部游戏数值配置（形态 / 配方 / 地块 / 成就 / 技能 / 景区）。
+ * 数据驱动的配置注册表：全部数值配置统一来源于 default-config.json 与 admin-config.json。
  *
- * <p>所有数值集中于此，禁止散落硬编码；本期为「数值后期配置」阶段，下列数值为合理占位默认值。</p>
+ * <p>代码中零硬编码数值。若存在 admin-config.json 则优先读取；若不存在则读取 default-config.json。
+ * 管理员保存时写入 admin-config.json，恢复默认时删除 admin-config.json 并重载默认配置。</p>
  */
 @Component
 public class ConfigRegistry {
 
+    private static final Logger log = LoggerFactory.getLogger(ConfigRegistry.class);
+    private static final String ADMIN_CONFIG_FILE = "admin-config.json";
+    private static final String DEFAULT_CONFIG_RESOURCE = "default-config.json";
+
+    private final ObjectMapper objectMapper;
+
     private final Map<String, BuildingForm> formsById = new LinkedHashMap<>();
+    private final Map<MotherBuildingType, String> motherBaseFormMap = new EnumMap<>(MotherBuildingType.class);
     private final List<MergeRecipe> mergeRecipes = new ArrayList<>();
     private final Map<String, Plot> plotsById = new LinkedHashMap<>();
     private final Map<String, PlotMap> plotMaps = new LinkedHashMap<>();
     private final Map<String, Achievement> achievementsById = new LinkedHashMap<>();
     private final Map<String, SkillNode> skillsById = new LinkedHashMap<>();
+    private final Map<String, PositionConfig> positionsById = new LinkedHashMap<>();
+    private final Map<String, InteriorConfig> interiorsById = new LinkedHashMap<>();
+    private final Map<String, RegionConfig> regionsById = new LinkedHashMap<>();
+    private final Map<String, SegmentConfig> segmentsById = new LinkedHashMap<>();
 
-    public ConfigRegistry() {
-        // 形态须按「基础形态 → 分支形态 → 合并产物」顺序构建，以便 evolveFrom 引用已构建实例
-        BuildingForm standardRoom = BuildingForm.builder("STANDARD_ROOM", "标准客房", MotherBuildingType.STANDARD_ROOM)
-                .line(EvolutionLine.BASE).tier(0).capacityPerRoom(2)
-                .pricePerRoom(280, 330, 380).buildCost(3000).evolveCost(0)
-                .formLevelUpCost(1500, 2500).formLevelUpDays(2, 3).baseComfort(50)
-                .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
-                .affinity(CustomerSegment.ROMANTIC, 0.8).affinity(CustomerSegment.WELLNESS, 0.8)
-                .maxInteriorLevel(1, 2, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 20).abilityDemand(AbilityType.ROOM_REPAIR, 10)
-                .build();
+    private Map<String, Object> rawConfigMap = new LinkedHashMap<>();
+    private boolean isCustomConfig = false;
 
-        BuildingForm familyRoom = BuildingForm.builder("FAMILY_ROOM", "家庭亲子房", MotherBuildingType.STANDARD_ROOM)
-                .line(EvolutionLine.FAMILY).tier(1).capacityPerRoom(4)
-                .pricePerRoom(500, 580, 660).evolveCost(6000)
-                .formLevelUpCost(3000, 5000).formLevelUpDays(3, 4).baseComfort(62)
-                .affinity(CustomerSegment.FAMILY, 1.8).affinity(CustomerSegment.BUSINESS, 0.5)
-                .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.9)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 26).abilityDemand(AbilityType.ROOM_REPAIR, 12)
-                .evolveFrom(standardRoom).evolveDays(4).build();
-
-        BuildingForm familySuite = BuildingForm.builder("FAMILY_SUITE", "亲子套房", MotherBuildingType.STANDARD_ROOM)
-                .line(EvolutionLine.FAMILY).tier(2).capacityPerRoom(6)
-                .pricePerRoom(760, 880, 1000).evolveCost(15000)
-                .formLevelUpCost(7000, 11000).formLevelUpDays(4, 5).baseComfort(76)
-                .affinity(CustomerSegment.FAMILY, 2.2).affinity(CustomerSegment.BUSINESS, 0.4)
-                .affinity(CustomerSegment.ROMANTIC, 1.1).affinity(CustomerSegment.WELLNESS, 1.0)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 34).abilityDemand(AbilityType.ROOM_REPAIR, 16)
-                .evolveFrom(familyRoom).evolveDays(5).build();
-
-        BuildingForm businessRoom = BuildingForm.builder("BUSINESS_ROOM", "商务行政房", MotherBuildingType.STANDARD_ROOM)
-                .line(EvolutionLine.BUSINESS).tier(1).capacityPerRoom(2)
-                .pricePerRoom(620, 720, 820).evolveCost(7000)
-                .formLevelUpCost(3200, 5200).formLevelUpDays(3, 4).baseComfort(64)
-                .affinity(CustomerSegment.BUSINESS, 1.9).affinity(CustomerSegment.FAMILY, 0.5)
-                .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.9)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 22).abilityDemand(AbilityType.ROOM_REPAIR, 14)
-                .evolveFrom(standardRoom).evolveDays(4).build();
-
-        BuildingForm businessSuite = BuildingForm.builder("BUSINESS_SUITE", "行政套房", MotherBuildingType.STANDARD_ROOM)
-                .line(EvolutionLine.BUSINESS).tier(2).capacityPerRoom(3)
-                .pricePerRoom(950, 1100, 1250).evolveCost(17000)
-                .formLevelUpCost(7500, 12000).formLevelUpDays(4, 5).baseComfort(80)
-                .affinity(CustomerSegment.BUSINESS, 2.3).affinity(CustomerSegment.FAMILY, 0.4)
-                .affinity(CustomerSegment.ROMANTIC, 1.2).affinity(CustomerSegment.WELLNESS, 1.1)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 30).abilityDemand(AbilityType.ROOM_REPAIR, 18)
-                .evolveFrom(businessRoom).evolveDays(5).build();
-
-        BuildingForm mergedFamilyVilla = BuildingForm.builder("MERGED_FAMILY_VILLA", "亲子合院", MotherBuildingType.STANDARD_ROOM)
-                .line(EvolutionLine.MERGE).tier(3).capacityPerRoom(10)
-                .pricePerRoom(1500, 1750, 2000)
-                .formLevelUpCost(9000, 14000).formLevelUpDays(5, 6).baseComfort(95)
-                .affinity(CustomerSegment.FAMILY, 2.6).affinity(CustomerSegment.BUSINESS, 0.6)
-                .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.WELLNESS, 1.3)
-                .maxInteriorLevel(3, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 45).abilityDemand(AbilityType.ROOM_REPAIR, 22)
-                .build();
-
-        BuildingForm mergedBusinessHall = BuildingForm.builder("MERGED_BUSINESS_HALL", "商务行政馆", MotherBuildingType.STANDARD_ROOM)
-                .line(EvolutionLine.MERGE).tier(3).capacityPerRoom(8)
-                .pricePerRoom(1600, 1850, 2100)
-                .formLevelUpCost(9500, 15000).formLevelUpDays(5, 6).baseComfort(98)
-                .affinity(CustomerSegment.BUSINESS, 2.6).affinity(CustomerSegment.FAMILY, 0.6)
-                .affinity(CustomerSegment.ROMANTIC, 1.5).affinity(CustomerSegment.WELLNESS, 1.4)
-                .maxInteriorLevel(3, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 44).abilityDemand(AbilityType.ROOM_REPAIR, 24)
-                .build();
-
-        // —— 其余住宿母本基础形态（仅登记，第一期不可建） ——
-        BuildingForm luxuryRoom = BuildingForm.builder("LUXURY_ROOM", "豪华客房", MotherBuildingType.LUXURY_ROOM)
-                .tier(0).capacityPerRoom(4).pricePerRoom(680, 780, 880).buildCost(8000)
-                .formLevelUpCost(3000, 5000).formLevelUpDays(3, 4).baseComfort(70)
-                .affinity(CustomerSegment.FAMILY, 1.1).affinity(CustomerSegment.BUSINESS, 1.4)
-                .affinity(CustomerSegment.ROMANTIC, 1.2).affinity(CustomerSegment.WELLNESS, 1.1)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 24).abilityDemand(AbilityType.ROOM_REPAIR, 12)
-                .build();
-
-        BuildingForm woodenCabin = BuildingForm.builder("WOODEN_CABIN", "独栋木屋", MotherBuildingType.WOODEN_CABIN)
-                .tier(0).capacityPerRoom(4).pricePerRoom(720, 820, 920).buildCost(12000)
-                .formLevelUpCost(4000, 6500).formLevelUpDays(4, 5).baseComfort(72)
-                .affinity(CustomerSegment.FAMILY, 1.3).affinity(CustomerSegment.BUSINESS, 0.8)
-                .affinity(CustomerSegment.ROMANTIC, 1.5).affinity(CustomerSegment.WELLNESS, 1.2)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 24).abilityDemand(AbilityType.ROOM_REPAIR, 12)
-                .build();
-
-        BuildingForm duplexLoft = BuildingForm.builder("DUPLEX_LOFT", "复式LOFT", MotherBuildingType.DUPLEX_LOFT)
-                .tier(0).capacityPerRoom(5).pricePerRoom(860, 960, 1060).buildCost(10000)
-                .formLevelUpCost(3500, 6000).formLevelUpDays(3, 5).baseComfort(68)
-                .affinity(CustomerSegment.BUSINESS, 1.5).affinity(CustomerSegment.FAMILY, 1.2)
-                .affinity(CustomerSegment.ROMANTIC, 1.3).affinity(CustomerSegment.WELLNESS, 0.9)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 26).abilityDemand(AbilityType.ROOM_REPAIR, 13)
-                .build();
-
-        BuildingForm courtyardHouse = BuildingForm.builder("COURTYARD_HOUSE", "庭院小院", MotherBuildingType.COURTYARD_HOUSE)
-                .tier(0).capacityPerRoom(6).pricePerRoom(1100, 1250, 1400).buildCost(15000)
-                .formLevelUpCost(5000, 8000).formLevelUpDays(5, 6).baseComfort(82)
-                .affinity(CustomerSegment.WELLNESS, 1.6).affinity(CustomerSegment.FAMILY, 1.5)
-                .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.BUSINESS, 0.9)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 30).abilityDemand(AbilityType.ROOM_REPAIR, 16)
-                .build();
-
-        BuildingForm multiBedroomHouse = BuildingForm.builder("MULTI_BEDROOM_HOUSE", "多卧平房", MotherBuildingType.MULTI_BEDROOM_HOUSE)
-                .tier(0).capacityPerRoom(8).pricePerRoom(1250, 1400, 1550).buildCost(11000)
-                .formLevelUpCost(4000, 6500).formLevelUpDays(4, 5).baseComfort(66)
-                .affinity(CustomerSegment.FAMILY, 1.7).affinity(CustomerSegment.BUSINESS, 0.5)
-                .affinity(CustomerSegment.ROMANTIC, 0.9).affinity(CustomerSegment.WELLNESS, 0.9)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.ROOM_CLEANING, 32).abilityDemand(AbilityType.ROOM_REPAIR, 14)
-                .build();
-
-        // —— 配套母本基础形态（9 种，仅登记） ——
-        BuildingForm restaurant = BuildingForm.builder("RESTAURANT", "餐厅", MotherBuildingType.RESTAURANT)
-                .tier(0).serviceCapacity(40).unitPrice(80, 95, 110).buildCost(6000)
-                .formLevelUpCost(2500, 4200).formLevelUpDays(2, 3).baseComfort(40)
-                .affinity(CustomerSegment.FAMILY, 1.2).affinity(CustomerSegment.BUSINESS, 1.0)
-                .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 0.8)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.RESTAURANT_SERVICE, 20).abilityDemand(AbilityType.COOKING, 15)
-                .build();
-
-        BuildingForm hotSpringPool = BuildingForm.builder("HOT_SPRING_POOL", "温泉泡池", MotherBuildingType.HOT_SPRING_POOL)
-                .tier(0).serviceCapacity(20).unitPrice(60, 75, 90).buildCost(7500)
-                .formLevelUpCost(2800, 4600).formLevelUpDays(3, 4).baseComfort(45)
-                .affinity(CustomerSegment.WELLNESS, 1.8).affinity(CustomerSegment.ROMANTIC, 1.3)
-                .affinity(CustomerSegment.FAMILY, 0.9).affinity(CustomerSegment.BUSINESS, 0.7)
-                .maxInteriorLevel(2, 3, 3)
-                .abilityDemand(AbilityType.HOT_SPRING_OPERATION, 18).abilityDemand(AbilityType.HOT_SPRING_REPAIR, 10)
-                .build();
-
-        BuildingForm viewingPlatform = BuildingForm.builder("VIEWING_PLATFORM", "观景台", MotherBuildingType.VIEWING_PLATFORM)
-                .tier(0).serviceCapacity(30).unitPrice(40, 50, 60).buildCost(4000)
-                .formLevelUpCost(1800, 3000).formLevelUpDays(1, 2).baseComfort(35)
-                .affinity(CustomerSegment.ROMANTIC, 1.4).affinity(CustomerSegment.WELLNESS, 1.2)
-                .affinity(CustomerSegment.FAMILY, 1.1).affinity(CustomerSegment.BUSINESS, 0.9)
-                .maxInteriorLevel(2, 3, 3)
-                .build();
-
-        BuildingForm receptionLobby = BuildingForm.builder("RECEPTION_LOBBY", "接待大堂", MotherBuildingType.RECEPTION_LOBBY)
-                .tier(0).serviceCapacity(0).unitPrice(0, 0, 0).buildCost(5000)
-                .formLevelUpCost(2000, 3400).formLevelUpDays(2, 2).baseComfort(30)
-                .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
-                .affinity(CustomerSegment.ROMANTIC, 1.0).affinity(CustomerSegment.WELLNESS, 1.0)
-                .maxInteriorLevel(2, 3, 3)
-                .build();
-
-        BuildingForm teaLibrary = BuildingForm.builder("TEA_LIBRARY", "茶室书吧", MotherBuildingType.TEA_LIBRARY)
-                .tier(0).serviceCapacity(15).unitPrice(50, 60, 70).buildCost(4500)
-                .formLevelUpCost(1900, 3200).formLevelUpDays(2, 2).baseComfort(38)
-                .affinity(CustomerSegment.WELLNESS, 1.4).affinity(CustomerSegment.ROMANTIC, 1.2)
-                .affinity(CustomerSegment.FAMILY, 1.0).affinity(CustomerSegment.BUSINESS, 1.0)
-                .maxInteriorLevel(2, 3, 3)
-                .build();
-
-        BuildingForm cultureWorkshop = BuildingForm.builder("CULTURE_WORKSHOP", "文创工坊", MotherBuildingType.CULTURE_WORKSHOP)
-                .tier(0).serviceCapacity(12).unitPrice(55, 65, 80).buildCost(5500)
-                .formLevelUpCost(2200, 3600).formLevelUpDays(2, 3).baseComfort(36)
-                .affinity(CustomerSegment.FAMILY, 1.3).affinity(CustomerSegment.ROMANTIC, 1.1)
-                .affinity(CustomerSegment.WELLNESS, 1.0).affinity(CustomerSegment.BUSINESS, 0.8)
-                .maxInteriorLevel(2, 3, 3)
-                .build();
-
-        BuildingForm logisticsWarehouse = BuildingForm.builder("LOGISTICS_WAREHOUSE", "后勤库房", MotherBuildingType.LOGISTICS_WAREHOUSE)
-                .tier(0).serviceCapacity(0).unitPrice(0, 0, 0).buildCost(3500)
-                .formLevelUpCost(1500, 2500).formLevelUpDays(1, 1).baseComfort(20)
-                .affinity(CustomerSegment.FAMILY, 0.8).affinity(CustomerSegment.BUSINESS, 0.8)
-                .affinity(CustomerSegment.ROMANTIC, 0.8).affinity(CustomerSegment.WELLNESS, 0.8)
-                .maxInteriorLevel(2, 3, 3)
-                .build();
-
-        BuildingForm outdoorCamp = BuildingForm.builder("OUTDOOR_CAMP", "户外营地", MotherBuildingType.OUTDOOR_CAMP)
-                .tier(0).serviceCapacity(25).unitPrice(35, 45, 55).buildCost(3000)
-                .formLevelUpCost(1400, 2400).formLevelUpDays(1, 2).baseComfort(34)
-                .affinity(CustomerSegment.FAMILY, 1.4).affinity(CustomerSegment.ROMANTIC, 1.2)
-                .affinity(CustomerSegment.WELLNESS, 1.1).affinity(CustomerSegment.BUSINESS, 0.6)
-                .maxInteriorLevel(2, 3, 3)
-                .build();
-
-        BuildingForm parentChildPark = BuildingForm.builder("PARENT_CHILD_PARK", "亲子乐园", MotherBuildingType.PARENT_CHILD_PARK)
-                .tier(0).serviceCapacity(35).unitPrice(45, 55, 65).buildCost(6500)
-                .formLevelUpCost(2600, 4400).formLevelUpDays(3, 4).baseComfort(42)
-                .affinity(CustomerSegment.FAMILY, 1.8).affinity(CustomerSegment.ROMANTIC, 0.9)
-                .affinity(CustomerSegment.WELLNESS, 0.8).affinity(CustomerSegment.BUSINESS, 0.5)
-                .maxInteriorLevel(2, 3, 3)
-                .build();
-
-        registerForm(standardRoom, familyRoom, familySuite, businessRoom, businessSuite,
-                mergedFamilyVilla, mergedBusinessHall,
-                luxuryRoom, woodenCabin, duplexLoft, courtyardHouse, multiBedroomHouse,
-                restaurant, hotSpringPool, viewingPlatform, receptionLobby, teaLibrary,
-                cultureWorkshop, logisticsWarehouse, outdoorCamp, parentChildPark);
-
-        // ===================== 合并进化配方 =====================
-        // 配方框架完整支持跨母本合并（sourceFormA / sourceFormB 可属不同母本）；
-        // 第一期仅标准客房母本可建造，故下列配方均落在标准客房进化线内。
-        mergeRecipes.add(new MergeRecipe("MERGE_FAMILY_VILLA", "亲子合院（合并）",
-                familySuite, 3, familySuite, 3, mergedFamilyVilla, 1, 30000, 5));
-        mergeRecipes.add(new MergeRecipe("MERGE_BUSINESS_HALL", "商务行政馆（合并）",
-                businessSuite, 3, businessSuite, 3, mergedBusinessHall, 1, 32000, 5));
-        mergeRecipes.add(new MergeRecipe("MERGE_CROSS_LINE_HALL", "跨线合并：商务行政馆",
-                familySuite, 3, businessSuite, 3, mergedBusinessHall, 1, 40000, 6));
-
-        // ===================== 地块（按注册顺序构成解锁链） =====================
-        // 规则：每一地块必须先解锁「上一地块」（跨区域同样成立），再达成自身成就条件后解锁；
-        // 区域内首个地块解锁即视为该区域解锁。开局仅默认解锁「史东薇尔城」。
-        registerPlot(
-                new Plot("STORMVEIL_CASTLE", "史东薇尔城", Region.LIMGRAVE, 1, 7, 7, 15, 8, 0,
-                        Set.of(MotherBuildingType.STANDARD_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL,
-                                MotherBuildingType.VIEWING_PLATFORM),
-                        1, List.of(), true),
-                new Plot("MISTWOOD_EDGE", "雾林边缘", Region.LIMGRAVE, 2, 8, 8, 20, 8, 100000,
-                        Set.of(MotherBuildingType.STANDARD_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.OUTDOOR_CAMP),
-                        2, List.of("ACH_ASSET_10"), false),
-                new Plot("AGHEEL_LAKE", "亚基尔湖", Region.LIMGRAVE, 3, 10, 10, 30, 10, 1000000,
-                        Set.of(MotherBuildingType.STANDARD_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL),
-                        3, List.of("ACH_ASSET_100", "ACH_GUEST_5000"), false),
-                new Plot("CARIA_MANOR", "卡利亚城寨", Region.LIURNIA, 1, 8, 8, 20, 8, 5000000,
-                        Set.of(MotherBuildingType.STANDARD_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.TEA_LIBRARY, MotherBuildingType.VIEWING_PLATFORM),
-                        3, List.of("ACH_ASSET_500", "ACH_GUEST_10000", "ACH_STAFF_20"), false),
-                new Plot("RAYA_LUCARIA", "雷亚卢卡利亚学院", Region.LIURNIA, 2, 12, 12, 30, 10, 8000000,
-                        Set.of(MotherBuildingType.STANDARD_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.TEA_LIBRARY, MotherBuildingType.CULTURE_WORKSHOP),
-                        3, List.of("ACH_BUILDING_20", "ACH_FAMILY_SUITE"), false),
-                new Plot("FOUR_BELFRIES", "四钟楼", Region.LIURNIA, 3, 15, 15, 30, 12, 10000000,
-                        Set.of(MotherBuildingType.STANDARD_ROOM),
-                        Set.of(MotherBuildingType.RESTAURANT, MotherBuildingType.HOT_SPRING_POOL, MotherBuildingType.VIEWING_PLATFORM),
-                        3, List.of("ACH_STAFF_50", "ACH_MANAGER_LV3"), false));
-
-        // ===================== 成就 =====================
-        registerAchievement(
-                // —— 财务：总资产 ——
-                new Achievement("ACH_ASSET_10", "总资产 10 万", AchievementCategory.FINANCE,
-                        AchievementType.TOTAL_ASSETS, 100000, ""),
-                new Achievement("ACH_ASSET_100", "总资产 100 万", AchievementCategory.FINANCE,
-                        AchievementType.TOTAL_ASSETS, 1000000, ""),
-                new Achievement("ACH_ASSET_500", "总资产 500 万", AchievementCategory.FINANCE,
-                        AchievementType.TOTAL_ASSETS, 5000000, ""),
-                new Achievement("ACH_ASSET_1000", "总资产 1000 万", AchievementCategory.FINANCE,
-                        AchievementType.TOTAL_ASSETS, 10000000, ""),
-                new Achievement("ACH_ASSET_10000", "总资产 10000 万", AchievementCategory.FINANCE,
-                        AchievementType.TOTAL_ASSETS, 100000000, ""),
-                // —— 建筑：建筑数量 ——
-                new Achievement("ACH_BUILDING_5", "已建建筑 5 座", AchievementCategory.BUILDING,
-                        AchievementType.BUILDING_COUNT, 5, ""),
-                new Achievement("ACH_BUILDING_10", "已建建筑 10 座", AchievementCategory.BUILDING,
-                        AchievementType.BUILDING_COUNT, 10, ""),
-                new Achievement("ACH_BUILDING_20", "已建建筑 20 座", AchievementCategory.BUILDING,
-                        AchievementType.BUILDING_COUNT, 20, ""),
-                new Achievement("ACH_BUILDING_50", "已建建筑 50 座", AchievementCategory.BUILDING,
-                        AchievementType.BUILDING_COUNT, 50, ""),
-                new Achievement("ACH_BUILDING_100", "已建建筑 100 座", AchievementCategory.BUILDING,
-                        AchievementType.BUILDING_COUNT, 100, ""),
-                // —— 客流：累计接待 ——
-                new Achievement("ACH_GUEST_100", "累计接待 100 人", AchievementCategory.GUEST,
-                        AchievementType.CUMULATIVE_GUESTS, 100, ""),
-                new Achievement("ACH_GUEST_1000", "累计接待 1000 人", AchievementCategory.GUEST,
-                        AchievementType.CUMULATIVE_GUESTS, 1000, ""),
-                new Achievement("ACH_GUEST_5000", "累计接待 5000 人", AchievementCategory.GUEST,
-                        AchievementType.CUMULATIVE_GUESTS, 5000, ""),
-                new Achievement("ACH_GUEST_10000", "累计接待 10000 人", AchievementCategory.GUEST,
-                        AchievementType.CUMULATIVE_GUESTS, 10000, ""),
-                new Achievement("ACH_GUEST_100000", "累计接待 100000 人", AchievementCategory.GUEST,
-                        AchievementType.CUMULATIVE_GUESTS, 100000, ""),
-                // —— 雇佣：员工数量 / 特定岗位等级 ——
-                new Achievement("ACH_STAFF_5", "员工总数 5 人", AchievementCategory.STAFF,
-                        AchievementType.STAFF_COUNT, 5, ""),
-                new Achievement("ACH_STAFF_10", "员工总数 10 人", AchievementCategory.STAFF,
-                        AchievementType.STAFF_COUNT, 10, ""),
-                new Achievement("ACH_STAFF_20", "员工总数 20 人", AchievementCategory.STAFF,
-                        AchievementType.STAFF_COUNT, 20, ""),
-                new Achievement("ACH_STAFF_50", "员工总数 50 人", AchievementCategory.STAFF,
-                        AchievementType.STAFF_COUNT, 50, ""),
-                new Achievement("ACH_STAFF_500", "员工总数 500 人", AchievementCategory.STAFF,
-                        AchievementType.STAFF_COUNT, 500, ""),
-                new Achievement("ACH_CHEF_LV3", "招聘 1 名 3 级厨师", AchievementCategory.STAFF,
-                        AchievementType.POSITION_LEVEL_COUNT, 1, "CHEF_3"),
-                new Achievement("ACH_MANAGER_LV3", "招聘 1 名 3 级店长", AchievementCategory.STAFF,
-                        AchievementType.POSITION_LEVEL_COUNT, 1, "MANAGER_3"),
-                // —— 建筑：特定形态 ——
-                new Achievement("ACH_FAMILY_SUITE", "建造 1 座亲子套房", AchievementCategory.BUILDING,
-                        AchievementType.FORM_LEVEL_COUNT, 1, "FAMILY_SUITE_1"),
-                new Achievement("ACH_BUSINESS_SUITE", "建造 1 座行政套房", AchievementCategory.BUILDING,
-                        AchievementType.FORM_LEVEL_COUNT, 1, "BUSINESS_SUITE_1"));
-
-        // ===================== 技能树（DAG，禁止循环依赖） =====================
-        registerSkill(
-                // —— 无前置（一级） ——
-                node("SK_INTERIOR_COST", "内装节流 I", "内装升级费用 −10%", SkillCategory.INTERIOR,
-                        List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.INTERIOR_UPGRADE_COST_DISCOUNT, 0.10),
-                node("SK_HIRE_COST", "招聘节流 I", "招聘消耗 −10%", SkillCategory.HIRING,
-                        List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.HIRE_COST_DISCOUNT, 0.10),
-                node("SK_FIRE_COMP", "离职安抚 I", "解雇补偿 −10%", SkillCategory.HIRING,
-                        List.of(), SkillEffectType.COST_DISCOUNT, SkillEffectKey.FIRE_COMPENSATION_DISCOUNT, 0.10),
-                // —— 二级 ——
-                node("SK_EVOLVE_COST", "进化节流 I", "建筑形态进化费用 −10%", SkillCategory.BUILDING,
-                        List.of("SK_INTERIOR_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.EVOLVE_COST_DISCOUNT, 0.10),
-                node("SK_INTERIOR_COMFORT", "舒适内装 I", "内装舒适度加成 +15%", SkillCategory.INTERIOR,
-                        List.of("SK_INTERIOR_COST"), SkillEffectType.MULTIPLIER, SkillEffectKey.INTERIOR_COMFORT_MULT, 0.15),
-                node("SK_STAFF_ABILITY", "人力素质 I", "员工能力值 +10%", SkillCategory.HIRING,
-                        List.of("SK_HIRE_COST", "SK_FIRE_COMP"), SkillEffectType.MULTIPLIER, SkillEffectKey.STAFF_ABILITY_MULT, 0.10),
-                // —— 三级 ——
-                node("SK_BUILD_COST", "建造节流 I", "新建建筑费用 −10%", SkillCategory.BUILDING,
-                        List.of("SK_INTERIOR_COST", "SK_EVOLVE_COST"), SkillEffectType.COST_DISCOUNT, SkillEffectKey.BUILD_COST_DISCOUNT, 0.10),
-                // —— 四级（终点） ——
-                node("SK_ROOM_PRICE", "房屋收益溢价 I", "房屋收益基准 +10%", SkillCategory.FINANCE,
-                        List.of("SK_EVOLVE_COST", "SK_BUILD_COST"),
-                        SkillEffectType.MULTIPLIER, SkillEffectKey.ROOM_PRICE_MULT, 0.10));
-
-        generateMaps();
+    public ConfigRegistry(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
     }
 
-    /** 依据地块配置 + 固定种子生成六张地块地图（地形与可建造格布局，稳定性可复现） */
-    private void generateMaps() {
-        int index = 0;
-        for (Plot p : plotsById.values()) {
-            plotMaps.put(p.getId(), MapGenerator.generate(p, (int) GameConfig.MAP_SEED + index * 31));
-            index++;
+    @PostConstruct
+    public synchronized void init() {
+        loadConfig();
+    }
+
+    /** 智能定位 admin-config.json 文件位置（兼容根目录与 backendjava 目录） */
+    public File resolveAdminConfigFile() {
+        File f = new File(ADMIN_CONFIG_FILE);
+        if (f.exists()) return f;
+        File sub = new File("backendjava", ADMIN_CONFIG_FILE);
+        if (sub.exists()) return sub;
+        if (new File("backendjava").isDirectory()) {
+            return sub;
+        }
+        return f;
+    }
+
+    /** 读取配置（优先 admin-config.json，不存在则回退 default-config.json） */
+    public synchronized void loadConfig() {
+        File adminFile = resolveAdminConfigFile();
+        if (adminFile.exists() && adminFile.isFile() && adminFile.length() > 0) {
+            try {
+                String json = Files.readString(adminFile.toPath(), StandardCharsets.UTF_8);
+                Map<String, Object> root = objectMapper.readValue(json, new TypeReference<>() {});
+                parseAndApply(root);
+                isCustomConfig = true;
+                log.info("已成功载入管理员自定义配置: {}", adminFile.getAbsolutePath());
+                return;
+            } catch (Exception e) {
+                log.error("读取 admin-config.json 失败，将回退载入默认配置", e);
+            }
+        }
+
+        // 读取 default-config.json
+        try {
+            ClassPathResource res = new ClassPathResource(DEFAULT_CONFIG_RESOURCE);
+            try (InputStream in = res.getInputStream()) {
+                String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                Map<String, Object> root = objectMapper.readValue(json, new TypeReference<>() {});
+                parseAndApply(root);
+                isCustomConfig = false;
+                log.info("已成功载入出厂默认配置: {}", DEFAULT_CONFIG_RESOURCE);
+            }
+        } catch (Exception e) {
+            log.error("加载 default-config.json 严重失败！", e);
         }
     }
 
-    private static SkillNode node(String id, String name, String desc, SkillCategory cat,
-                                  List<String> prereq, SkillEffectType type, SkillEffectKey key, double value) {
-        return new SkillNode(id, name, desc, cat, prereq, type, key, value);
-    }
+    /** 解析并应用配置到运行时内存实体 */
+    @SuppressWarnings("unchecked")
+    private void parseAndApply(Map<String, Object> root) {
+        this.rawConfigMap = root;
 
-    private void registerForm(BuildingForm... forms) {
-        for (BuildingForm f : forms) {
-            formsById.put(f.getId(), f);
+        // 1. 全局参数
+        Map<String, Object> global = (Map<String, Object>) root.get("global");
+        if (global != null) {
+            GameConfig.applyGlobalConfig(global);
+        }
+
+        // 2. 母体建筑与基础形态映射
+        motherBaseFormMap.clear();
+        List<Map<String, Object>> mothersData = (List<Map<String, Object>>) root.get("mothers");
+        if (mothersData != null) {
+            for (Map<String, Object> m : mothersData) {
+                String mid = (String) m.get("id");
+                String baseFormId = (String) m.get("baseFormId");
+                if (mid != null) {
+                    try {
+                        MotherBuildingType mType = MotherBuildingType.valueOf(mid);
+                        motherBaseFormMap.put(mType, (baseFormId != null && !baseFormId.isBlank()) ? baseFormId : mid);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // 3. 清空并重建形态（完全无母体依赖）
+        formsById.clear();
+        List<Map<String, Object>> formsData = (List<Map<String, Object>>) root.get("buildingForms");
+        if (formsData != null) {
+            // 两遍构建：第一遍构建无 evolveFrom 实体，第二遍处理 evolveFrom 引用
+            Map<String, BuildingForm.Builder> builders = new LinkedHashMap<>();
+            Map<String, String> evolveFromMap = new LinkedHashMap<>();
+
+            for (Map<String, Object> m : formsData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                BuildingCategory category = BuildingCategory.ACCOMMODATION;
+                if (m.containsKey("category") && m.get("category") != null) {
+                    try {
+                        category = BuildingCategory.valueOf(m.get("category").toString());
+                    } catch (Exception ignored) {}
+                }
+                BuildingForm.Builder b = BuildingForm.builder(id, displayName, category);
+
+                if (m.containsKey("line")) b.line(EvolutionLine.valueOf((String) m.get("line")));
+                if (m.containsKey("tier")) b.tier(((Number) m.get("tier")).intValue());
+                if (m.containsKey("capacityPerRoom")) b.capacityPerRoom(((Number) m.get("capacityPerRoom")).doubleValue());
+                if (m.containsKey("serviceCapacity")) b.serviceCapacity(((Number) m.get("serviceCapacity")).doubleValue());
+                if (m.containsKey("buildCost")) b.buildCost(((Number) m.get("buildCost")).doubleValue());
+                if (m.containsKey("evolveCost")) b.evolveCost(((Number) m.get("evolveCost")).doubleValue());
+                if (m.containsKey("evolveDays")) b.evolveDays(((Number) m.get("evolveDays")).intValue());
+                if (m.containsKey("baseComfort")) b.baseComfort(((Number) m.get("baseComfort")).doubleValue());
+
+                if (m.containsKey("pricePerRoom")) {
+                    List<Number> pr = (List<Number>) m.get("pricePerRoom");
+                    if (pr != null && !pr.isEmpty()) {
+                        b.pricePerRoom(pr.stream().mapToDouble(Number::doubleValue).toArray());
+                    }
+                }
+                if (m.containsKey("unitPrice")) {
+                    List<Number> up = (List<Number>) m.get("unitPrice");
+                    if (up != null && !up.isEmpty()) {
+                        b.unitPrice(up.stream().mapToDouble(Number::doubleValue).toArray());
+                    }
+                }
+                if (m.containsKey("formLevelUpCost")) {
+                    List<Number> lc = (List<Number>) m.get("formLevelUpCost");
+                    if (lc != null && !lc.isEmpty()) {
+                        b.formLevelUpCost(lc.stream().mapToDouble(Number::doubleValue).toArray());
+                    }
+                }
+                if (m.containsKey("formLevelUpDays")) {
+                    List<Number> ld = (List<Number>) m.get("formLevelUpDays");
+                    if (ld != null && !ld.isEmpty()) {
+                        b.formLevelUpDays(ld.stream().mapToInt(Number::intValue).toArray());
+                    }
+                }
+                if (m.containsKey("maxInteriorLevel")) {
+                    List<Number> mi = (List<Number>) m.get("maxInteriorLevel");
+                    if (mi != null && !mi.isEmpty()) {
+                        b.maxInteriorLevel(mi.stream().mapToInt(Number::intValue).toArray());
+                    }
+                }
+                if (m.containsKey("affinities")) {
+                    Map<String, Number> aff = (Map<String, Number>) m.get("affinities");
+                    if (aff != null) {
+                        for (Map.Entry<String, Number> e : aff.entrySet()) {
+                            try {
+                                b.affinity(e.getKey(), e.getValue().doubleValue());
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+                if (m.containsKey("abilityDemands")) {
+                    Map<String, Number> dem = (Map<String, Number>) m.get("abilityDemands");
+                    if (dem != null) {
+                        for (Map.Entry<String, Number> e : dem.entrySet()) {
+                            try {
+                                b.abilityDemand(AbilityType.valueOf(e.getKey()), e.getValue().doubleValue());
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+
+                if (m.containsKey("availableInteriors")) {
+                    List<String> avi = (List<String>) m.get("availableInteriors");
+                    if (avi != null) {
+                        b.availableInteriors(avi);
+                    }
+                }
+
+                if (m.containsKey("capacityInterior")) {
+                    Object ci = m.get("capacityInterior");
+                    b.capacityInterior(ci != null && !String.valueOf(ci).isBlank() ? String.valueOf(ci) : null);
+                } else {
+                    if (category == BuildingCategory.ACCOMMODATION) {
+                        b.capacityInterior("BED");
+                    } else if (id != null && id.toUpperCase().contains("RESTAURANT")) {
+                        b.capacityInterior("DINING_TABLE");
+                    } else if (id != null && id.toUpperCase().contains("HOT_SPRING")) {
+                        b.capacityInterior("HOT_SPRING_TUB");
+                    }
+                }
+
+                builders.put(id, b);
+                String from = (String) m.get("evolveFrom");
+                if (from != null && !from.isBlank()) {
+                    evolveFromMap.put(id, from);
+                }
+            }
+
+            // 结合 evolutionLines 动态注入进化路线关系
+            List<Map<String, Object>> evoLines = (List<Map<String, Object>>) root.get("evolutionLines");
+            if (evoLines != null) {
+                for (Map<String, Object> evo : evoLines) {
+                    String srcId = (String) evo.get("sourceFormId");
+                    String tgtId = (String) evo.get("targetFormId");
+                    if (tgtId != null && builders.containsKey(tgtId)) {
+                        if (srcId != null && !srcId.isBlank()) {
+                            evolveFromMap.put(tgtId, srcId);
+                        }
+                        BuildingForm.Builder tb = builders.get(tgtId);
+                        if (evo.containsKey("cost")) {
+                            tb.evolveCost(((Number) evo.get("cost")).doubleValue());
+                        }
+                        if (evo.containsKey("days")) {
+                            tb.evolveDays(((Number) evo.get("days")).intValue());
+                        }
+                    }
+                }
+            }
+
+            // 拓扑/链式顺序构建
+            for (Map.Entry<String, BuildingForm.Builder> entry : builders.entrySet()) {
+                String id = entry.getKey();
+                String fromId = evolveFromMap.get(id);
+                if (fromId != null && formsById.containsKey(fromId)) {
+                    entry.getValue().evolveFrom(formsById.get(fromId));
+                }
+                formsById.put(id, entry.getValue().build());
+            }
+        }
+
+        // 3. 合并配方
+        mergeRecipes.clear();
+        List<Map<String, Object>> recipesData = (List<Map<String, Object>>) root.get("mergeRecipes");
+        if (recipesData != null) {
+            for (Map<String, Object> m : recipesData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                BuildingForm formA = formsById.get((String) m.get("sourceFormA"));
+                int lvA = ((Number) m.get("sourceLevelA")).intValue();
+                BuildingForm formB = formsById.get((String) m.get("sourceFormB"));
+                int lvB = ((Number) m.get("sourceLevelB")).intValue();
+                BuildingForm resultForm = formsById.get((String) m.get("resultForm"));
+                int resLv = m.containsKey("resultLevel") ? ((Number) m.get("resultLevel")).intValue() : 1;
+                double cost = ((Number) m.get("mergeCost")).doubleValue();
+                int days = ((Number) m.get("mergeDays")).intValue();
+
+                if (formA != null && formB != null && resultForm != null) {
+                    mergeRecipes.add(new MergeRecipe(id, displayName, formA, lvA, formB, lvB, resultForm, resLv, cost, days));
+                }
+            }
+        }
+
+        // 4. 地块与地图
+        plotsById.clear();
+        plotMaps.clear();
+        List<Map<String, Object>> plotsData = (List<Map<String, Object>>) root.get("plots");
+        if (plotsData != null) {
+            int mapIndex = 0;
+            for (Map<String, Object> m : plotsData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                Region region = Region.valueOf((String) m.get("region"));
+                int order = ((Number) m.get("orderInRegion")).intValue();
+                int width = ((Number) m.get("width")).intValue();
+                int height = ((Number) m.get("height")).intValue();
+                int buildable = ((Number) m.get("buildableCellCount")).intValue();
+                int limit = ((Number) m.get("buildLimit")).intValue();
+                double cost = ((Number) m.get("unlockCost")).doubleValue();
+
+                Set<MotherBuildingType> accomList = new HashSet<>();
+                List<String> accNames = (List<String>) m.get("accommodationWhitelist");
+                if (accNames != null) {
+                    for (String s : accNames) {
+                        try { accomList.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
+                    }
+                }
+
+                Set<MotherBuildingType> suppList = new HashSet<>();
+                List<String> suppNames = (List<String>) m.get("supportWhitelist");
+                if (suppNames != null) {
+                    for (String s : suppNames) {
+                        try { suppList.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
+                    }
+                }
+
+                List<String> allowedMothers = (List<String>) m.get("allowedMothers");
+                if (allowedMothers != null) {
+                    for (String s : allowedMothers) {
+                        try {
+                            MotherBuildingType mt = MotherBuildingType.valueOf(s);
+                            if (mt.getCategory() == BuildingCategory.ACCOMMODATION) accomList.add(mt);
+                            else suppList.add(mt);
+                        } catch (Exception ignored) {}
+                    }
+                }
+
+                int evolveTierCap = ((Number) m.get("evolveTierCap")).intValue();
+                List<String> achIds = (List<String>) m.get("unlockAchievementIds");
+                if (achIds == null) achIds = List.of();
+                boolean byDefault = Boolean.TRUE.equals(m.get("unlockedByDefault"));
+
+                Plot p = new Plot(id, displayName, region, order, width, height, buildable, limit,
+                        cost, accomList, suppList, evolveTierCap, achIds, byDefault);
+                plotsById.put(id, p);
+
+                plotMaps.put(id, MapGenerator.generate(p, (int) GameConfig.MAP_SEED + mapIndex * 31));
+                mapIndex++;
+            }
+        }
+
+        // 5. 成就
+        achievementsById.clear();
+        List<Map<String, Object>> achsData = (List<Map<String, Object>>) root.get("achievements");
+        if (achsData != null) {
+            for (Map<String, Object> m : achsData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                AchievementType type = AchievementType.valueOf((String) m.get("type"));
+                AchievementCategory cat;
+                try {
+                    cat = AchievementCategory.valueOf((String) m.get("category"));
+                } catch (Exception e) {
+                    if (type == AchievementType.TOTAL_ASSETS || type == AchievementType.CUMULATIVE_INCOME) cat = AchievementCategory.FINANCE;
+                    else if (type == AchievementType.BUILDING_COUNT || type == AchievementType.FORM_LEVEL_COUNT) cat = AchievementCategory.BUILDING;
+                    else if (type == AchievementType.CUMULATIVE_GUESTS || type == AchievementType.SEGMENT_GUESTS) cat = AchievementCategory.GUEST;
+                    else cat = AchievementCategory.STAFF;
+                }
+                double target = m.containsKey("targetValue")
+                        ? ((Number) m.get("targetValue")).doubleValue()
+                        : (m.containsKey("target") ? ((Number) m.get("target")).doubleValue() : 0.0);
+                String param = m.containsKey("param") ? (String) m.get("param") : "";
+                int rewardSkillPoints = m.containsKey("rewardSkillPoints") ? ((Number) m.get("rewardSkillPoints")).intValue() : 1;
+                achievementsById.put(id, new Achievement(id, displayName, cat, type, target, param, rewardSkillPoints));
+            }
+        }
+
+        // 6. 技能树
+        skillsById.clear();
+        List<Map<String, Object>> skillsData = (List<Map<String, Object>>) root.get("skills");
+        if (skillsData != null) {
+            for (Map<String, Object> m : skillsData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                String description = (String) m.get("description");
+                SkillEffectType type = SkillEffectType.valueOf((String) m.get("effectType"));
+                SkillEffectKey key = SkillEffectKey.valueOf((String) m.get("effectKey"));
+                SkillCategory cat;
+                try {
+                    cat = SkillCategory.valueOf((String) m.get("category"));
+                } catch (Exception e) {
+                    if (key == SkillEffectKey.INTERIOR_UPGRADE_COST_DISCOUNT || key == SkillEffectKey.INTERIOR_COMFORT_MULT) cat = SkillCategory.INTERIOR;
+                    else if (key == SkillEffectKey.HIRE_COST_DISCOUNT || key == SkillEffectKey.FIRE_COMPENSATION_DISCOUNT || key == SkillEffectKey.STAFF_ABILITY_MULT) cat = SkillCategory.HIRING;
+                    else if (key == SkillEffectKey.BUILD_COST_DISCOUNT || key == SkillEffectKey.EVOLVE_COST_DISCOUNT) cat = SkillCategory.BUILDING;
+                    else if (key == SkillEffectKey.ROOM_PRICE_MULT || key == SkillEffectKey.SUPPORT_PRICE_MULT) cat = SkillCategory.FINANCE;
+                    else cat = SkillCategory.BUILDING;
+                }
+                List<String> prereq = (List<String>) m.get("prerequisites");
+                if (prereq == null) prereq = List.of();
+                double val = ((Number) m.get("value")).doubleValue();
+                int costPoints = m.containsKey("costPoints") ? ((Number) m.get("costPoints")).intValue()
+                        : (m.containsKey("skillPointsCost") ? ((Number) m.get("skillPointsCost")).intValue() : 1);
+                skillsById.put(id, new SkillNode(id, displayName, description, cat, prereq, type, key, val, costPoints));
+            }
+        }
+
+        // 7. 岗位配置 (PositionConfig)
+        positionsById.clear();
+        List<Map<String, Object>> posData = (List<Map<String, Object>>) root.get("positions");
+        if (posData != null) {
+            for (Map<String, Object> m : posData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                List<AbilityType> abilities = new ArrayList<>();
+                List<String> abs = (List<String>) m.get("abilities");
+                if (abs != null) {
+                    for (String aStr : abs) {
+                        try { abilities.add(AbilityType.valueOf(aStr)); } catch (Exception ignored) {}
+                    }
+                }
+                Map<AbilityType, double[]> abilityOutputs = new EnumMap<>(AbilityType.class);
+                Map<String, Object> aoMap = (Map<String, Object>) m.get("abilityOutputs");
+                if (aoMap != null) {
+                    for (Map.Entry<String, Object> entry : aoMap.entrySet()) {
+                        try {
+                            AbilityType at = AbilityType.valueOf(entry.getKey());
+                            if (entry.getValue() instanceof List<?> list) {
+                                double[] arr = list.stream().mapToDouble(n -> ((Number) n).doubleValue()).toArray();
+                                abilityOutputs.put(at, arr);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+                double[] abilityValueByLevel = null;
+                if (m.containsKey("abilityValueByLevel") && m.get("abilityValueByLevel") instanceof List<?> list) {
+                    abilityValueByLevel = list.stream().mapToDouble(n -> ((Number) n).doubleValue()).toArray();
+                } else if (m.containsKey("abilityValues") && m.get("abilityValues") instanceof List<?> list) {
+                    abilityValueByLevel = list.stream().mapToDouble(n -> ((Number) n).doubleValue()).toArray();
+                } else if (!abilityOutputs.isEmpty()) {
+                    abilityValueByLevel = abilityOutputs.values().iterator().next();
+                }
+                double hireCost = m.containsKey("hireCost") ? ((Number) m.get("hireCost")).doubleValue() : 400.0;
+                int[] upgradeDaysByLevel = null;
+                if (m.containsKey("upgradeDaysByLevel") && m.get("upgradeDaysByLevel") instanceof List<?> list) {
+                    upgradeDaysByLevel = list.stream().mapToInt(n -> ((Number) n).intValue()).toArray();
+                } else {
+                    int d1 = m.containsKey("upgradeDaysLv1ToLv2") ? ((Number) m.get("upgradeDaysLv1ToLv2")).intValue() : 10;
+                    int d2 = m.containsKey("upgradeDaysLv2ToLv3") ? ((Number) m.get("upgradeDaysLv2ToLv3")).intValue() : 20;
+                    upgradeDaysByLevel = new int[]{d1, d2};
+                }
+                int[] trainDaysByLevel = null;
+                if (m.containsKey("trainDaysByLevel") && m.get("trainDaysByLevel") instanceof List<?> list) {
+                    trainDaysByLevel = list.stream().mapToInt(n -> ((Number) n).intValue()).toArray();
+                } else {
+                    trainDaysByLevel = new int[]{1, 2};
+                }
+                double[] trainCostByLevel = null;
+                if (m.containsKey("trainCostByLevel") && m.get("trainCostByLevel") instanceof List<?> list) {
+                    trainCostByLevel = list.stream().mapToDouble(n -> ((Number) n).doubleValue()).toArray();
+                } else {
+                    trainCostByLevel = new double[]{Math.round(hireCost * 0.6), Math.round(hireCost * 1.2)};
+                }
+                double compensationBase = m.containsKey("compensationBase") ? ((Number) m.get("compensationBase")).doubleValue() : 600.0;
+
+                PositionConfig pc = PositionConfig.builder()
+                        .id(id)
+                        .displayName(displayName)
+                        .abilities(abilities)
+                        .abilityOutputs(abilityOutputs)
+                        .abilityValueByLevel(abilityValueByLevel)
+                        .hireCost(hireCost)
+                        .upgradeDaysByLevel(upgradeDaysByLevel)
+                        .trainDaysByLevel(trainDaysByLevel)
+                        .trainCostByLevel(trainCostByLevel)
+                        .compensationBase(compensationBase)
+                        .build();
+                positionsById.put(id, pc);
+            }
+        }
+
+        // 8. 内装配置 (InteriorConfig)
+        interiorsById.clear();
+        List<Map<String, Object>> interiorData = (List<Map<String, Object>>) root.get("interiors");
+        if (interiorData != null) {
+            for (Map<String, Object> m : interiorData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                InteriorCategory category = InteriorCategory.NORMAL;
+                if (m.containsKey("category")) {
+                    try { category = InteriorCategory.valueOf(m.get("category").toString()); } catch (Exception ignored) {}
+                }
+                double comfortPerLevel = m.containsKey("comfortPerLevel") ? ((Number) m.get("comfortPerLevel")).doubleValue() : 2.0;
+                double capacityPerLevel = m.containsKey("capacityPerLevel") ? ((Number) m.get("capacityPerLevel")).doubleValue() : 0.0;
+                double revenueBonusPerLevel = m.containsKey("revenueBonusPerLevel") ? ((Number) m.get("revenueBonusPerLevel")).doubleValue() : 0.02;
+
+                Map<String, Double> segmentAffinity = new LinkedHashMap<>();
+                Map<String, Object> saMap = (Map<String, Object>) m.get("segmentAffinityPerLevel");
+                if (saMap != null) {
+                    for (Map.Entry<String, Object> entry : saMap.entrySet()) {
+                        try {
+                            segmentAffinity.put(entry.getKey(), ((Number) entry.getValue()).doubleValue());
+                        } catch (Exception ignored) {}
+                    }
+                }
+                double[] upgradeCostByLevel = null;
+                if (m.containsKey("upgradeCostByLevel") && m.get("upgradeCostByLevel") instanceof List<?> list) {
+                    upgradeCostByLevel = list.stream().mapToDouble(n -> ((Number) n).doubleValue()).toArray();
+                }
+                int[] upgradeDaysByLevel = null;
+                if (m.containsKey("upgradeDaysByLevel") && m.get("upgradeDaysByLevel") instanceof List<?> list) {
+                    upgradeDaysByLevel = list.stream().mapToInt(n -> ((Number) n).intValue()).toArray();
+                }
+                Set<MotherBuildingType> applicableMothers = new HashSet<>();
+                List<String> amList = (List<String>) m.get("applicableMothers");
+                if (amList != null) {
+                    for (String s : amList) {
+                        try { applicableMothers.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
+                    }
+                }
+
+                InteriorConfig ic = InteriorConfig.builder()
+                        .id(id)
+                        .displayName(displayName)
+                        .category(category)
+                        .comfortPerLevel(comfortPerLevel)
+                        .capacityPerLevel(capacityPerLevel)
+                        .revenueBonusPerLevel(revenueBonusPerLevel)
+                        .segmentAffinityPerLevel(segmentAffinity)
+                        .upgradeCostByLevel(upgradeCostByLevel)
+                        .upgradeDaysByLevel(upgradeDaysByLevel)
+                        .applicableMothers(applicableMothers)
+                        .build();
+                interiorsById.put(id, ic);
+            }
+        }
+
+        // 9. 大区域配置 (RegionConfig)
+        regionsById.clear();
+        List<Map<String, Object>> regData = (List<Map<String, Object>>) root.get("regions");
+        if (regData != null) {
+            for (Map<String, Object> m : regData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                double baseDailyFlow = m.containsKey("baseDailyFlow") ? ((Number) m.get("baseDailyFlow")).doubleValue() : 100.0;
+                Map<String, Double> segmentRatios = new LinkedHashMap<>();
+                Map<String, Object> srMap = (Map<String, Object>) m.get("segmentRatios");
+                if (srMap != null) {
+                    for (Map.Entry<String, Object> entry : srMap.entrySet()) {
+                        try {
+                            segmentRatios.put(entry.getKey(), ((Number) entry.getValue()).doubleValue());
+                        } catch (Exception ignored) {}
+                    }
+                }
+                RegionConfig rc = RegionConfig.builder()
+                        .id(id)
+                        .displayName(displayName)
+                        .baseDailyFlow(baseDailyFlow)
+                        .segmentRatios(segmentRatios)
+                        .build();
+                regionsById.put(id, rc);
+            }
+        }
+
+        // 10. 客群配置 (SegmentConfig)
+        segmentsById.clear();
+        List<Map<String, Object>> segData = (List<Map<String, Object>>) root.get("segments");
+        if (segData != null && !segData.isEmpty()) {
+            for (Map<String, Object> m : segData) {
+                String id = (String) m.get("id");
+                String displayName = (String) m.get("displayName");
+                String description = (String) m.get("description");
+                String color = (String) m.get("color");
+                String icon = (String) m.get("icon");
+                if (id != null && !id.isBlank()) {
+                    SegmentConfig sc = SegmentConfig.builder()
+                            .id(id)
+                            .displayName(displayName != null ? displayName : id)
+                            .description(description != null ? description : "")
+                            .color(color != null ? color : "#8ab4ff")
+                            .icon(icon)
+                            .build();
+                    segmentsById.put(id, sc);
+                }
+            }
+        } else {
+            for (CustomerSegment cs : CustomerSegment.values()) {
+                segmentsById.put(cs.name(), SegmentConfig.builder()
+                        .id(cs.name())
+                        .displayName(cs.getDisplayName())
+                        .description("")
+                        .build());
+            }
         }
     }
 
-    private void registerPlot(Plot... plots) {
-        for (Plot p : plots) {
-            plotsById.put(p.getId(), p);
-        }
+    /** 管理员保存新配置：写入 admin-config.json 并重载生效 */
+    public synchronized void saveAdminConfig(Map<String, Object> newConfigMap) throws Exception {
+        String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(newConfigMap);
+        File adminFile = resolveAdminConfigFile();
+        Files.writeString(adminFile.toPath(), json, StandardCharsets.UTF_8);
+
+        // 兼容性双写：确保项目根目录与 backendjava 目录下均同步生成 admin-config.json
+        try {
+            File fRoot = new File(ADMIN_CONFIG_FILE);
+            Files.writeString(fRoot.toPath(), json, StandardCharsets.UTF_8);
+            File fSub = new File("backendjava", ADMIN_CONFIG_FILE);
+            if (fSub.getParentFile() != null && fSub.getParentFile().isDirectory()) {
+                Files.writeString(fSub.toPath(), json, StandardCharsets.UTF_8);
+            }
+        } catch (Exception ignored) {}
+
+        parseAndApply(newConfigMap);
+        this.isCustomConfig = true;
+        log.info("管理员配置已成功写入 {} 并热更新完毕", adminFile.getAbsolutePath());
     }
 
-    private void registerAchievement(Achievement... list) {
-        for (Achievement a : list) {
-            achievementsById.put(a.getId(), a);
+    /** 管理员恢复默认配置：删除 admin-config.json 并重新载入 default-config.json */
+    public synchronized void resetToDefault() throws Exception {
+        File f1 = new File(ADMIN_CONFIG_FILE);
+        if (f1.exists()) {
+            boolean d1 = f1.delete();
+            log.info("已删除自定义配置文件 {}: {}", f1.getAbsolutePath(), d1);
         }
-    }
-
-    private void registerSkill(SkillNode... list) {
-        for (SkillNode s : list) {
-            skillsById.put(s.getId(), s);
+        File f2 = new File("backendjava", ADMIN_CONFIG_FILE);
+        if (f2.exists()) {
+            boolean d2 = f2.delete();
+            log.info("已删除自定义配置文件 {}: {}", f2.getAbsolutePath(), d2);
         }
+        loadConfig();
     }
 
     // ===================== 查询接口 =====================
+
+    public Map<String, Object> getRawConfigMap() {
+        return rawConfigMap;
+    }
+
+    public boolean isCustomConfig() {
+        return isCustomConfig;
+    }
 
     public BuildingForm form(String id) {
         return id == null ? null : formsById.get(id);
@@ -411,17 +641,23 @@ public class ConfigRegistry {
         return Collections.unmodifiableList(new ArrayList<>(formsById.values()));
     }
 
-    /** 指定母本的基础形态（tier = 0） */
     public BuildingForm baseFormOf(MotherBuildingType mother) {
+        if (mother == null) return null;
+        String targetId = motherBaseFormMap.get(mother);
+        if (targetId != null && formsById.containsKey(targetId)) {
+            return formsById.get(targetId);
+        }
+        if (formsById.containsKey(mother.name())) {
+            return formsById.get(mother.name());
+        }
         for (BuildingForm f : formsById.values()) {
-            if (f.getMother() == mother && f.getTier() == 0) {
+            if (f.getTier() == 0 && f.getCategory() == mother.getCategory()) {
                 return f;
             }
         }
         return null;
     }
 
-    /** 某形态可直接分支进化到的下一阶段形态列表 */
     public List<BuildingForm> branchTargetsOf(BuildingForm current) {
         List<BuildingForm> list = new ArrayList<>();
         for (BuildingForm f : formsById.values()) {
@@ -433,23 +669,16 @@ public class ConfigRegistry {
     }
 
     public MergeRecipe recipe(String id) {
-        if (id == null) {
-            return null;
-        }
+        if (id == null) return null;
         for (MergeRecipe r : mergeRecipes) {
-            if (r.getId().equals(id)) {
-                return r;
-            }
+            if (r.getId().equals(id)) return r;
         }
         return null;
     }
 
-    /** 匹配给定两个「形态 + 等级」的合并配方 */
     public MergeRecipe matchRecipe(BuildingForm formA, int levelA, BuildingForm formB, int levelB) {
         for (MergeRecipe r : mergeRecipes) {
-            if (r.matches(formA, levelA, formB, levelB)) {
-                return r;
-            }
+            if (r.matches(formA, levelA, formB, levelB)) return r;
         }
         return null;
     }
@@ -488,5 +717,65 @@ public class ConfigRegistry {
 
     public List<SkillNode> allSkills() {
         return Collections.unmodifiableList(new ArrayList<>(skillsById.values()));
+    }
+
+    public PositionConfig position(String id) {
+        return id == null ? null : positionsById.get(id);
+    }
+
+    public PositionConfig getPosition(String id) {
+        return position(id);
+    }
+
+    public void registerPosition(PositionConfig p) {
+        if (p != null && p.getId() != null) {
+            positionsById.put(p.getId(), p);
+        }
+    }
+
+    public List<PositionConfig> allPositions() {
+        return Collections.unmodifiableList(new ArrayList<>(positionsById.values()));
+    }
+
+    public InteriorConfig interior(String id) {
+        return id == null ? null : interiorsById.get(id);
+    }
+
+    public InteriorConfig getInterior(String id) {
+        return interior(id);
+    }
+
+    public List<InteriorConfig> allInteriors() {
+        return Collections.unmodifiableList(new ArrayList<>(interiorsById.values()));
+    }
+
+    public RegionConfig region(String id) {
+        return id == null ? null : regionsById.get(id);
+    }
+
+    public RegionConfig getRegion(String id) {
+        return region(id);
+    }
+
+    public List<RegionConfig> allRegions() {
+        return Collections.unmodifiableList(new ArrayList<>(regionsById.values()));
+    }
+
+    public SegmentConfig segment(String id) {
+        return id == null ? null : segmentsById.get(id);
+    }
+
+    public SegmentConfig getSegment(String id) {
+        return segment(id);
+    }
+
+    public List<SegmentConfig> allSegments() {
+        return Collections.unmodifiableList(new ArrayList<>(segmentsById.values()));
+    }
+
+    public void registerSegment(SegmentConfig sc) {
+        if (sc != null && sc.getId() != null) {
+            segmentsById.put(sc.getId(), sc);
+        }
     }
 }

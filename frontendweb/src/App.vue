@@ -15,6 +15,7 @@ import SkillTreePanel from './components/skill/SkillTreePanel.vue';
 import BuildModal from './components/building/BuildModal.vue';
 import BuildingDetailModal from './components/building/BuildingDetailModal.vue';
 import SettlementLogModal from './components/log/SettlementLogModal.vue';
+import AdminConfigModal from './components/admin/AdminConfigModal.vue';
 import Toast from './components/common/Toast.vue';
 
 onMounted(() => connect());
@@ -32,6 +33,7 @@ const activeTab = ref('overview');
 const buildTarget = ref(null);
 const detailBuildingId = ref(null);
 const showLog = ref(false);
+const showAdmin = ref(false);
 
 // 详情弹窗按 ID 从最新状态解析，保证次日生效后（内装 / 形态 / 收益变化）弹窗内容实时刷新
 const detailBuilding = computed(
@@ -44,7 +46,7 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
 
 <template>
     <div class="shell">
-        <StatusBar />
+        <StatusBar @open-admin="showAdmin = true" />
 
         <div class="nav">
             <button v-for="t in TABS" :key="t.key" class="tab" :class="{ active: activeTab === t.key }"
@@ -60,7 +62,7 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
 
             <div v-else-if="!store.state" class="empty">
                 <span class="big">·</span>
-                尚未开启对局，点击右上角「开始对局」启动。
+                尚未开启对局，可点击右上角「管理员模式」自定义配置，或点击「开始对局」直接启动。
             </div>
 
             <template v-else>
@@ -97,6 +99,7 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
         <BuildModal v-if="buildTarget" :plot="buildTarget.plot" :cellX="buildTarget.cellX" :cellY="buildTarget.cellY" @close="buildTarget = null" />
         <BuildingDetailModal v-if="detailBuilding" :building="detailBuilding" @close="detailBuildingId = null" />
         <SettlementLogModal v-if="showLog" @close="showLog = false" />
+        <AdminConfigModal v-if="showAdmin" @close="showAdmin = false" />
 
         <Toast />
     </div>

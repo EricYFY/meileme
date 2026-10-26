@@ -40,8 +40,8 @@ const segments = computed(() => {
         return {
             id: s.id,
             name: s.displayName,
-            icon: SEGMENT_ICONS[s.id] || '👥',
-            color: SEGMENT_COLORS[s.id] || '#8b9bc0',
+            icon: s.icon || SEGMENT_ICONS[s.id] || '👥',
+            color: s.color || SEGMENT_COLORS[s.id] || '#8b9bc0',
             potential,
             attraction,
             conversion,
@@ -85,6 +85,11 @@ function share(v, total) {
 function pct(v) {
     return (Math.round(v * 1000) / 10) + '%';
 }
+
+function fmtNum2(v) {
+    if (v === undefined || v === null || isNaN(v)) return '0.00';
+    return Number(v).toFixed(2);
+}
 </script>
 
 <template>
@@ -107,7 +112,7 @@ function pct(v) {
                 <div class="kpi-strip">
                     <div class="kpi-item">
                         <span class="kpi-label">客群综合吸引力</span>
-                        <span class="kpi-val gold">{{ fmtInt(totalAttraction) }}</span>
+                        <span class="kpi-val gold">{{ fmtNum2(totalAttraction) }}</span>
                     </div>
                     <div class="kpi-item">
                         <span class="kpi-label">平均客流转化率</span>
@@ -115,7 +120,7 @@ function pct(v) {
                     </div>
                     <div class="kpi-item">
                         <span class="kpi-label">床位满载溢出</span>
-                        <span class="kpi-val" :class="overflow > 0 ? 'warn' : 'pos'">{{ fmtInt(overflow) }} 人</span>
+                        <span class="kpi-val" :class="overflow > 0 ? 'warn' : 'pos'">{{ fmtNum2(overflow) }} 人</span>
                     </div>
                 </div>
 
@@ -128,7 +133,7 @@ function pct(v) {
                             </span>
                             <div class="attr-badge">
                                 <span class="faint">吸引力</span>
-                                <span class="score gold">{{ fmtInt(s.attraction) }}</span>
+                                <span class="score gold">{{ fmtNum2(s.attraction) }}</span>
                                 <span class="rate-pill" :style="{ borderColor: s.color, color: s.color }">
                                     转化率 {{ pct(s.conversion) }}
                                 </span>
@@ -138,14 +143,14 @@ function pct(v) {
                         <!-- 漏斗步骤条 -->
                         <div class="funnel-bars">
                             <div class="f-step">
-                                <div class="step-lbl"><span class="faint">潜在客源</span> <b>{{ fmtInt(s.potential) }}</b></div>
+                                <div class="step-lbl"><span class="faint">潜在客源</span> <b>{{ fmtNum2(s.potential) }}</b></div>
                                 <div class="step-bar">
                                     <span class="fill potential" :style="{ width: (s.potential / maxPotential * 100) + '%' }"></span>
                                 </div>
                             </div>
                             <div class="funnel-arrow">➔</div>
                             <div class="f-step">
-                                <div class="step-lbl"><span class="faint">意向到访</span> <b :style="{ color: s.color }">{{ fmtInt(s.intent) }}</b></div>
+                                <div class="step-lbl"><span class="faint">意向到访</span> <b :style="{ color: s.color }">{{ fmtNum2(s.intent) }}</b></div>
                                 <div class="step-bar">
                                     <span class="fill intent" :style="{ width: (s.intent / maxPotential * 100) + '%', background: s.color }"></span>
                                 </div>
@@ -153,8 +158,8 @@ function pct(v) {
                             <div class="funnel-arrow">➔</div>
                             <div class="f-step">
                                 <div class="step-lbl">
-                                    <span class="faint">实际入住</span> <b>{{ fmtInt(s.served) }}</b>
-                                    <span v-if="s.overflow > 0" class="warn-text">(流失 {{ fmtInt(s.overflow) }})</span>
+                                    <span class="faint">实际入住</span> <b>{{ fmtNum2(s.served) }}</b>
+                                    <span v-if="s.overflow > 0" class="warn-text">(流失 {{ fmtNum2(s.overflow) }})</span>
                                 </div>
                                 <div class="step-bar">
                                     <span class="fill served" :style="{ width: (s.served / maxPotential * 100) + '%' }"></span>
@@ -181,7 +186,7 @@ function pct(v) {
                                     transform="rotate(-90 60 60)" />
                         </svg>
                         <div class="donut-center">
-                            <div class="num big">{{ fmtInt(totalServed) }}</div>
+                            <div class="num big">{{ fmtNum2(totalServed) }}</div>
                             <div class="faint small">实际接待</div>
                         </div>
                     </div>
@@ -190,7 +195,7 @@ function pct(v) {
                         <div v-for="s in segments" :key="s.id" class="lg-row">
                             <span class="dot" :style="{ background: s.color }"></span>
                             <span class="nm">{{ s.name }}</span>
-                            <span class="num">{{ fmtInt(s.served) }} 人
+                            <span class="num">{{ fmtNum2(s.served) }} 人
                                 <span class="faint">· {{ share(s.served, totalServed) }}</span></span>
                         </div>
                         <div v-if="!totalServed" class="faint small">今日暂无实际入住</div>
@@ -202,7 +207,7 @@ function pct(v) {
                     <div v-for="s in segments" :key="s.id" class="intent-row">
                         <div class="line">
                             <span class="nm"><span class="dot" :style="{ background: s.color }"></span>{{ s.name }}</span>
-                            <span class="num">{{ fmtInt(s.intent) }} 人
+                            <span class="num">{{ fmtNum2(s.intent) }} 人
                                 <span class="faint">· {{ share(s.intent, totalIntent) }}</span></span>
                         </div>
                         <div class="pbar">
@@ -212,7 +217,7 @@ function pct(v) {
                 </div>
 
                 <div class="muted-note">
-                    意向客流 = 潜在客流 × 转化率；床位容量不足时超出部分直接流失（今日溢出 {{ fmtInt(overflow) }} 人）。
+                    意向客流 = 潜在客流 × 转化率；床位容量不足时超出部分直接流失（今日溢出 {{ fmtNum2(overflow) }} 人）。
                 </div>
             </div>
         </div>

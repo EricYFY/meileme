@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -67,14 +68,16 @@ public class DemandService {
             }
         }
 
-        Map<CustomerSegment, Double> potential = emptySegmentMap();
-        Map<CustomerSegment, Double> attraction = emptySegmentMap();
-        Map<CustomerSegment, Double> conversion = emptySegmentMap();
-        Map<CustomerSegment, Double> intent = emptySegmentMap();
-        Map<CustomerSegment, Double> served = emptySegmentMap();
+        Map<String, Double> potential = emptySegmentMap();
+        Map<String, Double> attraction = emptySegmentMap();
+        Map<String, Double> conversion = emptySegmentMap();
+        Map<String, Double> intent = emptySegmentMap();
+        Map<String, Double> served = emptySegmentMap();
 
         int totalRooms = 0;
         int occupiedRooms = 0;
+
+        List<String> segmentIds = getActiveSegmentIds();
 
         for (Region region : Region.values()) {
             if (!state.getUnlockedRegions().contains(region)) {
@@ -85,8 +88,7 @@ public class DemandService {
             List<BuildingInstance> accommodation = new ArrayList<>();
             List<BuildingInstance> support = new ArrayList<>();
             for (BuildingInstance b : buildings) {
-                if (b.getForm() != null && b.getForm().getMother().getCategory()
-                        == com.meileme.resort.config.BuildingCategory.ACCOMMODATION) {
+                if (b.isAccommodation()) {
                     accommodation.add(b);
                 } else {
                     support.add(b);
@@ -95,10 +97,18 @@ public class DemandService {
             totalRooms += accommodation.size();
 
             // —— ③ 本区域潜在客流 & 吸引力 & 转化率 ——
-            Map<CustomerSegment, Double> regionIntent = new EnumMap<>(CustomerSegment.class);
-            for (CustomerSegment seg : CustomerSegment.values()) {
-                double regionPotential = region.potentialOf(seg);
-                potential.merge(seg, regionPotential, Double::sum);
+            Map<String, Double> regionIntent = new LinkedHashMap<>();
+            for (String segId : segmentIds) {
+                com.meileme.resort.config.RegionConfig rc = registry != null ? registry.region(region.name()) : null;
+                double regionPotential = 0;
+                if (rc != null) {
+                    regionPotential = rc.potentialOf(segId);
+                } else {
+                    try {
+                        regionPotential = region.potentialOf(CustomerSegment.valueOf(segId));
+                    } catch (Exception ignored) {}
+                }
+                potential.merge(segId, regionPotential, Double::sum);
 
                 double attr = 0;
                 for (BuildingInstance b : buildings) {
@@ -106,18 +116,18 @@ public class DemandService {
                     if (f == null) {
                         continue;
                     }
-                    attr += (f.affinityOf(seg) + b.interiorAffinityBonusOf(seg))
-                            * comfortById.get(b.getId()) * f.levelWeightOf(b.getFormLevel());
+                    attr += (f.affinityOf(segId) + b.interiorAffinityBonusOf(segId, registry))
+                            * comfortById.get(b.getId());
                 }
                 attr *= attractMult;
-                attraction.merge(seg, attr, Double::sum);
+                attraction.merge(segId, attr, Double::sum);
 
                 double conv = attr / GameConfig.CONVERSION_DENOMINATOR * conversionMult;
                 conv = Math.max(GameConfig.MIN_CONVERSION_RATE, Math.min(GameConfig.MAX_CONVERSION_RATE, conv));
 
                 double regionIntentValue = regionPotential * conv;
-                regionIntent.put(seg, regionIntentValue);
-                intent.merge(seg, regionIntentValue, Double::sum);
+                regionIntent.put(segId, regionIntentValue);
+                intent.merge(segId, regionIntentValue, Double::sum);
             }
 
             // —— ④ 权重分配客流至本区域各住宿建筑 ——
@@ -127,24 +137,24 @@ public class DemandService {
                 double comfort = comfortById.get(b.getId());
                 double cap = Math.max(0, capacityById.get(b.getId()));
 
-                Map<CustomerSegment, Double> weight = new EnumMap<>(CustomerSegment.class);
-                for (CustomerSegment seg : CustomerSegment.values()) {
-                    weight.put(seg, (f.affinityOf(seg) + b.interiorAffinityBonusOf(seg))
-                            * comfort * f.levelWeightOf(b.getFormLevel()));
+                Map<String, Double> weight = new LinkedHashMap<>();
+                for (String segId : segmentIds) {
+                    weight.put(segId, (f.affinityOf(segId) + b.interiorAffinityBonusOf(segId, registry))
+                            * comfort);
                 }
 
                 double totalRaw = 0;
-                Map<CustomerSegment, Double> raw = new EnumMap<>(CustomerSegment.class);
-                for (CustomerSegment seg : CustomerSegment.values()) {
+                Map<String, Double> raw = new LinkedHashMap<>();
+                for (String segId : segmentIds) {
                     double segTotalWeight = 0;
                     for (BuildingInstance other : accommodation) {
                         BuildingForm of = other.getForm();
-                        segTotalWeight += (of.affinityOf(seg) + other.interiorAffinityBonusOf(seg))
-                                * comfortById.get(other.getId()) * of.levelWeightOf(other.getFormLevel());
+                        segTotalWeight += (of.affinityOf(segId) + other.interiorAffinityBonusOf(segId, registry))
+                                * comfortById.get(other.getId());
                     }
-                    double share = segTotalWeight <= 0 ? 0 : weight.get(seg) / segTotalWeight;
-                    double v = regionIntent.get(seg) * share;
-                    raw.put(seg, v);
+                    double share = segTotalWeight <= 0 ? 0 : weight.get(segId) / segTotalWeight;
+                    double v = regionIntent.getOrDefault(segId, 0d) * share;
+                    raw.put(segId, v);
                     totalRaw += v;
                 }
 
@@ -154,9 +164,9 @@ public class DemandService {
                     factor = totalRaw <= 0 ? 0 : cap / totalRaw;
                 }
                 double servedTotal = 0;
-                for (CustomerSegment seg : CustomerSegment.values()) {
-                    double v = raw.get(seg) * factor;
-                    served.merge(seg, v, Double::sum);
+                for (String segId : segmentIds) {
+                    double v = raw.getOrDefault(segId, 0d) * factor;
+                    served.merge(segId, v, Double::sum);
                     servedTotal += v;
                 }
                 regionServed += servedTotal;
@@ -177,13 +187,13 @@ public class DemandService {
         double totalPotential = 0;
         double totalIntent = 0;
         double totalServed = 0;
-        for (CustomerSegment seg : CustomerSegment.values()) {
-            double segPot = potential.get(seg);
-            double segIntent = intent.get(seg);
+        for (String segId : segmentIds) {
+            double segPot = potential.getOrDefault(segId, 0d);
+            double segIntent = intent.getOrDefault(segId, 0d);
             totalPotential += segPot;
             totalIntent += segIntent;
-            totalServed += served.get(seg);
-            conversion.put(seg, segPot <= 0 ? 0 : Math.min(GameConfig.MAX_CONVERSION_RATE, segIntent / segPot));
+            totalServed += served.getOrDefault(segId, 0d);
+            conversion.put(segId, segPot <= 0 ? 0 : Math.min(GameConfig.MAX_CONVERSION_RATE, segIntent / segPot));
         }
 
         result.setPotentialBySegment(potential);
@@ -205,10 +215,25 @@ public class DemandService {
         return plot == null ? null : plot.getRegion();
     }
 
-    private Map<CustomerSegment, Double> emptySegmentMap() {
-        Map<CustomerSegment, Double> map = new EnumMap<>(CustomerSegment.class);
-        for (CustomerSegment seg : CustomerSegment.values()) {
-            map.put(seg, 0d);
+    private List<String> getActiveSegmentIds() {
+        if (registry != null && !registry.allSegments().isEmpty()) {
+            List<String> ids = new ArrayList<>();
+            for (com.meileme.resort.config.SegmentConfig sc : registry.allSegments()) {
+                ids.add(sc.getId());
+            }
+            return ids;
+        }
+        List<String> ids = new ArrayList<>();
+        for (CustomerSegment cs : CustomerSegment.values()) {
+            ids.add(cs.name());
+        }
+        return ids;
+    }
+
+    private Map<String, Double> emptySegmentMap() {
+        Map<String, Double> map = new LinkedHashMap<>();
+        for (String segId : getActiveSegmentIds()) {
+            map.put(segId, 0d);
         }
         return map;
     }

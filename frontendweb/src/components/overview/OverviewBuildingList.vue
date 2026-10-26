@@ -31,6 +31,9 @@ function isShortage(bid) {
 }
 
 function catLabel(b) {
+    if (b.form?.category) {
+        return b.form.category === 'ACCOMMODATION' ? '住宿' : '配套';
+    }
     return store.config?.mothersById?.[b.mother]?.category === 'ACCOMMODATION' ? '住宿' : '配套';
 }
 function motherName(mid) {

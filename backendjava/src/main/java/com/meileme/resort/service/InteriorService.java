@@ -13,22 +13,29 @@ import org.springframework.stereotype.Service;
 @Service
 public class InteriorService {
 
+    private final ConfigRegistry registry;
     private final SkillTreeService skillTree;
     private final IdGenerator idGenerator;
 
-    public InteriorService(SkillTreeService skillTree, IdGenerator idGenerator) {
+    public InteriorService(ConfigRegistry registry, SkillTreeService skillTree, IdGenerator idGenerator) {
+        this.registry = registry;
         this.skillTree = skillTree;
         this.idGenerator = idGenerator;
     }
 
     /** 内装升级花费（含技能减免） */
     public double upgradeCost(GameState state, InteriorType type, int nextLevel) {
-        return type.upgradeCostOf(nextLevel) * skillTree.discount(state, SkillEffectKey.INTERIOR_UPGRADE_COST_DISCOUNT);
+        if (type == null) return 0d;
+        com.meileme.resort.config.InteriorConfig ic = registry != null ? registry.interior(type.name()) : null;
+        double base = ic != null ? ic.upgradeCostOf(nextLevel) : type.upgradeCostOf(nextLevel);
+        return base * skillTree.discount(state, SkillEffectKey.INTERIOR_UPGRADE_COST_DISCOUNT);
     }
 
     /** 内装升级工期：按内装类型 + 目标等级各自配置 */
     public int upgradeDays(InteriorType type, int nextLevel) {
-        return type == null ? 0 : type.upgradeDaysOf(nextLevel);
+        if (type == null) return 0;
+        com.meileme.resort.config.InteriorConfig ic = registry != null ? registry.interior(type.name()) : null;
+        return ic != null ? ic.upgradeDaysOf(nextLevel) : type.upgradeDaysOf(nextLevel);
     }
 
     /** 校验内装升级；返回 null 表示可执行 */
@@ -42,7 +49,7 @@ public class InteriorService {
         if (type == null) {
             return "INTERIOR_NOT_FOUND";
         }
-        if (!type.isApplicableTo(building.getMother())) {
+        if (!type.isApplicableTo(building.getForm(), building.getMother())) {
             return "INTERIOR_NOT_APPLICABLE";
         }
         if (state.projectOfBuilding(building.getId()) != null) {

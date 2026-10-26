@@ -2,9 +2,11 @@ package com.meileme.resort.config;
 
 import lombok.Getter;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -22,11 +24,11 @@ public class BuildingForm {
     private final String id;
     /** 展示名 */
     private final String displayName;
-    /** 所属母本 */
-    private final MotherBuildingType mother;
+    /** 建筑大类（住宿类 / 配套类；自主拥有，不受母体限制） */
+    private final BuildingCategory category;
     /** 进化线（BASE / FAMILY / BUSINESS / MERGE） */
     private final EvolutionLine line;
-    /** 进化阶段（0 = 母本基础形态） */
+    /** 进化阶段（0 = 基础形态） */
     private final int tier;
     /** 每间可接待人数（住宿形态；配套形态为 0） */
     private final double capacityPerRoom;
@@ -49,18 +51,22 @@ public class BuildingForm {
     /** 形态基础舒适度（Lv1 时基准值） */
     private final double baseComfort;
     /** 客群影响系数（形态固有属性，内装不提供） */
-    private final Map<CustomerSegment, Double> segmentAffinity;
+    private final Map<String, Double> segmentAffinity;
     /** 各形态等级下的内装等级上限：[Lv1, Lv2, Lv3] */
     private final int[] maxInteriorLevel;
     /** 分支进化前驱形态（tier = 0 时为 null） */
     private final BuildingForm evolveFrom;
     /** 该形态每个能力的基础需求（供给不足仅降低舒适度、不削承载） */
     private final Map<AbilityType, Double> abilityDemand;
+    /** 该形态允许包含/安装的内装 ID 列表 */
+    private final List<String> availableInteriors;
+    /** 该形态承载能力加成所对应的内装 ID（至多对应一个内装，如 BED / DINING_TABLE） */
+    private final String capacityInterior;
 
     private BuildingForm(Builder b) {
         this.id = b.id;
         this.displayName = b.displayName;
-        this.mother = b.mother;
+        this.category = b.category != null ? b.category : BuildingCategory.ACCOMMODATION;
         this.line = b.line;
         this.tier = b.tier;
         this.capacityPerRoom = b.capacityPerRoom;
@@ -73,20 +79,30 @@ public class BuildingForm {
         this.formLevelUpDays = b.formLevelUpDays;
         this.evolveDays = b.evolveDays;
         this.baseComfort = b.baseComfort;
-        this.segmentAffinity = b.segmentAffinity;
+        this.segmentAffinity = Collections.unmodifiableMap(new LinkedHashMap<>(b.segmentAffinity));
         this.maxInteriorLevel = b.maxInteriorLevel;
         this.evolveFrom = b.evolveFrom;
         this.abilityDemand = b.abilityDemand;
+        this.availableInteriors = Collections.unmodifiableList(new ArrayList<>(b.availableInteriors));
+        this.capacityInterior = b.capacityInterior;
     }
 
     /** 是否住宿类形态 */
     public boolean isAccommodation() {
-        return mother.getCategory() == BuildingCategory.ACCOMMODATION;
+        return category == BuildingCategory.ACCOMMODATION;
     }
 
-    /** 是否配套类形态 */
+    /** 是否配套类形态（优先以自身 category 为准，避免依赖母体） */
     public boolean isSupport() {
-        return mother.getCategory() == BuildingCategory.SUPPORT;
+        return category == BuildingCategory.SUPPORT;
+    }
+
+    /** 当前形态是否允许/拥有该内装 */
+    public boolean isInteriorAllowed(String interiorId) {
+        if (availableInteriors != null && !availableInteriors.isEmpty()) {
+            return availableInteriors.contains(interiorId);
+        }
+        return true;
     }
 
     /** 指定形态等级下的每间房屋收益 */
@@ -129,9 +145,9 @@ public class BuildingForm {
         return maxInteriorLevel[idx];
     }
 
-    /** 形态等级对「分配权重」的加成：1 + step × (level − 1) */
-    public double levelWeightOf(int formLevel) {
-        return 1 + GameConfig.FORM_LEVEL_WEIGHT_STEP * (formLevel - GameConfig.FORM_MIN_LEVEL);
+    /** 该形态当前配置的最大等级（基于 formLevelUpCost 长度动态推导） */
+    public int getMaxLevel() {
+        return formLevelUpCost == null ? GameConfig.FORM_MIN_LEVEL : formLevelUpCost.length + GameConfig.FORM_MIN_LEVEL;
     }
 
     /** 形态等级对「基础舒适度」的加成后结果 */
@@ -140,9 +156,17 @@ public class BuildingForm {
     }
 
     /** 该形态对指定客群的匹配系数（未声明则取兜底值） */
-    public double affinityOf(CustomerSegment segment) {
-        Double v = segmentAffinity.get(segment);
+    public double affinityOf(String segmentId) {
+        if (segmentId == null) {
+            return GameConfig.DEFAULT_SEGMENT_AFFINITY;
+        }
+        Double v = segmentAffinity.get(segmentId);
         return v == null ? GameConfig.DEFAULT_SEGMENT_AFFINITY : v;
+    }
+
+    /** 该形态对指定客群的匹配系数（枚举兼容） */
+    public double affinityOf(CustomerSegment segment) {
+        return segment == null ? GameConfig.DEFAULT_SEGMENT_AFFINITY : affinityOf(segment.name());
     }
 
     /** 该形态对指定能力的基础需求 */
@@ -167,15 +191,19 @@ public class BuildingForm {
 
     // ======================= 构建器 =======================
 
-    public static Builder builder(String id, String displayName, MotherBuildingType mother) {
-        return new Builder(id, displayName, mother);
+    public static Builder builder(String id, String displayName) {
+        return new Builder(id, displayName, BuildingCategory.ACCOMMODATION);
+    }
+
+    public static Builder builder(String id, String displayName, BuildingCategory category) {
+        return new Builder(id, displayName, category);
     }
 
     /** 形态构建器（避免超长位置参数，集中配置数值） */
     public static class Builder {
         private final String id;
         private final String displayName;
-        private final MotherBuildingType mother;
+        private BuildingCategory category;
         private EvolutionLine line = EvolutionLine.BASE;
         private int tier = 0;
         private double capacityPerRoom = 0;
@@ -188,18 +216,25 @@ public class BuildingForm {
         private int[] formLevelUpDays = new int[]{1, 1};
         private int evolveDays = 0;
         private double baseComfort = 50;
-        private Map<CustomerSegment, Double> segmentAffinity = new EnumMap<>(CustomerSegment.class);
+        private Map<String, Double> segmentAffinity = new LinkedHashMap<>();
         private int[] maxInteriorLevel = new int[]{
                 GameConfig.INTERIOR_MAX_LEVEL_FALLBACK,
                 GameConfig.INTERIOR_MAX_LEVEL_FALLBACK,
                 GameConfig.INTERIOR_MAX_LEVEL_FALLBACK};
         private BuildingForm evolveFrom = null;
         private Map<AbilityType, Double> abilityDemand = new EnumMap<>(AbilityType.class);
+        private List<String> availableInteriors = new ArrayList<>();
+        private String capacityInterior = null;
 
-        private Builder(String id, String displayName, MotherBuildingType mother) {
+        private Builder(String id, String displayName, BuildingCategory category) {
             this.id = id;
             this.displayName = displayName;
-            this.mother = mother;
+            this.category = category != null ? category : BuildingCategory.ACCOMMODATION;
+        }
+
+        public Builder category(BuildingCategory category) {
+            this.category = category;
+            return this;
         }
 
         public Builder line(EvolutionLine line) {
@@ -217,8 +252,8 @@ public class BuildingForm {
             return this;
         }
 
-        public Builder pricePerRoom(double lv1, double lv2, double lv3) {
-            this.pricePerRoomByLevel = new double[]{lv1, lv2, lv3};
+        public Builder pricePerRoom(double... prices) {
+            this.pricePerRoomByLevel = prices;
             return this;
         }
 
@@ -227,8 +262,8 @@ public class BuildingForm {
             return this;
         }
 
-        public Builder unitPrice(double lv1, double lv2, double lv3) {
-            this.unitPriceByLevel = new double[]{lv1, lv2, lv3};
+        public Builder unitPrice(double... prices) {
+            this.unitPriceByLevel = prices;
             return this;
         }
 
@@ -242,14 +277,14 @@ public class BuildingForm {
             return this;
         }
 
-        public Builder formLevelUpCost(double lv1ToLv2, double lv2ToLv3) {
-            this.formLevelUpCost = new double[]{lv1ToLv2, lv2ToLv3};
+        public Builder formLevelUpCost(double... costs) {
+            this.formLevelUpCost = costs;
             return this;
         }
 
-        /** 形态等级升级工期（游戏日）：Lv1→Lv2、Lv2→Lv3 */
-        public Builder formLevelUpDays(int lv1ToLv2, int lv2ToLv3) {
-            this.formLevelUpDays = new int[]{lv1ToLv2, lv2ToLv3};
+        /** 形态等级升级工期（游戏日）：各等级阶段 */
+        public Builder formLevelUpDays(int... days) {
+            this.formLevelUpDays = days;
             return this;
         }
 
@@ -265,12 +300,21 @@ public class BuildingForm {
         }
 
         public Builder affinity(CustomerSegment segment, double v) {
-            this.segmentAffinity.put(segment, v);
+            if (segment != null) {
+                this.segmentAffinity.put(segment.name(), v);
+            }
             return this;
         }
 
-        public Builder maxInteriorLevel(int lv1, int lv2, int lv3) {
-            this.maxInteriorLevel = new int[]{lv1, lv2, lv3};
+        public Builder affinity(String segmentId, double v) {
+            if (segmentId != null) {
+                this.segmentAffinity.put(segmentId, v);
+            }
+            return this;
+        }
+
+        public Builder maxInteriorLevel(int... levels) {
+            this.maxInteriorLevel = levels;
             return this;
         }
 
@@ -284,12 +328,22 @@ public class BuildingForm {
             return this;
         }
 
+        public Builder availableInteriors(List<String> list) {
+            if (list != null) {
+                this.availableInteriors = new ArrayList<>(list);
+            }
+            return this;
+        }
+
+        public Builder capacityInterior(String id) {
+            this.capacityInterior = id;
+            return this;
+        }
+
         public BuildingForm build() {
-            Map<CustomerSegment, Double> aff = new EnumMap<>(CustomerSegment.class);
-            aff.putAll(this.segmentAffinity);
             Map<AbilityType, Double> dem = new EnumMap<>(AbilityType.class);
             dem.putAll(this.abilityDemand);
-            this.segmentAffinity = Collections.unmodifiableMap(new LinkedHashMap<>(aff));
+            this.segmentAffinity = Collections.unmodifiableMap(new LinkedHashMap<>(this.segmentAffinity));
             this.abilityDemand = Collections.unmodifiableMap(new LinkedHashMap<>(dem));
             return new BuildingForm(this);
         }

@@ -163,7 +163,7 @@ public class GameState {
     public List<BuildingInstance> aliveAccommodationBuildings() {
         List<BuildingInstance> list = new ArrayList<>();
         for (BuildingInstance b : buildings) {
-            if (b.isAlive() && b.getMother().getCategory() == BuildingCategory.ACCOMMODATION) {
+            if (b.isAlive() && b.isAccommodation()) {
                 list.add(b);
             }
         }
@@ -174,7 +174,7 @@ public class GameState {
     public List<BuildingInstance> aliveSupportBuildings() {
         List<BuildingInstance> list = new ArrayList<>();
         for (BuildingInstance b : buildings) {
-            if (b.isAlive() && b.getMother().getCategory() == BuildingCategory.SUPPORT) {
+            if (b.isAlive() && b.isSupport()) {
                 list.add(b);
             }
         }

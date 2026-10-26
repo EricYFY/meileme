@@ -25,9 +25,40 @@ const capacity = computed(() => form.value.capacityPerRoom ?? 0);
 const baseComfort = computed(() => form.value.baseComfort ?? 0);
 
 // 配套建筑（餐厅 / 温泉 / 观景台等）：展示服务容量与单人收益，而非「每间房价」
-const isSupport = computed(() => store.config?.mothersById?.[props.building.mother]?.category === 'SUPPORT');
+const isSupport = computed(() => {
+    if (form.value?.category) return form.value.category === 'SUPPORT';
+    return store.config?.mothersById?.[props.building.mother]?.category === 'SUPPORT';
+});
 const serviceCapacity = computed(() => form.value.serviceCapacity ?? 0);
 const unitPrice = computed(() => form.value.unitPriceByLevel?.[level.value - 1] ?? 0);
+
+// 承载能力对应内装与容量分解
+const capacityInteriorId = computed(() => {
+    if (form.value?.capacityInterior !== undefined) {
+        return form.value.capacityInterior || null;
+    }
+    return isSupport.value ? (form.value?.id?.includes('RESTAURANT') ? 'DINING_TABLE' : null) : 'BED';
+});
+const capacityInteriorDef = computed(() => store.config?.interiorsById?.[capacityInteriorId.value] || null);
+const baseCapacity = computed(() => isSupport.value ? serviceCapacity.value : (form.value.capacityPerRoom ?? 0));
+const interiorCapacityBonus = computed(() => {
+    if (comfortData.value?.interiorCapacity !== undefined) {
+        return Number(comfortData.value.interiorCapacity);
+    }
+    const b = props.building;
+    const target = capacityInteriorId.value;
+    if (!target) return 0;
+    const it = (b.interiors || []).find((x) => x.interiorType === target);
+    if (!it) return 0;
+    const capPerLvl = Number(capacityInteriorDef.value?.capacityPerLevel ?? (target === 'BED' ? 1 : 0));
+    return capPerLvl * (it.level || 0);
+});
+const totalCapacity = computed(() => {
+    if (comfortData.value?.totalCapacity !== undefined) {
+        return Number(comfortData.value.totalCapacity);
+    }
+    return baseCapacity.value + interiorCapacityBonus.value;
+});
 
 // 后端下发的「单间实际房屋收益」构成（与日结同一套乘数），无数据时退回形态基础值
 const revenue = computed(() => store.state?.roomRevenue?.[props.building.id] || null);
@@ -44,6 +75,19 @@ const totalComfort = computed(() => comfortData.value?.totalComfort ?? baseComfo
 const interiorComfort = computed(() => comfortData.value?.interiorComfort ?? 0);
 const staffFactor = computed(() => comfortData.value?.staffFactor ?? 1.0);
 const shortages = computed(() => comfortData.value?.shortages ?? []);
+const formLevelComfortStep = computed(() => store.config?.formLevelComfortStep ?? 0.15);
+const levelComfortRatio = computed(() => {
+    if (comfortData.value?.levelComfortRatio !== undefined) {
+        return Number(comfortData.value.levelComfortRatio);
+    }
+    return Math.max(0, (level.value - 1) * formLevelComfortStep.value);
+});
+const effectiveBaseComfort = computed(() => {
+    if (comfortData.value?.baseComfort !== undefined) {
+        return Number(comfortData.value.baseComfort);
+    }
+    return baseComfort.value * (1 + levelComfortRatio.value);
+});
 
 // 客群相性与吸引力贡献
 const SEGMENT_COLORS = {
@@ -63,27 +107,27 @@ const segmentAffinities = computed(() => {
     const f = form.value;
     const b = props.building;
     const segAttractions = comfortData.value?.segmentAttraction || {};
+    const formAffinityMap = f.segmentAffinity || f.affinities || store.config?.buildingFormsById?.[f.id]?.affinities || store.config?.buildingFormsById?.[f.id]?.segmentAffinity || {};
     return (store.config?.segments || []).map((seg) => {
-        const baseAff = Number(f.affinities?.[seg.id] ?? 0);
+        const baseAff = Number(formAffinityMap[seg.id] ?? store.config?.defaultSegmentAffinity ?? 0.5);
         let interiorAff = 0;
         for (const it of (b.interiors || [])) {
             const def = store.config?.interiorsById?.[it.interiorType];
-            if (def && def.affinitySegment === seg.id) {
-                interiorAff += (def.affinityPerLevel || 0) * (it.level || 0);
-            }
+            const defAff = Number(def?.segmentAffinityPerLevel?.[seg.id] ?? (def?.affinitySegment === seg.id ? def?.affinityPerLevel : 0) ?? 0);
+            interiorAff += defAff * (it.level || 0);
         }
         const totalAff = baseAff + interiorAff;
         const attrScore = Number(segAttractions[seg.id] ?? 0);
         let grade = 'C';
-        if (totalAff >= 0.75) grade = 'S';
-        else if (totalAff >= 0.45) grade = 'A';
-        else if (totalAff >= 0.15) grade = 'B';
+        if (totalAff >= 1.2) grade = 'S';
+        else if (totalAff >= 0.8) grade = 'A';
+        else if (totalAff >= 0.4) grade = 'B';
         else if (totalAff <= 0) grade = '—';
         return {
             id: seg.id,
             name: seg.displayName,
-            icon: SEGMENT_ICONS[seg.id] || '👥',
-            color: SEGMENT_COLORS[seg.id] || '#8b9bc0',
+            icon: seg.icon || SEGMENT_ICONS[seg.id] || '👥',
+            color: seg.color || SEGMENT_COLORS[seg.id] || '#8b9bc0',
             baseAff,
             interiorAff,
             totalAff,
@@ -124,8 +168,20 @@ const evolveDiscount = computed(() => discount('EVOLVE_COST_DISCOUNT'));
 const interiorRows = computed(() => {
     const cap = form.value.maxInteriorLevel?.[level.value - 1] ?? 3;
     const mother = props.building.mother;
+    const allowedList = form.value.availableInteriors;
     return (store.config?.interiors || [])
-        .filter((it) => !it.applicableMothers || it.applicableMothers.includes(mother))
+        .filter((it) => {
+            if (Array.isArray(allowedList) && allowedList.length > 0) {
+                return allowedList.includes(it.id);
+            }
+            if (mother && it.applicableMothers && it.applicableMothers.length > 0) {
+                return it.applicableMothers.includes(mother);
+            }
+            if (!isSupport.value) {
+                return it.applicableMothers?.includes('STANDARD_ROOM');
+            }
+            return true;
+        })
         .map((it) => {
             const inst = (props.building.interiors || []).find((x) => x.interiorType === it.id);
             const cur = inst?.level || 0;
@@ -191,15 +247,25 @@ function affinityText(it) {
 
         <div class="panel" style="margin-top: 12px">
             <div class="panel-body" v-if="isSupport">
-                <div class="kv"><span class="k">每日服务容量</span><span class="v num">{{ serviceCapacity }} 人次</span></div>
+                <div class="kv">
+                    <span class="k">每日服务容量</span>
+                    <span class="v num">{{ totalCapacity }} 人次
+                        <span class="faint" v-if="interiorCapacityBonus > 0">（基础 {{ baseCapacity }} + 内装 {{ interiorCapacityBonus }}）</span>
+                    </span>
+                </div>
                 <div class="kv"><span class="k">单人收益（Lv{{ level }}）</span><span class="v num">{{ fmtMoney(unitPrice) }}</span></div>
                 <div class="kv total">
                     <span class="k">满员日收益上限</span>
-                    <span class="v num gold">{{ fmtMoney(serviceCapacity * unitPrice) }}</span>
+                    <span class="v num gold">{{ fmtMoney(totalCapacity * unitPrice) }}</span>
                 </div>
             </div>
             <div class="panel-body" v-else>
-                <div class="kv"><span class="k">每间接待人数</span><span class="v num">{{ capacity }} 人</span></div>
+                <div class="kv">
+                    <span class="k">每间接待人数</span>
+                    <span class="v num">{{ totalCapacity }} 人
+                        <span class="faint" v-if="interiorCapacityBonus > 0">（基础 {{ baseCapacity }} + 内装 {{ interiorCapacityBonus }}）</span>
+                    </span>
+                </div>
                 <div class="kv">
                     <span class="k">基础房屋收益（每间）</span>
                     <span class="v num">{{ fmtMoney(revenue?.base ?? pricePerRoom) }}</span>
@@ -225,29 +291,36 @@ function affinityText(it) {
             <div class="card-head">
                 <span class="card-title">综合舒适度剖析</span>
                 <span class="score-badge" :class="staffFactor < 0.999 ? 'warn' : 'pos'">
-                    ★ {{ totalComfort.toFixed(1) }}
+                    ★ {{ totalComfort.toFixed(2) }}
                 </span>
             </div>
             <div class="comfort-breakdown">
                 <div class="bd-row">
-                    <span class="lbl">形态基础 (Lv{{ level }})</span>
-                    <span class="val">{{ baseComfort.toFixed(1) }}</span>
+                    <span class="lbl">形态基础舒适度</span>
+                    <span class="val">{{ baseComfort.toFixed(2) }}</span>
+                </div>
+                <div class="bd-row">
+                    <span class="lbl">该等级形态舒适度提升系数 (Lv{{ level }})</span>
+                    <span class="val" :class="levelComfortRatio > 0 ? 'pos' : 'dim'">
+                        +{{ levelComfortRatio.toFixed(2) }}
+                        <span class="faint" v-if="levelComfortRatio > 0">（提升后 {{ effectiveBaseComfort.toFixed(2) }}）</span>
+                    </span>
                 </div>
                 <div class="bd-row">
                     <span class="lbl">内装舒适加成</span>
-                    <span class="val pos">+{{ interiorComfort.toFixed(1) }}</span>
+                    <span class="val pos">+{{ interiorComfort.toFixed(2) }}</span>
                 </div>
                 <div class="bd-row">
                     <span class="lbl">人力供给系数</span>
                     <span class="val" :class="staffFactor < 0.999 ? 'neg' : 'dim'">
-                        × {{ (staffFactor * 100).toFixed(0) }}%
+                        × {{ staffFactor.toFixed(2) }}
                     </span>
                 </div>
             </div>
             <div v-if="staffFactor < 0.999" class="shortage-alert">
                 ⚠️ 人力供给不足导致舒适度打折！短缺项：
                 <span v-for="s in shortages" :key="s.ability" class="short-pill">
-                    {{ s.name }} ({{ (s.ratio * 100).toFixed(0) }}%)
+                    {{ s.name }} (供给度 {{ s.ratio.toFixed(2) }})
                 </span>
             </div>
         </div>
@@ -268,14 +341,22 @@ function affinityText(it) {
                         <span class="grade-tag" :style="{ background: seg.color }">{{ seg.grade }}</span>
                     </div>
                     <div class="aff-mid">
-                        <span class="faint">相性系数</span>
-                        <span class="num bold">{{ seg.totalAff.toFixed(2) }}
-                            <span class="faint" v-if="seg.interiorAff > 0">(+{{ seg.interiorAff.toFixed(2) }})</span>
-                        </span>
+                        <div class="aff-line">
+                            <span class="faint">形态基础</span>
+                            <span class="num">{{ seg.baseAff.toFixed(2) }}</span>
+                        </div>
+                        <div class="aff-line">
+                            <span class="faint">内装加成</span>
+                            <span class="num pos">+{{ seg.interiorAff.toFixed(2) }}</span>
+                        </div>
+                        <div class="aff-line total">
+                            <span class="faint">综合相性</span>
+                            <span class="num bold" :style="{ color: seg.color }">{{ seg.totalAff.toFixed(2) }}</span>
+                        </div>
                     </div>
                     <div class="aff-bot">
                         <span class="faint">吸引力贡献</span>
-                        <span class="score gold">{{ seg.attrScore.toFixed(0) }}</span>
+                        <span class="score gold">{{ seg.attrScore.toFixed(2) }}</span>
                     </div>
                 </div>
             </div>
@@ -315,7 +396,7 @@ function affinityText(it) {
                 <div class="title">{{ it.displayName }}</div>
                 <div class="sub">
                     当前 Lv{{ it.cur }} / {{ it.cap }}（{{ it.categoryDisplayName }} · 舒适 +{{ it.comfortPerLevel }}/级<template
-                        v-if="it.capacityPerLevel > 0"> · 容量 +{{ it.capacityPerLevel }}/级</template>）
+                        v-if="it.id === capacityInteriorId && it.capacityPerLevel > 0"> · 容量 +{{ it.capacityPerLevel }}/级</template>）
                 </div>
                 <div class="sub faint">客群吸引力：{{ affinityText(it) }}</div>
                 <div class="sub faint">房屋收益：+{{ pct(it.revenueBonusPerLevel) }}/级</div>
@@ -459,11 +540,30 @@ function affinityText(it) {
     padding: 1px 6px;
     border-radius: 4px;
 }
-.aff-mid, .aff-bot {
+.aff-mid {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 5px 8px;
+    margin: 4px 0 6px 0;
+}
+.aff-line {
     display: flex;
     justify-content: space-between;
     font-size: 11px;
+}
+.aff-line.total {
+    border-top: 1px dashed rgba(255, 255, 255, 0.12);
+    padding-top: 3px;
     margin-top: 2px;
+}
+.aff-bot {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    padding: 0 2px;
 }
 .aff-bot .score {
     font-weight: 700;

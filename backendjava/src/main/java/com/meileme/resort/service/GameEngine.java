@@ -1,5 +1,6 @@
 package com.meileme.resort.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meileme.resort.config.AbilityType;
 import com.meileme.resort.config.Achievement;
@@ -26,12 +27,15 @@ import com.meileme.resort.repository.GameStateRepository;
 import com.meileme.resort.websocket.GameWebSocketHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +52,8 @@ import java.util.Map;
  */
 @Service
 public class GameEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(GameEngine.class);
 
     private final GameStateRepository repository;
     private final ConfigRegistry registry;
@@ -178,7 +184,7 @@ public class GameEngine {
 
     // ===================== 时钟推进 =====================
 
-    @Scheduled(fixedRate = GameConfig.TICK_INTERVAL_MS)
+    @Scheduled(fixedRate = 200)
     public synchronized void scheduledLoop() {
         GameState s = repository.get();
         if (s == null || !s.isRunning() || s.isPaused()) {
@@ -226,7 +232,8 @@ public class GameEngine {
         // 统计刷新 → 成就解锁（地块需玩家付费解锁）
         statsService.rebuild(s);
         for (Achievement a : achievementService.evaluateAndUnlock(s)) {
-            settle.getUnlocks().add("🏆 成就达成：" + a.getDisplayName());
+            String ptStr = a.getRewardSkillPoints() > 0 ? "（技能点 +" + a.getRewardSkillPoints() + "）" : "";
+            settle.getUnlocks().add("🏆 成就达成：" + a.getDisplayName() + ptStr);
         }
 
         s.appendHistory(settle);
@@ -246,7 +253,8 @@ public class GameEngine {
         statsService.rebuild(s);
         List<String> unlocks = new ArrayList<>(projectDone);
         for (Achievement a : achievementService.evaluateAndUnlock(s)) {
-            unlocks.add("🏆 成就达成：" + a.getDisplayName());
+            String ptStr = a.getRewardSkillPoints() > 0 ? "（技能点 +" + a.getRewardSkillPoints() + "）" : "";
+            unlocks.add("🏆 成就达成：" + a.getDisplayName() + ptStr);
         }
         refreshPreview();
         broadcast("DAY_STARTED", Map.of("day", s.getDay(), "date", s.currentDateDisplay(), "unlocks", unlocks));
@@ -301,7 +309,7 @@ public class GameEngine {
                 if (b == null) {
                     return "BUILDING_NOT_FOUND";
                 }
-                if (b.getFormLevel() >= GameConfig.FORM_MAX_LEVEL) {
+                if (b.getFormLevel() >= b.getForm().getMaxLevel()) {
                     return "FORM_LEVEL_MAX_REACHED";
                 }
                 evolutionService.completeFormLevelUp(b);
@@ -316,7 +324,7 @@ public class GameEngine {
                 if (target == null) {
                     return "TARGET_FORM_NOT_FOUND";
                 }
-                if (target.getEvolveFrom() != b.getForm() || b.getFormLevel() < GameConfig.FORM_MAX_LEVEL) {
+                if (target.getEvolveFrom() != b.getForm() || b.getFormLevel() < b.getForm().getMaxLevel()) {
                     return "EVOLVE_PATH_NOT_ALLOWED";
                 }
                 evolutionService.completeBranchEvolve(b, target);
@@ -533,11 +541,13 @@ public class GameEngine {
             fail(session, "TRAIN_STAFF", reason);
             return;
         }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("staffId", staffId);
-        enqueue(session, PendingCommandType.TRAIN_STAFF, payload,
-                "培训 " + staff.getPosition().getDisplayName() + " Lv" + staff.getLevel() + " → Lv"
-                        + (staff.getLevel() + 1));
+        staffService.startTrain(s, staff);
+        send(session, "STAFF_TRAINING_STARTED", Map.of(
+                "staffId", staffId,
+                "targetLevel", staff.getTrainingTargetLevel(),
+                "totalDays", staff.getTrainingTotalDays()
+        ));
+        broadcastState();
     }
 
     public synchronized void requestFire(WebSocketSession session, String staffId) {
@@ -683,6 +693,53 @@ public class GameEngine {
         send(session, "CONFIG", configPayload());
     }
 
+    /** 管理员查询全量可配置项（含当前是否为自定义配置标识） */
+    public synchronized void sendAdminConfig(WebSocketSession session) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("config", registry.getRawConfigMap());
+        m.put("isCustom", registry.isCustomConfig());
+        send(session, "ADMIN_CONFIG_DATA", m);
+    }
+
+    /** 管理员保存新配置：写入 admin-config.json 并热重载生效 */
+    public synchronized void saveAdminConfig(WebSocketSession session, com.fasterxml.jackson.databind.JsonNode node) {
+        try {
+            if (!node.has("config")) {
+                fail(session, "SAVE_ADMIN_CONFIG", "CONFIG_PAYLOAD_MISSING");
+                return;
+            }
+            Map<String, Object> map = objectMapper.convertValue(node.get("config"), new TypeReference<>() {});
+            registry.saveAdminConfig(map);
+            // 广播全量配置更新
+            broadcast("CONFIG", configPayload());
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("config", registry.getRawConfigMap());
+            m.put("isCustom", true);
+            m.put("filePath", registry.resolveAdminConfigFile().getAbsolutePath());
+            send(session, "ADMIN_CONFIG_SAVED", m);
+            log.info("管理员配置已保存并广播生效: {}", m.get("filePath"));
+        } catch (Exception e) {
+            log.error("保存管理员配置异常", e);
+            fail(session, "SAVE_ADMIN_CONFIG", "SAVE_FAILED: " + e.getMessage());
+        }
+    }
+
+    /** 管理员恢复默认配置：删除 admin-config.json 并重载默认 */
+    public synchronized void resetAdminConfig(WebSocketSession session) {
+        try {
+            registry.resetToDefault();
+            broadcast("CONFIG", configPayload());
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("config", registry.getRawConfigMap());
+            m.put("isCustom", false);
+            send(session, "ADMIN_CONFIG_RESET", m);
+            log.info("管理员配置已重置为默认并广播生效");
+        } catch (Exception e) {
+            log.error("重置管理员配置异常", e);
+            fail(session, "RESET_ADMIN_CONFIG", "RESET_FAILED: " + e.getMessage());
+        }
+    }
+
     /** 全量每日日志（游戏结束时用于复盘） */
     public synchronized void sendDailyLog(WebSocketSession session) {
         GameState s = repository.get();
@@ -797,9 +854,21 @@ public class GameEngine {
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("daysAtCurrentLevel", st.getDaysAtCurrentLevel());
             x.put("requiredDays", staffService.trainingRequiredDays(s, st));
+            x.put("trainingDays", staffService.trainingDays(s, st));
             x.put("trainCost", staffService.trainingCost(st));
             x.put("ready", staffService.trainingReady(s, st));
-            x.put("maxLevel", st.getLevel() >= com.meileme.resort.config.GameConfig.STAFF_MAX_LEVEL);
+            x.put("training", st.isTraining());
+            x.put("trainingDaysRemaining", st.getTrainingDaysRemaining());
+            x.put("trainingTotalDays", st.getTrainingTotalDays());
+            x.put("trainingTargetLevel", st.getTrainingTargetLevel());
+            int maxLv = st.getPosition() != null ? st.getPosition().getMaxLevel() : GameConfig.STAFF_MAX_LEVEL;
+            if (registry != null && st.getPosition() != null) {
+                com.meileme.resort.config.PositionConfig pcfg = registry.getPosition(st.getPosition().name());
+                if (pcfg != null && pcfg.getAbilityValueByLevel() != null && pcfg.getAbilityValueByLevel().length > 0) {
+                    maxLv = pcfg.getAbilityValueByLevel().length;
+                }
+            }
+            x.put("maxLevel", st.getLevel() >= maxLv);
             training.put(st.getId(), x);
         }
         m.put("staffTraining", training);
@@ -810,27 +879,53 @@ public class GameEngine {
         for (BuildingInstance b : s.aliveBuildings()) {
             if (b.getForm() == null) continue;
             Map<String, Object> x = new LinkedHashMap<>();
+            double rawBaseComfort = b.getForm().getBaseComfort();
+            double levelComfortRatio = GameConfig.FORM_LEVEL_COMFORT_STEP * (b.getFormLevel() - GameConfig.FORM_MIN_LEVEL);
             double baseComfort = b.getForm().comfortOf(b.getFormLevel());
             double interiorComfort = comfortService.interiorComfortOf(s, b);
             double staffFactor = comfortService.staffFactorOf(b, ratios);
             double totalComfort = (baseComfort + interiorComfort) * staffFactor;
+            x.put("rawBaseComfort", rawBaseComfort);
+            x.put("levelComfortRatio", levelComfortRatio);
             x.put("baseComfort", baseComfort);
             x.put("interiorComfort", interiorComfort);
             x.put("staffFactor", staffFactor);
             x.put("totalComfort", totalComfort);
             x.put("shortages", comfortService.shortageAbilitiesOf(b, ratios));
 
+            double baseCapacity = b.isAccommodation() ? b.getForm().getCapacityPerRoom() : b.getForm().getServiceCapacity();
+            double interiorCapacity = comfortService.interiorCapacityBonusOf(s, b);
+            double totalCapacity = baseCapacity + interiorCapacity;
+            x.put("baseCapacity", baseCapacity);
+            x.put("interiorCapacity", interiorCapacity);
+            x.put("totalCapacity", totalCapacity);
+
             Map<String, Double> segAttraction = new LinkedHashMap<>();
-            for (CustomerSegment seg : CustomerSegment.values()) {
-                double attr = (b.getForm().affinityOf(seg) + b.interiorAffinityBonusOf(seg))
-                        * totalComfort * b.getForm().levelWeightOf(b.getFormLevel()) * attractMult;
-                segAttraction.put(seg.name(), attr);
+            for (String segId : activeSegmentIds()) {
+                double attr = (b.getForm().affinityOf(segId) + b.interiorAffinityBonusOf(segId, registry))
+                        * totalComfort * attractMult;
+                segAttraction.put(segId, attr);
             }
             x.put("segmentAttraction", segAttraction);
             buildingComfort.put(b.getId(), x);
         }
         m.put("buildingComfort", buildingComfort);
         return m;
+    }
+
+    private List<String> activeSegmentIds() {
+        if (registry != null && !registry.allSegments().isEmpty()) {
+            List<String> list = new ArrayList<>();
+            for (com.meileme.resort.config.SegmentConfig sc : registry.allSegments()) {
+                list.add(sc.getId());
+            }
+            return list;
+        }
+        List<String> list = new ArrayList<>();
+        for (CustomerSegment cs : CustomerSegment.values()) {
+            list.add(cs.name());
+        }
+        return list;
     }
 
     private Map<String, Object> configPayload() {
@@ -855,6 +950,17 @@ public class GameEngine {
 
     private List<Map<String, Object>> regionList() {
         List<Map<String, Object>> list = new ArrayList<>();
+        if (registry != null && !registry.allRegions().isEmpty()) {
+            for (com.meileme.resort.config.RegionConfig rc : registry.allRegions()) {
+                Map<String, Object> x = new LinkedHashMap<>();
+                x.put("id", rc.getId());
+                x.put("displayName", rc.getDisplayName());
+                x.put("baseDailyFlow", rc.getBaseDailyFlow());
+                x.put("segmentRatios", rc.getSegmentRatios() != null ? new LinkedHashMap<>(rc.getSegmentRatios()) : Collections.emptyMap());
+                list.add(x);
+            }
+            return list;
+        }
         for (Region r : Region.values()) {
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("id", r.name());
@@ -885,11 +991,25 @@ public class GameEngine {
     }
 
     private List<Map<String, Object>> segmentList() {
+        if (registry != null && !registry.allSegments().isEmpty()) {
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (com.meileme.resort.config.SegmentConfig sc : registry.allSegments()) {
+                Map<String, Object> x = new LinkedHashMap<>();
+                x.put("id", sc.getId());
+                x.put("displayName", sc.getDisplayName());
+                x.put("description", sc.getDescription());
+                x.put("color", sc.getColor());
+                x.put("icon", sc.getIcon());
+                list.add(x);
+            }
+            return list;
+        }
         List<Map<String, Object>> list = new ArrayList<>();
         for (CustomerSegment seg : CustomerSegment.values()) {
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("id", seg.name());
             x.put("displayName", seg.getDisplayName());
+            x.put("description", "");
             list.add(x);
         }
         return list;
@@ -908,6 +1028,34 @@ public class GameEngine {
 
     private List<Map<String, Object>> positionList() {
         List<Map<String, Object>> list = new ArrayList<>();
+        if (registry != null && !registry.allPositions().isEmpty()) {
+            for (com.meileme.resort.config.PositionConfig pc : registry.allPositions()) {
+                Map<String, Object> x = new LinkedHashMap<>();
+                x.put("id", pc.getId());
+                x.put("displayName", pc.getDisplayName());
+                List<String> abilities = new ArrayList<>();
+                for (AbilityType a : pc.getAbilities()) {
+                    abilities.add(a.name());
+                }
+                x.put("abilities", abilities);
+                x.put("abilityValueByLevel", pc.getAbilityValueByLevel());
+                x.put("abilityValues", pc.getAbilityValueByLevel());
+                Map<String, double[]> aoOut = new LinkedHashMap<>();
+                if (pc.getAbilityOutputs() != null) {
+                    for (Map.Entry<AbilityType, double[]> entry : pc.getAbilityOutputs().entrySet()) {
+                        aoOut.put(entry.getKey().name(), entry.getValue());
+                    }
+                }
+                x.put("abilityOutputs", aoOut);
+                x.put("hireCost", pc.getHireCost());
+                x.put("upgradeDaysByLevel", pc.getUpgradeDaysByLevel());
+                x.put("trainDaysByLevel", pc.getTrainDaysByLevel());
+                x.put("trainCostByLevel", pc.getTrainCostByLevel());
+                x.put("compensationBase", pc.getCompensationBase());
+                list.add(x);
+            }
+            return list;
+        }
         for (PositionType p : PositionType.values()) {
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("id", p.name());
@@ -919,8 +1067,9 @@ public class GameEngine {
             x.put("abilities", abilities);
             x.put("abilityValueByLevel", p.getAbilityValueByLevel());
             x.put("hireCost", p.getHireCost());
-            x.put("upgradeDaysLv1ToLv2", p.getUpgradeDaysLv1ToLv2());
-            x.put("upgradeDaysLv2ToLv3", p.getUpgradeDaysLv2ToLv3());
+            x.put("upgradeDaysByLevel", p.getUpgradeDaysByLevel());
+            x.put("trainDaysByLevel", p.getTrainDaysByLevel());
+            x.put("trainCostByLevel", p.getTrainCostByLevel());
             x.put("compensationBase", p.getCompensationBase());
             list.add(x);
         }
@@ -928,6 +1077,25 @@ public class GameEngine {
     }
 
     private List<Map<String, Object>> interiorList() {
+        if (registry != null && !registry.allInteriors().isEmpty()) {
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (com.meileme.resort.config.InteriorConfig ic : registry.allInteriors()) {
+                Map<String, Object> x = new LinkedHashMap<>();
+                x.put("id", ic.getId());
+                x.put("displayName", ic.getDisplayName());
+                x.put("category", ic.getCategory() == null ? "" : ic.getCategory().name());
+                x.put("categoryDisplayName", ic.getCategory() == null ? "" : ic.getCategory().getDisplayName());
+                x.put("comfortPerLevel", ic.getComfortPerLevel());
+                x.put("capacityPerLevel", ic.getCapacityPerLevel());
+                x.put("revenueBonusPerLevel", ic.getRevenueBonusPerLevel());
+                x.put("segmentAffinityPerLevel", ic.getSegmentAffinityPerLevel());
+                x.put("upgradeCostByLevel", ic.getUpgradeCostByLevel());
+                x.put("upgradeDaysByLevel", ic.getUpgradeDaysByLevel());
+                x.put("applicableMothers", ic.getApplicableMothers());
+                list.add(x);
+            }
+            return list;
+        }
         List<Map<String, Object>> list = new ArrayList<>();
         for (InteriorType it : InteriorType.values()) {
             Map<String, Object> x = new LinkedHashMap<>();

@@ -48,11 +48,11 @@ public class FinanceService {
     /** 今日预计纯投影：复用结算公式但不扣减资金、不修改累计统计 */
     public DailyPreview projection(GameState state, DemandResult demand) {
         DailyPreview p = new DailyPreview();
-        p.setPotentialBySegment(new java.util.EnumMap<>(demand.getPotentialBySegment()));
-        p.setAttractionBySegment(new java.util.EnumMap<>(demand.getAttractionBySegment()));
-        p.setConversionBySegment(new java.util.EnumMap<>(demand.getConversionBySegment()));
-        p.setIntentBySegment(new java.util.EnumMap<>(demand.getIntentBySegment()));
-        p.setServedBySegment(new java.util.EnumMap<>(demand.getServedBySegment()));
+        p.setPotentialBySegment(new java.util.LinkedHashMap<>(demand.getPotentialBySegment()));
+        p.setAttractionBySegment(new java.util.LinkedHashMap<>(demand.getAttractionBySegment()));
+        p.setConversionBySegment(new java.util.LinkedHashMap<>(demand.getConversionBySegment()));
+        p.setIntentBySegment(new java.util.LinkedHashMap<>(demand.getIntentBySegment()));
+        p.setServedBySegment(new java.util.LinkedHashMap<>(demand.getServedBySegment()));
         p.setTotalRooms(demand.getTotalRooms());
         p.setOccupiedRooms(demand.getOccupiedRooms());
         p.setOccupancyRate(demand.getTotalRooms() <= 0 ? 0
@@ -91,10 +91,10 @@ public class FinanceService {
         settle.setDay(state.getDay());
         settle.setDateDisplay(state.currentDateDisplay());
 
-        settle.setPotentialBySegment(new java.util.EnumMap<>(demand.getPotentialBySegment()));
-        settle.setConversionBySegment(new java.util.EnumMap<>(demand.getConversionBySegment()));
-        settle.setIntentBySegment(new java.util.EnumMap<>(demand.getIntentBySegment()));
-        settle.setServedBySegment(new java.util.EnumMap<>(demand.getServedBySegment()));
+        settle.setPotentialBySegment(new java.util.LinkedHashMap<>(demand.getPotentialBySegment()));
+        settle.setConversionBySegment(new java.util.LinkedHashMap<>(demand.getConversionBySegment()));
+        settle.setIntentBySegment(new java.util.LinkedHashMap<>(demand.getIntentBySegment()));
+        settle.setServedBySegment(new java.util.LinkedHashMap<>(demand.getServedBySegment()));
         settle.setTotalPotential(demand.getTotalPotential());
         settle.setTotalIntent(demand.getTotalIntent());
         settle.setTotalServed(demand.getTotalServed());
@@ -139,8 +139,8 @@ public class FinanceService {
         state.getStats().setCumulativeIncome(state.getStats().getCumulativeIncome() + totalRevenue);
         state.getStats().setTotalAssets(state.getFunds());
         state.getStats().setTotalGuests(state.getStats().getTotalGuests() + demand.getTotalServed());
-        for (com.meileme.resort.config.CustomerSegment seg : com.meileme.resort.config.CustomerSegment.values()) {
-            state.getStats().addSegmentGuests(seg, demand.getServedBySegment().getOrDefault(seg, 0d));
+        for (Map.Entry<String, Double> e : demand.getServedBySegment().entrySet()) {
+            state.getStats().addSegmentGuests(e.getKey(), e.getValue());
         }
 
         // —— 人力供给提示（便于复盘） ——

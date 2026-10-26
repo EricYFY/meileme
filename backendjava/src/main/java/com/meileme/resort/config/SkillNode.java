@@ -13,7 +13,6 @@ import java.util.List;
  * 技能点唯一来源为「达成局内经营里程碑」（当前设计：每解锁一个地块获得 1 点）。</p>
  */
 @Getter
-@AllArgsConstructor
 public class SkillNode {
 
     /** 技能唯一 ID */
@@ -32,4 +31,24 @@ public class SkillNode {
     private final SkillEffectKey effectKey;
     /** 效果数值（倍率类为 0.2 表示 +20%；减免类为 0.2 表示 −20%） */
     private final double value;
+    /** 解锁需要消耗的技能点数（默认 1） */
+    private final int costPoints;
+
+    public SkillNode(String id, String displayName, String description, SkillCategory category,
+                     List<String> prerequisites, SkillEffectType effectType, SkillEffectKey effectKey, double value) {
+        this(id, displayName, description, category, prerequisites, effectType, effectKey, value, 1);
+    }
+
+    public SkillNode(String id, String displayName, String description, SkillCategory category,
+                     List<String> prerequisites, SkillEffectType effectType, SkillEffectKey effectKey, double value, int costPoints) {
+        this.id = id;
+        this.displayName = displayName;
+        this.description = description;
+        this.category = category;
+        this.prerequisites = prerequisites;
+        this.effectType = effectType;
+        this.effectKey = effectKey;
+        this.value = value;
+        this.costPoints = Math.max(1, costPoints);
+    }
 }

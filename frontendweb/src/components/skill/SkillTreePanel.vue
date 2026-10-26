@@ -77,7 +77,8 @@ function nodeState(s) {
     if (unlockedSet.value.has(s.id)) return 'unlocked';
     const prereqs = s.prerequisites || [];
     const allPrereq = prereqs.every((p) => unlockedSet.value.has(p));
-    const enough = skillPoints.value >= 1;
+    const cost = s.costPoints || 1;
+    const enough = skillPoints.value >= cost;
     return allPrereq && enough ? 'available' : 'locked';
 }
 
@@ -122,10 +123,10 @@ function onClickNode(s) {
                        @click="onClickNode(s)">
                         <rect :width="NODE_W" :height="NODE_H" rx="8"
                               :fill="nodeFill(nodeState(s))" :stroke="nodeStroke(nodeState(s))" :stroke-width="1.5" />
-                        <text class="name" x="10" y="22">{{ s.displayName }}</text>
-                        <text class="desc" x="10" y="38">{{ (s.description || '').slice(0, 14) }}</text>
-                        <text class="desc" x="10" y="51" :fill="CAT_COLOR[s.category] || '#a9b6d4'">{{ s.category }}</text>
-                        <title>{{ s.displayName }}：{{ s.description }}</title>
+                        <text class="name" x="10" y="20">{{ s.displayName }}</text>
+                        <text class="desc" x="10" y="34">{{ (s.description || '').slice(0, 14) }}</text>
+                        <text class="desc" x="10" y="48" :fill="CAT_COLOR[s.category] || '#a9b6d4'">{{ s.category }} · 消耗 {{ s.costPoints || 1 }} 点</text>
+                        <title>{{ s.displayName }}（消耗 {{ s.costPoints || 1 }} 技能点）：{{ s.description }}</title>
                     </g>
                 </svg>
             </div>

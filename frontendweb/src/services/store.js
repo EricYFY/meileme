@@ -13,13 +13,19 @@ export const store = reactive({
     lastSettle: null,       // 最近一次日结快照
     dailyLog: null,         // DAILY_LOG 载荷（结算日志弹窗）
     rangeReport: null,      // RANGE_REPORT 载荷
+    adminConfig: null,      // 当前管理员查看/编辑的全量配置
+    isCustomConfig: false,  // 当前是否为自定义 admin-config.json
     toasts: [],
 });
 
 // ===================== 上行指令 API =====================
 
 function sendCommand(command, params = {}) {
-    ws.send({ command, ...params });
+    const ok = ws.send({ command, ...params });
+    if (!ok) {
+        toast(`网络未连接，指令 ${command} 发送失败，请确认后端已启动！`, 'alert');
+    }
+    return ok;
 }
 
 export const api = {
@@ -40,6 +46,66 @@ export const api = {
     unlockPlot: (plotId) => sendCommand('UNLOCK_PLOT', { plotId }),
     requestDailyLog: () => sendCommand('REQUEST_DAILY_LOG'),
     requestRangeReport: (rangeDays) => sendCommand('REQUEST_RANGE_REPORT', { rangeDays }),
+    getAdminConfig: async () => {
+        try {
+            const res = await fetch('http://localhost:8080/api/admin/config');
+            if (res.ok) {
+                const data = await res.json();
+                store.adminConfig = data.config;
+                store.isCustomConfig = Boolean(data.isCustom);
+                return data;
+            }
+        } catch (e) {
+            console.warn('[HTTP] 获取配置失败，回退 WS', e);
+        }
+        return sendCommand('GET_ADMIN_CONFIG');
+    },
+    saveAdminConfig: async (config) => {
+        try {
+            const res = await fetch('http://localhost:8080/api/admin/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                store.adminConfig = config;
+                store.isCustomConfig = true;
+                const pathStr = data.filePath ? `\n路径: ${data.filePath}` : '';
+                toast(`配置已成功保存至 admin-config.json 并生效！${pathStr}`, 'unlock');
+                return { success: true, filePath: data.filePath };
+            } else {
+                toast(`保存失败: ${data.message || '未知错误'}`, 'alert');
+                return { success: false, message: data.message };
+            }
+        } catch (e) {
+            console.warn('[HTTP] 保存配置失败，回退 WS', e);
+            const ok = sendCommand('SAVE_ADMIN_CONFIG', { config });
+            return { success: ok, fallbackWs: true };
+        }
+    },
+    resetAdminConfig: async () => {
+        try {
+            const res = await fetch('http://localhost:8080/api/admin/config/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                store.isCustomConfig = false;
+                toast('已删除 admin-config.json 并恢复默认 default-config.json！', 'info');
+                api.getAdminConfig();
+                return { success: true };
+            } else {
+                toast(`重置失败: ${data.message || '未知错误'}`, 'alert');
+                return { success: false, message: data.message };
+            }
+        } catch (e) {
+            console.warn('[HTTP] 重置配置失败，回退 WS', e);
+            const ok = sendCommand('RESET_ADMIN_CONFIG');
+            return { success: ok, fallbackWs: true };
+        }
+    },
 };
 
 // ===================== 提示 Toast =====================
@@ -186,6 +252,29 @@ ws.onDailyLog = (msg) => {
 
 ws.onRangeReport = (msg) => {
     store.rangeReport = msg;
+};
+
+ws.onAdminConfigData = (msg) => {
+    store.adminConfig = msg.config;
+    store.isCustomConfig = Boolean(msg.isCustom);
+};
+
+ws.onAdminConfigSaved = (msg) => {
+    store.adminConfig = msg.config;
+    store.isCustomConfig = true;
+    const pathStr = msg.filePath ? `\n路径: ${msg.filePath}` : '';
+    toast(`配置已成功保存至 admin-config.json 并生效！${pathStr}`, 'unlock');
+};
+
+ws.onAdminConfigReset = (msg) => {
+    store.adminConfig = msg.config;
+    store.isCustomConfig = false;
+    toast('已删除 admin-config.json 并恢复默认 default-config.json！', 'info');
+};
+
+ws.onError = (msg) => {
+    const reason = msg.reason || msg.message || '未知异常';
+    toast(`操作失败: ${reason}`, 'alert');
 };
 
 // ===================== 启动连接 =====================

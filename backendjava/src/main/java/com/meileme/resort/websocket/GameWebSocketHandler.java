@@ -77,6 +77,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 case "GET_CONFIG":
                     gameEngine.sendConfig(session);
                     break;
+                case "GET_ADMIN_CONFIG":
+                    gameEngine.sendAdminConfig(session);
+                    break;
+                case "SAVE_ADMIN_CONFIG":
+                    gameEngine.saveAdminConfig(session, node);
+                    break;
+                case "RESET_ADMIN_CONFIG":
+                    gameEngine.resetAdminConfig(session);
+                    break;
                 case "SET_SIMULATION_SPEED":
                     gameEngine.setSimulationSpeed(session, node.has("speed") ? node.get("speed").asDouble() : 1.0);
                     break;

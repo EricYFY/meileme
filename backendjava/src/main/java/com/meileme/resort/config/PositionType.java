@@ -16,32 +16,32 @@ public enum PositionType {
     /** 客房保洁 → 客房清洁 */
     ROOM_CLEANER("客房保洁", List.of(AbilityType.ROOM_CLEANING),
             new double[]{30, 55, 85},
-            400, 10, 20, 600),
+            400, new int[]{10, 20}, new int[]{1, 2}, new double[]{240, 480}, 600),
 
     /** 餐厅服务员 → 餐厅服务 */
     WAITER("餐厅服务员", List.of(AbilityType.RESTAURANT_SERVICE),
             new double[]{30, 55, 85},
-            400, 10, 20, 600),
+            400, new int[]{10, 20}, new int[]{1, 2}, new double[]{240, 480}, 600),
 
     /** 厨师 → 烹饪 */
     CHEF("厨师", List.of(AbilityType.COOKING),
             new double[]{35, 60, 90},
-            800, 12, 24, 1200),
+            800, new int[]{12, 24}, new int[]{1, 2}, new double[]{480, 960}, 1200),
 
     /** 温泉运维员 → 温泉运营 */
     HOT_SPRING_OPERATOR("温泉运维员", List.of(AbilityType.HOT_SPRING_OPERATION),
             new double[]{30, 55, 85},
-            500, 10, 20, 700),
+            500, new int[]{10, 20}, new int[]{1, 2}, new double[]{300, 600}, 700),
 
     /** 综合维修员 → 客房维修 + 温泉维修（复合能力） */
     MAINTENANCE_WORKER("综合维修员", List.of(AbilityType.ROOM_REPAIR, AbilityType.HOT_SPRING_REPAIR),
             new double[]{25, 45, 70},
-            600, 12, 24, 900),
+            600, new int[]{12, 24}, new int[]{1, 2}, new double[]{360, 720}, 900),
 
     /** 店长 → 全局管理（本期暂不启用加成） */
     MANAGER("店长", List.of(AbilityType.GLOBAL_MANAGEMENT),
             new double[]{40, 70, 100},
-            1500, 15, 30, 2000);
+            1500, new int[]{15, 30}, new int[]{2, 3}, new double[]{900, 1800}, 2000);
 
     /** 展示名 */
     private final String displayName;
@@ -51,23 +51,27 @@ public enum PositionType {
     private final double[] abilityValueByLevel;
     /** 招聘该岗位 Lv1 的一次性花费 */
     private final double hireCost;
-    /** Lv1 → Lv2 所需在岗累计游戏日 */
-    private final int upgradeDaysLv1ToLv2;
-    /** Lv2 → Lv3 所需在岗累计游戏日 */
-    private final int upgradeDaysLv2ToLv3;
+    /** 各等级升级在岗天数列表 [1->2, 2->3, ...] */
+    private final int[] upgradeDaysByLevel;
+    /** 各等级升级培训工期天数列表 [1->2, 2->3, ...] */
+    private final int[] trainDaysByLevel;
+    /** 各等级升级培训费用列表 [1->2, 2->3, ...] */
+    private final double[] trainCostByLevel;
     /** 解雇补偿基准值（实际补偿按岗位 + 等级 + 在岗累计时长计算） */
     private final double compensationBase;
 
     PositionType(String displayName, List<AbilityType> abilities,
                  double[] abilityValueByLevel,
-                 double hireCost, int upgradeDaysLv1ToLv2, int upgradeDaysLv2ToLv3,
+                 double hireCost, int[] upgradeDaysByLevel, int[] trainDaysByLevel,
+                 double[] trainCostByLevel,
                  double compensationBase) {
         this.displayName = displayName;
         this.abilities = abilities;
         this.abilityValueByLevel = abilityValueByLevel;
         this.hireCost = hireCost;
-        this.upgradeDaysLv1ToLv2 = upgradeDaysLv1ToLv2;
-        this.upgradeDaysLv2ToLv3 = upgradeDaysLv2ToLv3;
+        this.upgradeDaysByLevel = upgradeDaysByLevel;
+        this.trainDaysByLevel = trainDaysByLevel;
+        this.trainCostByLevel = trainCostByLevel;
         this.compensationBase = compensationBase;
     }
 
@@ -77,15 +81,33 @@ public enum PositionType {
         return abilityValueByLevel[idx];
     }
 
+    /** 该岗位当前配置的最大等级 */
+    public int getMaxLevel() {
+        return abilityValueByLevel != null && abilityValueByLevel.length > 0 ? abilityValueByLevel.length : GameConfig.STAFF_MAX_LEVEL;
+    }
+
     /** 从指定等级升到下一级所需的在岗累计游戏日；已满级返回 0 */
     public int workDaysToNextLevel(int level) {
-        if (level <= 1) {
-            return upgradeDaysLv1ToLv2;
+        if (level >= getMaxLevel()) {
+            return 0;
         }
-        if (level == 2) {
-            return upgradeDaysLv2ToLv3;
+        int idx = Math.max(0, level - 1);
+        if (upgradeDaysByLevel != null && upgradeDaysByLevel.length > 0) {
+            return idx < upgradeDaysByLevel.length ? upgradeDaysByLevel[idx] : upgradeDaysByLevel[upgradeDaysByLevel.length - 1];
         }
-        return 0;
+        return level <= 1 ? 10 : 20;
+    }
+
+    /** 从指定等级培训升到下一级所需的培训天数；已满级返回 0 */
+    public int trainDaysToNextLevel(int level) {
+        if (level >= getMaxLevel()) {
+            return 0;
+        }
+        int idx = Math.max(0, level - 1);
+        if (trainDaysByLevel != null && trainDaysByLevel.length > 0) {
+            return idx < trainDaysByLevel.length ? trainDaysByLevel[idx] : trainDaysByLevel[trainDaysByLevel.length - 1];
+        }
+        return level <= 1 ? 1 : 2;
     }
 
     /** 招聘指定等级的一次性花费（按等级线性放大；本期仅允许招聘 Lv1） */
@@ -95,13 +117,14 @@ public enum PositionType {
 
     /** 从指定等级培训升到下一级的一次性培训费；已满级返回 0 */
     public double trainCostOf(int currentLevel) {
-        if (currentLevel <= 1) {
-            return hireCost * GameConfig.TRAIN_COST_LV1_TO_LV2_RATIO;
+        if (currentLevel >= getMaxLevel()) {
+            return 0;
         }
-        if (currentLevel == 2) {
-            return hireCost * GameConfig.TRAIN_COST_LV2_TO_LV3_RATIO;
+        int idx = Math.max(0, currentLevel - 1);
+        if (trainCostByLevel != null && trainCostByLevel.length > 0) {
+            return idx < trainCostByLevel.length ? trainCostByLevel[idx] : trainCostByLevel[trainCostByLevel.length - 1];
         }
-        return 0;
+        return hireCost * 0.6 * currentLevel;
     }
 
     /** 解雇一次性补偿金：岗位类型 × 等级 × 在岗累计时长（复合能力员工按主类型计算，不叠加） */

@@ -4,12 +4,12 @@ import com.meileme.resort.config.CustomerSegment;
 import lombok.Data;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 单日结算快照（同时用于当日结算与逐日历史，历史最多保留 365 天）。
+ * 每日挂机结算报告。
  */
 @Data
 public class DailySettle {
@@ -23,13 +23,13 @@ public class DailySettle {
     // —— 客流链路 ——
 
     /** 各客群原始潜在客流 */
-    private Map<CustomerSegment, Double> potentialBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> potentialBySegment = new LinkedHashMap<>();
     /** 各客群意向客流（潜在 × 转化率） */
-    private Map<CustomerSegment, Double> intentBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> intentBySegment = new LinkedHashMap<>();
     /** 各客群实际接待人数（床位容量截断后） */
-    private Map<CustomerSegment, Double> servedBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> servedBySegment = new LinkedHashMap<>();
     /** 各客群转化率 */
-    private Map<CustomerSegment, Double> conversionBySegment = new EnumMap<>(CustomerSegment.class);
+    private Map<String, Double> conversionBySegment = new LinkedHashMap<>();
     /** 潜在客流合计 */
     private double totalPotential;
     /** 意向客流合计 */
@@ -44,25 +44,24 @@ public class DailySettle {
     private int totalRooms;
     /** 售出间数 */
     private int occupiedRooms;
-    /** 入住率（售出间数 / 总间数） */
+    /** 入住率（售出间数 / 住宿总间数） */
     private double occupancyRate;
 
-    // —— 收益 ——
-    /** 房屋收益 */
+    // —— 财务链路 ——
+    /** 住宿总收入 */
     private double accommodationRevenue;
-    /** 配套收益 */
+    /** 配套服务总收入 */
     private double supportRevenue;
-    /** 当日总收入（= 净利润） */
+    /** 当日总营收 */
     private double totalRevenue;
-    /** 当日净利润（无固定支出，等于总收入） */
+    /** 当日净利润 */
     private double netProfit;
-    /** 结算后资金池 */
+    /** 结算后资金池余额 */
     private double fundsAfter;
 
-    // —— 事件与提示 ——
-    /** 当日事件 / 提示明细（用于复盘） */
+    // —— 播报与事件 ——
+    /** 结算文本事件（短缺提示、里程碑事件等） */
     private List<String> events = new ArrayList<>();
-
-    /** 当日新解锁的成就 / 地块 / 技能点提示 */
+    /** 当日解锁项文本（成就解锁、地块解锁等） */
     private List<String> unlocks = new ArrayList<>();
 }

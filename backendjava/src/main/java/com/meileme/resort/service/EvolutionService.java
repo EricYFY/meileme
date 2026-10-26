@@ -64,7 +64,7 @@ public class EvolutionService {
         if (state.projectOfBuilding(building.getId()) != null) {
             return "PROJECT_IN_PROGRESS";
         }
-        if (building.getFormLevel() >= GameConfig.FORM_MAX_LEVEL) {
+        if (building.getFormLevel() >= building.getForm().getMaxLevel()) {
             return "FORM_LEVEL_MAX_REACHED";
         }
         if (state.getFunds() < formLevelUpCost(state, building)) {
@@ -97,7 +97,7 @@ public class EvolutionService {
         if (state.projectOfBuilding(building.getId()) != null) {
             return "PROJECT_IN_PROGRESS";
         }
-        if (building.getFormLevel() < GameConfig.FORM_MAX_LEVEL) {
+        if (building.getFormLevel() < building.getForm().getMaxLevel()) {
             return "FORM_NOT_MAX_LEVEL";
         }
         if (target.getEvolveFrom() != building.getForm()) {
@@ -191,7 +191,7 @@ public class EvolutionService {
 
         BuildingInstance result = new BuildingInstance();
         result.setId(idGenerator.next("BLD"));
-        result.setMother(recipe.getResultForm().getMother());
+        result.setMother(null);
         result.setForm(recipe.getResultForm());
         result.setFormLevel(recipe.getResultLevel());
         result.setPlotId(a.getPlotId());

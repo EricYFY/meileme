@@ -12,10 +12,10 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const buildable = computed(() => {
-    const whitelist = [...(props.plot.accommodationWhitelist || []), ...(props.plot.supportWhitelist || [])];
-    return whitelist
+    const allowed = props.plot.allowedMothers || [...(props.plot.accommodationWhitelist || []), ...(props.plot.supportWhitelist || [])];
+    return allowed
         .map((mid) => store.config?.mothersById?.[mid])
-        .filter((m) => m && m.phase1Buildable);
+        .filter((m) => m && (m.isOpen !== undefined ? m.isOpen : m.phase1Buildable));
 });
 
 const selectedId = ref(null);
@@ -23,9 +23,9 @@ const activeId = computed(() => selectedId.value || buildable.value[0]?.id || nu
 const baseForm = computed(() => store.config?.formsById?.[activeId.value]);
 const funds = computed(() => store.state?.funds ?? 0);
 
-const cost = computed(() => baseForm.value?.buildCost || 0);
+const cost = computed(() => store.config?.mothersById?.[activeId.value]?.buildCost || baseForm.value?.buildCost || 0);
 const canAfford = computed(() => funds.value >= cost.value);
-const days = computed(() => store.config?.mothersById?.[activeId.value]?.buildDays || 0);
+const days = computed(() => store.config?.mothersById?.[activeId.value]?.buildDays || store.config?.mothersById?.[activeId.value]?.initialBuildDays || 3);
 const isSupport = computed(() => store.config?.mothersById?.[activeId.value]?.category === 'SUPPORT');
 
 function confirm() {
@@ -37,7 +37,7 @@ function confirm() {
 
 <template>
     <Modal :title="'新建建筑 @ ' + plot.displayName + '（格 ' + plot.id + ' ' + cellX + ',' + cellY + '）'" @close="emit('close')">
-        <div v-if="!buildable.length" class="empty faint">当前地块无可建造母本（第一期仅开放标准客房）</div>
+        <div v-if="!buildable.length" class="empty faint">当前地块无可建造母本（请在管理后台开启对应母本并在地块中允许建造）</div>
 
         <div v-for="m in buildable" :key="m.id" class="bld-row" :class="{ active: m.id === activeId }" @click="selectedId = m.id">
             <div class="main">

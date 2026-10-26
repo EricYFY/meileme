@@ -38,6 +38,18 @@ public class StaffInstance {
     /** 入职生效的游戏日 */
     private int hireDay;
 
+    /** 是否正处于升级培训中（培训期间不脱产，按当前等级继续提供能力值） */
+    private boolean training = false;
+
+    /** 升级培训剩余游戏日 */
+    private int trainingDaysRemaining = 0;
+
+    /** 升级培训总工期游戏日 */
+    private int trainingTotalDays = 0;
+
+    /** 培训的目标晋升等级 */
+    private int trainingTargetLevel = 0;
+
     /** 该员工提供的能力列表 */
     public List<AbilityType> abilities() {
         return position == null ? new ArrayList<>() : position.getAbilities();
