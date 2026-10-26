@@ -26,8 +26,6 @@ public class BuildingForm {
     private final String displayName;
     /** 建筑大类（住宿类 / 配套类；自主拥有，不受母体限制） */
     private final BuildingCategory category;
-    /** 进化线（BASE / FAMILY / BUSINESS / MERGE） */
-    private final EvolutionLine line;
     /** 进化阶段（0 = 基础形态） */
     private final int tier;
     /** 每间可接待人数（住宿形态；配套形态为 0） */
@@ -38,8 +36,6 @@ public class BuildingForm {
     private final double serviceCapacity;
     /** 配套固定单人收益，下标 0 = Lv1（配套形态） */
     private final double[] unitPriceByLevel;
-    /** 新建该形态建筑的一次性花费（仅基础形态 > 0） */
-    private final double buildCost;
     /** 分支进化到本形态的一次性花费（tier = 0 时为 0） */
     private final double evolveCost;
     /** 形态等级升级花费：[Lv1→Lv2, Lv2→Lv3] */
@@ -54,8 +50,6 @@ public class BuildingForm {
     private final Map<String, Double> segmentAffinity;
     /** 各形态等级下的内装等级上限：[Lv1, Lv2, Lv3] */
     private final int[] maxInteriorLevel;
-    /** 分支进化前驱形态（tier = 0 时为 null） */
-    private final BuildingForm evolveFrom;
     /** 该形态每个能力的基础需求（供给不足仅降低舒适度、不削承载） */
     private final Map<AbilityType, Double> abilityDemand;
     /** 该形态允许包含/安装的内装 ID 列表 */
@@ -67,13 +61,11 @@ public class BuildingForm {
         this.id = b.id;
         this.displayName = b.displayName;
         this.category = b.category != null ? b.category : BuildingCategory.ACCOMMODATION;
-        this.line = b.line;
         this.tier = b.tier;
         this.capacityPerRoom = b.capacityPerRoom;
         this.pricePerRoomByLevel = b.pricePerRoomByLevel;
         this.serviceCapacity = b.serviceCapacity;
         this.unitPriceByLevel = b.unitPriceByLevel;
-        this.buildCost = b.buildCost;
         this.evolveCost = b.evolveCost;
         this.formLevelUpCost = b.formLevelUpCost;
         this.formLevelUpDays = b.formLevelUpDays;
@@ -81,10 +73,14 @@ public class BuildingForm {
         this.baseComfort = b.baseComfort;
         this.segmentAffinity = Collections.unmodifiableMap(new LinkedHashMap<>(b.segmentAffinity));
         this.maxInteriorLevel = b.maxInteriorLevel;
-        this.evolveFrom = b.evolveFrom;
         this.abilityDemand = b.abilityDemand;
         this.availableInteriors = Collections.unmodifiableList(new ArrayList<>(b.availableInteriors));
         this.capacityInterior = b.capacityInterior;
+    }
+
+    /** 是否为合并形态 */
+    public boolean isMerged() {
+        return id != null && id.toUpperCase().contains("MERGE");
     }
 
     /** 是否住宿类形态 */
@@ -204,13 +200,11 @@ public class BuildingForm {
         private final String id;
         private final String displayName;
         private BuildingCategory category;
-        private EvolutionLine line = EvolutionLine.BASE;
         private int tier = 0;
         private double capacityPerRoom = 0;
         private double[] pricePerRoomByLevel = new double[]{0, 0, 0};
         private double serviceCapacity = 0;
         private double[] unitPriceByLevel = new double[]{0, 0, 0};
-        private double buildCost = 0;
         private double evolveCost = 0;
         private double[] formLevelUpCost = new double[]{0, 0};
         private int[] formLevelUpDays = new int[]{1, 1};
@@ -221,7 +215,6 @@ public class BuildingForm {
                 GameConfig.INTERIOR_MAX_LEVEL_FALLBACK,
                 GameConfig.INTERIOR_MAX_LEVEL_FALLBACK,
                 GameConfig.INTERIOR_MAX_LEVEL_FALLBACK};
-        private BuildingForm evolveFrom = null;
         private Map<AbilityType, Double> abilityDemand = new EnumMap<>(AbilityType.class);
         private List<String> availableInteriors = new ArrayList<>();
         private String capacityInterior = null;
@@ -237,8 +230,7 @@ public class BuildingForm {
             return this;
         }
 
-        public Builder line(EvolutionLine line) {
-            this.line = line;
+        public Builder line(Object ignored) {
             return this;
         }
 
@@ -267,13 +259,16 @@ public class BuildingForm {
             return this;
         }
 
-        public Builder buildCost(double v) {
-            this.buildCost = v;
+        public Builder buildCost(double ignored) {
             return this;
         }
 
         public Builder evolveCost(double v) {
             this.evolveCost = v;
+            return this;
+        }
+
+        public Builder evolveFrom(BuildingForm ignored) {
             return this;
         }
 
@@ -318,10 +313,6 @@ public class BuildingForm {
             return this;
         }
 
-        public Builder evolveFrom(BuildingForm form) {
-            this.evolveFrom = form;
-            return this;
-        }
 
         public Builder abilityDemand(AbilityType ability, double v) {
             this.abilityDemand.put(ability, v);

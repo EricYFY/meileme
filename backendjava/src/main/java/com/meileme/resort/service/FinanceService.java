@@ -38,7 +38,7 @@ public class FinanceService {
         BuildingForm f = b.getForm();
         double price = f.pricePerRoomOf(b.getFormLevel())
                 * skillTree.multiplier(state, SkillEffectKey.ROOM_PRICE_MULT);
-        if (f.getLine() == EvolutionLine.MERGE) {
+        if (f.isMerged()) {
             price *= (1 + skillTree.flat(state, SkillEffectKey.MERGE_BONUS));
         }
         price *= (1 + b.interiorRevenueBonus());

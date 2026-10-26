@@ -68,10 +68,6 @@ public class BuildingInstance {
         return mother != null && mother.getCategory() == BuildingCategory.SUPPORT;
     }
 
-    /** 进化线（由形态推导） */
-    public EvolutionLine line() {
-        return form == null ? EvolutionLine.BASE : form.getLine();
-    }
 
     /** 与另一建筑是否在地图上相邻（同地块且曼哈顿距离 = 1，即上下左右） */
     public boolean isAdjacentTo(BuildingInstance o) {

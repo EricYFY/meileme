@@ -21,7 +21,10 @@ public class InteriorConfig {
     private final Map<String, Double> segmentAffinityPerLevel;
     private final double[] upgradeCostByLevel;
     private final int[] upgradeDaysByLevel;
-    private final Set<MotherBuildingType> applicableMothers;
+
+    public Set<MotherBuildingType> getApplicableMothers() {
+        return Collections.emptySet();
+    }
 
     /** 指定等级的内装升级花费（下标 = level − 1） */
     public double upgradeCostOf(int level) {

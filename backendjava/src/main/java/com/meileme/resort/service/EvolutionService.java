@@ -2,6 +2,7 @@ package com.meileme.resort.service;
 
 import com.meileme.resort.config.BuildingForm;
 import com.meileme.resort.config.EvolutionLine;
+import com.meileme.resort.config.EvolutionLineConfig;
 import com.meileme.resort.config.GameConfig;
 import com.meileme.resort.config.MergeRecipe;
 import com.meileme.resort.config.Plot;
@@ -97,19 +98,15 @@ public class EvolutionService {
         if (state.projectOfBuilding(building.getId()) != null) {
             return "PROJECT_IN_PROGRESS";
         }
-        if (building.getFormLevel() < building.getForm().getMaxLevel()) {
-            return "FORM_NOT_MAX_LEVEL";
-        }
-        if (target.getEvolveFrom() != building.getForm()) {
+        EvolutionLineConfig line = registry.findEvolutionLine(building.getForm().getId(), target.getId());
+        if (line == null) {
             return "EVOLVE_PATH_NOT_ALLOWED";
         }
-        EvolutionLine currentLine = building.getForm().getLine();
-        EvolutionLine targetLine = target.getLine();
-        // 分支选定后不可切换、不可回退
-        if (currentLine != EvolutionLine.BASE && currentLine != targetLine) {
-            return "EVOLVE_LINE_LOCKED";
+        int reqLevel = line.getRequiredLevel() > 0 ? line.getRequiredLevel() : building.getForm().getMaxLevel();
+        if (building.getFormLevel() < reqLevel) {
+            return "FORM_NOT_MAX_LEVEL";
         }
-        if (currentLine == EvolutionLine.MERGE) {
+        if (building.getForm().isMerged()) {
             return "MERGE_FORM_CANNOT_BRANCH";
         }
         Plot plot = registry.plot(building.getPlotId());

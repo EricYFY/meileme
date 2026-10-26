@@ -14,11 +14,8 @@ public class PositionConfig {
 
     private final String id;
     private final String displayName;
-    private final List<AbilityType> abilities;
     /** 各能力对应的各等级输出值 Map<Ability, [Lv1, Lv2, Lv3...]> */
     private final Map<AbilityType, double[]> abilityOutputs;
-    /** 基础单能力等级输出值（兼容旧配置） */
-    private final double[] abilityValueByLevel;
     /** Lv1 招聘花费 */
     private final double hireCost;
     /** 各等级升级在岗天数列表 [1->2, 2->3, 3->4...] */
@@ -29,6 +26,20 @@ public class PositionConfig {
     private final double[] trainCostByLevel;
     /** 解雇补偿基准值 */
     private final double compensationBase;
+
+    public List<AbilityType> getAbilities() {
+        if (abilityOutputs != null && !abilityOutputs.isEmpty()) {
+            return new ArrayList<>(abilityOutputs.keySet());
+        }
+        return Collections.emptyList();
+    }
+
+    public double[] getAbilityValueByLevel() {
+        if (abilityOutputs != null && !abilityOutputs.isEmpty()) {
+            return abilityOutputs.values().iterator().next();
+        }
+        return new double[]{30, 55, 85};
+    }
 
     /** 从指定等级升到下一级所需的在岗天数 */
     public int workDaysToNextLevel(int level) {
@@ -105,24 +116,7 @@ public class PositionConfig {
                 return idx < arr.length ? arr[idx] : arr[arr.length - 1];
             }
         }
-        if (abilityValueByLevel != null && abilityValueByLevel.length > 0) {
-            return idx < abilityValueByLevel.length ? abilityValueByLevel[idx] : abilityValueByLevel[abilityValueByLevel.length - 1];
-        }
         return level == 1 ? 30.0 : (level == 2 ? 55.0 : 85.0);
-    }
-
-    /** 兜底获取各等级能力值数组 */
-    public double[] getAbilityValueByLevel() {
-        if (abilityValueByLevel != null && abilityValueByLevel.length > 0) {
-            return abilityValueByLevel;
-        }
-        if (abilityOutputs != null && !abilityOutputs.isEmpty()) {
-            double[] arr = abilityOutputs.values().iterator().next();
-            if (arr != null && arr.length > 0) {
-                return arr;
-            }
-        }
-        return new double[]{30.0, 55.0, 85.0};
     }
 
     /** 指定等级的基础能力输出值 */

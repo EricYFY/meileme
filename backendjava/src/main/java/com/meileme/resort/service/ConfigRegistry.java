@@ -33,6 +33,10 @@ public class ConfigRegistry {
 
     private final Map<String, BuildingForm> formsById = new LinkedHashMap<>();
     private final Map<MotherBuildingType, String> motherBaseFormMap = new EnumMap<>(MotherBuildingType.class);
+    private final Map<MotherBuildingType, Double> motherBuildCostMap = new EnumMap<>(MotherBuildingType.class);
+    private final Map<MotherBuildingType, Integer> motherBuildDaysMap = new EnumMap<>(MotherBuildingType.class);
+    private final Map<String, EvolutionLineConfig> evolutionLinesById = new LinkedHashMap<>();
+    private final List<EvolutionLineConfig> evolutionLines = new ArrayList<>();
     private final List<MergeRecipe> mergeRecipes = new ArrayList<>();
     private final Map<String, Plot> plotsById = new LinkedHashMap<>();
     private final Map<String, PlotMap> plotMaps = new LinkedHashMap<>();
@@ -111,28 +115,29 @@ public class ConfigRegistry {
 
         // 2. 母体建筑与基础形态映射
         motherBaseFormMap.clear();
+        motherBuildCostMap.clear();
+        motherBuildDaysMap.clear();
         List<Map<String, Object>> mothersData = (List<Map<String, Object>>) root.get("mothers");
         if (mothersData != null) {
             for (Map<String, Object> m : mothersData) {
                 String mid = (String) m.get("id");
-                String baseFormId = (String) m.get("baseFormId");
                 if (mid != null) {
                     try {
                         MotherBuildingType mType = MotherBuildingType.valueOf(mid);
-                        motherBaseFormMap.put(mType, (baseFormId != null && !baseFormId.isBlank()) ? baseFormId : mid);
+                        motherBaseFormMap.put(mType, mid);
+                        double cost = m.containsKey("buildCost") ? ((Number) m.get("buildCost")).doubleValue() : 3000.0;
+                        int days = m.containsKey("buildDays") ? ((Number) m.get("buildDays")).intValue() : 3;
+                        motherBuildCostMap.put(mType, cost);
+                        motherBuildDaysMap.put(mType, days);
                     } catch (Exception ignored) {}
                 }
             }
         }
 
-        // 3. 清空并重建形态（完全无母体依赖）
+        // 3. 清空并重建形态
         formsById.clear();
         List<Map<String, Object>> formsData = (List<Map<String, Object>>) root.get("buildingForms");
         if (formsData != null) {
-            // 两遍构建：第一遍构建无 evolveFrom 实体，第二遍处理 evolveFrom 引用
-            Map<String, BuildingForm.Builder> builders = new LinkedHashMap<>();
-            Map<String, String> evolveFromMap = new LinkedHashMap<>();
-
             for (Map<String, Object> m : formsData) {
                 String id = (String) m.get("id");
                 String displayName = (String) m.get("displayName");
@@ -144,11 +149,9 @@ public class ConfigRegistry {
                 }
                 BuildingForm.Builder b = BuildingForm.builder(id, displayName, category);
 
-                if (m.containsKey("line")) b.line(EvolutionLine.valueOf((String) m.get("line")));
                 if (m.containsKey("tier")) b.tier(((Number) m.get("tier")).intValue());
                 if (m.containsKey("capacityPerRoom")) b.capacityPerRoom(((Number) m.get("capacityPerRoom")).doubleValue());
                 if (m.containsKey("serviceCapacity")) b.serviceCapacity(((Number) m.get("serviceCapacity")).doubleValue());
-                if (m.containsKey("buildCost")) b.buildCost(((Number) m.get("buildCost")).doubleValue());
                 if (m.containsKey("evolveCost")) b.evolveCost(((Number) m.get("evolveCost")).doubleValue());
                 if (m.containsKey("evolveDays")) b.evolveDays(((Number) m.get("evolveDays")).intValue());
                 if (m.containsKey("baseComfort")) b.baseComfort(((Number) m.get("baseComfort")).doubleValue());
@@ -224,68 +227,72 @@ public class ConfigRegistry {
                     }
                 }
 
-                builders.put(id, b);
-                String from = (String) m.get("evolveFrom");
-                if (from != null && !from.isBlank()) {
-                    evolveFromMap.put(id, from);
-                }
-            }
-
-            // 结合 evolutionLines 动态注入进化路线关系
-            List<Map<String, Object>> evoLines = (List<Map<String, Object>>) root.get("evolutionLines");
-            if (evoLines != null) {
-                for (Map<String, Object> evo : evoLines) {
-                    String srcId = (String) evo.get("sourceFormId");
-                    String tgtId = (String) evo.get("targetFormId");
-                    if (tgtId != null && builders.containsKey(tgtId)) {
-                        if (srcId != null && !srcId.isBlank()) {
-                            evolveFromMap.put(tgtId, srcId);
-                        }
-                        BuildingForm.Builder tb = builders.get(tgtId);
-                        if (evo.containsKey("cost")) {
-                            tb.evolveCost(((Number) evo.get("cost")).doubleValue());
-                        }
-                        if (evo.containsKey("days")) {
-                            tb.evolveDays(((Number) evo.get("days")).intValue());
-                        }
-                    }
-                }
-            }
-
-            // 拓扑/链式顺序构建
-            for (Map.Entry<String, BuildingForm.Builder> entry : builders.entrySet()) {
-                String id = entry.getKey();
-                String fromId = evolveFromMap.get(id);
-                if (fromId != null && formsById.containsKey(fromId)) {
-                    entry.getValue().evolveFrom(formsById.get(fromId));
-                }
-                formsById.put(id, entry.getValue().build());
+                formsById.put(id, b.build());
             }
         }
 
-        // 3. 合并配方
+        // 3.5 进化路线 (EvolutionLines)
+        evolutionLines.clear();
+        evolutionLinesById.clear();
+        List<Map<String, Object>> evoLines = (List<Map<String, Object>>) root.get("evolutionLines");
+        if (evoLines != null) {
+            for (Map<String, Object> evo : evoLines) {
+                String id = (String) evo.get("id");
+                String srcId = (String) evo.get("sourceFormId");
+                String tgtId = (String) evo.get("targetFormId");
+                int reqLv = evo.containsKey("requiredLevel") ? ((Number) evo.get("requiredLevel")).intValue() : 3;
+                double cost = evo.containsKey("cost") ? ((Number) evo.get("cost")).doubleValue() : 5000.0;
+                int days = evo.containsKey("days") ? ((Number) evo.get("days")).intValue() : 3;
+                EvolutionLineConfig el = new EvolutionLineConfig(id, srcId, tgtId, reqLv, cost, days);
+                evolutionLines.add(el);
+                if (id != null) evolutionLinesById.put(id, el);
+            }
+        }
+
+        // 4. 合并配方
         mergeRecipes.clear();
         List<Map<String, Object>> recipesData = (List<Map<String, Object>>) root.get("mergeRecipes");
         if (recipesData != null) {
             for (Map<String, Object> m : recipesData) {
                 String id = (String) m.get("id");
                 String displayName = (String) m.get("displayName");
-                BuildingForm formA = formsById.get((String) m.get("sourceFormA"));
-                int lvA = ((Number) m.get("sourceLevelA")).intValue();
-                BuildingForm formB = formsById.get((String) m.get("sourceFormB"));
-                int lvB = ((Number) m.get("sourceLevelB")).intValue();
                 BuildingForm resultForm = formsById.get((String) m.get("resultForm"));
                 int resLv = m.containsKey("resultLevel") ? ((Number) m.get("resultLevel")).intValue() : 1;
-                double cost = ((Number) m.get("mergeCost")).doubleValue();
-                int days = ((Number) m.get("mergeDays")).intValue();
+                double cost = m.containsKey("mergeCost") ? ((Number) m.get("mergeCost")).doubleValue() : 30000.0;
+                int days = m.containsKey("mergeDays") ? ((Number) m.get("mergeDays")).intValue() : 5;
 
-                if (formA != null && formB != null && resultForm != null) {
-                    mergeRecipes.add(new MergeRecipe(id, displayName, formA, lvA, formB, lvB, resultForm, resLv, cost, days));
+                List<MergeRecipe.SourceRequirement> sources = new ArrayList<>();
+                List<Map<String, Object>> srcList = (List<Map<String, Object>>) m.get("sources");
+                if (srcList != null) {
+                    for (Map<String, Object> sMap : srcList) {
+                        String fid = (String) sMap.get("formId");
+                        int mlv = sMap.containsKey("minLevel") ? ((Number) sMap.get("minLevel")).intValue() : 3;
+                        BuildingForm sForm = formsById.get(fid);
+                        if (sForm != null) {
+                            sources.add(new MergeRecipe.SourceRequirement(sForm, mlv));
+                        }
+                    }
+                }
+                // 向后兜底兼容 sourceFormA/B
+                if (sources.size() < 2 && m.containsKey("sourceFormA") && m.containsKey("sourceFormB")) {
+                    BuildingForm formA = formsById.get((String) m.get("sourceFormA"));
+                    int lvA = m.containsKey("sourceLevelA") ? ((Number) m.get("sourceLevelA")).intValue() : 3;
+                    BuildingForm formB = formsById.get((String) m.get("sourceFormB"));
+                    int lvB = m.containsKey("sourceLevelB") ? ((Number) m.get("sourceLevelB")).intValue() : 3;
+                    if (formA != null && formB != null) {
+                        sources.clear();
+                        sources.add(new MergeRecipe.SourceRequirement(formA, lvA));
+                        sources.add(new MergeRecipe.SourceRequirement(formB, lvB));
+                    }
+                }
+
+                if (resultForm != null && sources.size() >= 2) {
+                    mergeRecipes.add(new MergeRecipe(id, displayName, sources, resultForm, resLv, cost, days));
                 }
             }
         }
 
-        // 4. 地块与地图
+        // 5. 地块与地图
         plotsById.clear();
         plotMaps.clear();
         List<Map<String, Object>> plotsData = (List<Map<String, Object>>) root.get("plots");
@@ -299,33 +306,28 @@ public class ConfigRegistry {
                 int width = ((Number) m.get("width")).intValue();
                 int height = ((Number) m.get("height")).intValue();
                 int buildable = ((Number) m.get("buildableCellCount")).intValue();
-                int limit = ((Number) m.get("buildLimit")).intValue();
                 double cost = ((Number) m.get("unlockCost")).doubleValue();
 
-                Set<MotherBuildingType> accomList = new HashSet<>();
-                List<String> accNames = (List<String>) m.get("accommodationWhitelist");
-                if (accNames != null) {
-                    for (String s : accNames) {
-                        try { accomList.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
+                Set<MotherBuildingType> allowedMothers = new HashSet<>();
+                List<String> motherNames = (List<String>) m.get("allowedMothers");
+                if (motherNames != null) {
+                    for (String s : motherNames) {
+                        try { allowedMothers.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
                     }
                 }
-
-                Set<MotherBuildingType> suppList = new HashSet<>();
-                List<String> suppNames = (List<String>) m.get("supportWhitelist");
-                if (suppNames != null) {
-                    for (String s : suppNames) {
-                        try { suppList.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
+                // 向后兼容 accommodationWhitelist / supportWhitelist
+                if (allowedMothers.isEmpty()) {
+                    List<String> accNames = (List<String>) m.get("accommodationWhitelist");
+                    if (accNames != null) {
+                        for (String s : accNames) {
+                            try { allowedMothers.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
+                        }
                     }
-                }
-
-                List<String> allowedMothers = (List<String>) m.get("allowedMothers");
-                if (allowedMothers != null) {
-                    for (String s : allowedMothers) {
-                        try {
-                            MotherBuildingType mt = MotherBuildingType.valueOf(s);
-                            if (mt.getCategory() == BuildingCategory.ACCOMMODATION) accomList.add(mt);
-                            else suppList.add(mt);
-                        } catch (Exception ignored) {}
+                    List<String> suppNames = (List<String>) m.get("supportWhitelist");
+                    if (suppNames != null) {
+                        for (String s : suppNames) {
+                            try { allowedMothers.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
+                        }
                     }
                 }
 
@@ -334,8 +336,8 @@ public class ConfigRegistry {
                 if (achIds == null) achIds = List.of();
                 boolean byDefault = Boolean.TRUE.equals(m.get("unlockedByDefault"));
 
-                Plot p = new Plot(id, displayName, region, order, width, height, buildable, limit,
-                        cost, accomList, suppList, evolveTierCap, achIds, byDefault);
+                Plot p = new Plot(id, displayName, region, order, width, height, buildable,
+                        cost, allowedMothers, evolveTierCap, achIds, byDefault);
                 plotsById.put(id, p);
 
                 plotMaps.put(id, MapGenerator.generate(p, (int) GameConfig.MAP_SEED + mapIndex * 31));
@@ -405,13 +407,6 @@ public class ConfigRegistry {
             for (Map<String, Object> m : posData) {
                 String id = (String) m.get("id");
                 String displayName = (String) m.get("displayName");
-                List<AbilityType> abilities = new ArrayList<>();
-                List<String> abs = (List<String>) m.get("abilities");
-                if (abs != null) {
-                    for (String aStr : abs) {
-                        try { abilities.add(AbilityType.valueOf(aStr)); } catch (Exception ignored) {}
-                    }
-                }
                 Map<AbilityType, double[]> abilityOutputs = new EnumMap<>(AbilityType.class);
                 Map<String, Object> aoMap = (Map<String, Object>) m.get("abilityOutputs");
                 if (aoMap != null) {
@@ -425,22 +420,12 @@ public class ConfigRegistry {
                         } catch (Exception ignored) {}
                     }
                 }
-                double[] abilityValueByLevel = null;
-                if (m.containsKey("abilityValueByLevel") && m.get("abilityValueByLevel") instanceof List<?> list) {
-                    abilityValueByLevel = list.stream().mapToDouble(n -> ((Number) n).doubleValue()).toArray();
-                } else if (m.containsKey("abilityValues") && m.get("abilityValues") instanceof List<?> list) {
-                    abilityValueByLevel = list.stream().mapToDouble(n -> ((Number) n).doubleValue()).toArray();
-                } else if (!abilityOutputs.isEmpty()) {
-                    abilityValueByLevel = abilityOutputs.values().iterator().next();
-                }
                 double hireCost = m.containsKey("hireCost") ? ((Number) m.get("hireCost")).doubleValue() : 400.0;
                 int[] upgradeDaysByLevel = null;
                 if (m.containsKey("upgradeDaysByLevel") && m.get("upgradeDaysByLevel") instanceof List<?> list) {
                     upgradeDaysByLevel = list.stream().mapToInt(n -> ((Number) n).intValue()).toArray();
                 } else {
-                    int d1 = m.containsKey("upgradeDaysLv1ToLv2") ? ((Number) m.get("upgradeDaysLv1ToLv2")).intValue() : 10;
-                    int d2 = m.containsKey("upgradeDaysLv2ToLv3") ? ((Number) m.get("upgradeDaysLv2ToLv3")).intValue() : 20;
-                    upgradeDaysByLevel = new int[]{d1, d2};
+                    upgradeDaysByLevel = new int[]{10, 20};
                 }
                 int[] trainDaysByLevel = null;
                 if (m.containsKey("trainDaysByLevel") && m.get("trainDaysByLevel") instanceof List<?> list) {
@@ -459,9 +444,7 @@ public class ConfigRegistry {
                 PositionConfig pc = PositionConfig.builder()
                         .id(id)
                         .displayName(displayName)
-                        .abilities(abilities)
                         .abilityOutputs(abilityOutputs)
-                        .abilityValueByLevel(abilityValueByLevel)
                         .hireCost(hireCost)
                         .upgradeDaysByLevel(upgradeDaysByLevel)
                         .trainDaysByLevel(trainDaysByLevel)
@@ -504,13 +487,6 @@ public class ConfigRegistry {
                 if (m.containsKey("upgradeDaysByLevel") && m.get("upgradeDaysByLevel") instanceof List<?> list) {
                     upgradeDaysByLevel = list.stream().mapToInt(n -> ((Number) n).intValue()).toArray();
                 }
-                Set<MotherBuildingType> applicableMothers = new HashSet<>();
-                List<String> amList = (List<String>) m.get("applicableMothers");
-                if (amList != null) {
-                    for (String s : amList) {
-                        try { applicableMothers.add(MotherBuildingType.valueOf(s)); } catch (Exception ignored) {}
-                    }
-                }
 
                 InteriorConfig ic = InteriorConfig.builder()
                         .id(id)
@@ -522,7 +498,6 @@ public class ConfigRegistry {
                         .segmentAffinityPerLevel(segmentAffinity)
                         .upgradeCostByLevel(upgradeCostByLevel)
                         .upgradeDaysByLevel(upgradeDaysByLevel)
-                        .applicableMothers(applicableMothers)
                         .build();
                 interiorsById.put(id, ic);
             }
@@ -658,14 +633,38 @@ public class ConfigRegistry {
         return null;
     }
 
+    public double motherBuildCost(MotherBuildingType mother) {
+        if (mother == null) return 3000.0;
+        return motherBuildCostMap.getOrDefault(mother, 3000.0);
+    }
+
+    public int motherBuildDays(MotherBuildingType mother) {
+        if (mother == null) return 3;
+        return motherBuildDaysMap.getOrDefault(mother, mother.getBuildDays());
+    }
+
     public List<BuildingForm> branchTargetsOf(BuildingForm current) {
         List<BuildingForm> list = new ArrayList<>();
-        for (BuildingForm f : formsById.values()) {
-            if (f.getEvolveFrom() == current) {
-                list.add(f);
+        if (current == null) return list;
+        for (EvolutionLineConfig line : evolutionLines) {
+            if (current.getId().equals(line.getSourceFormId())) {
+                BuildingForm target = formsById.get(line.getTargetFormId());
+                if (target != null && !list.contains(target)) {
+                    list.add(target);
+                }
             }
         }
         return list;
+    }
+
+    public EvolutionLineConfig findEvolutionLine(String sourceFormId, String targetFormId) {
+        if (sourceFormId == null || targetFormId == null) return null;
+        for (EvolutionLineConfig line : evolutionLines) {
+            if (sourceFormId.equals(line.getSourceFormId()) && targetFormId.equals(line.getTargetFormId())) {
+                return line;
+            }
+        }
+        return null;
     }
 
     public MergeRecipe recipe(String id) {

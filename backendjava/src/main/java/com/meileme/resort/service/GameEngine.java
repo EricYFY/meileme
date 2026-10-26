@@ -7,6 +7,7 @@ import com.meileme.resort.config.Achievement;
 import com.meileme.resort.config.BuildingForm;
 import com.meileme.resort.config.CustomerSegment;
 import com.meileme.resort.config.EvolutionLine;
+import com.meileme.resort.config.EvolutionLineConfig;
 import com.meileme.resort.config.GameConfig;
 import com.meileme.resort.config.InteriorType;
 import com.meileme.resort.config.SkillEffectKey;
@@ -324,7 +325,8 @@ public class GameEngine {
                 if (target == null) {
                     return "TARGET_FORM_NOT_FOUND";
                 }
-                if (target.getEvolveFrom() != b.getForm() || b.getFormLevel() < b.getForm().getMaxLevel()) {
+                EvolutionLineConfig evoLine = registry.findEvolutionLine(b.getForm().getId(), target.getId());
+                if (evoLine == null || b.getFormLevel() < evoLine.getRequiredLevel()) {
                     return "EVOLVE_PATH_NOT_ALLOWED";
                 }
                 evolutionService.completeBranchEvolve(b, target);
@@ -837,7 +839,7 @@ public class GameEngine {
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("base", b.getForm().pricePerRoomOf(b.getFormLevel()));
             x.put("priceMult", roomPriceMult);
-            x.put("mergeBonus", b.getForm().getLine() == EvolutionLine.MERGE
+            x.put("mergeBonus", b.getForm().isMerged()
                     ? skillTree.flat(s, SkillEffectKey.MERGE_BONUS) : 0d);
             x.put("interiorBonus", b.interiorRevenueBonus());
             x.put("final", financeService.pricePerRoom(s, b));
@@ -983,8 +985,10 @@ public class GameEngine {
             x.put("id", mt.name());
             x.put("displayName", mt.getDisplayName());
             x.put("category", mt.getCategory().name());
-            x.put("phase1Buildable", mt.isPhase1Buildable());
-            x.put("buildDays", mt.getBuildDays());
+            x.put("isOpen", mt.isOpen());
+            x.put("phase1Buildable", mt.isOpen());
+            x.put("buildDays", registry != null ? registry.motherBuildDays(mt) : mt.getBuildDays());
+            x.put("buildCost", registry != null ? registry.motherBuildCost(mt) : 3000.0);
             list.add(x);
         }
         return list;
@@ -1091,7 +1095,6 @@ public class GameEngine {
                 x.put("segmentAffinityPerLevel", ic.getSegmentAffinityPerLevel());
                 x.put("upgradeCostByLevel", ic.getUpgradeCostByLevel());
                 x.put("upgradeDaysByLevel", ic.getUpgradeDaysByLevel());
-                x.put("applicableMothers", ic.getApplicableMothers());
                 list.add(x);
             }
             return list;
@@ -1113,11 +1116,6 @@ public class GameEngine {
             x.put("segmentAffinityPerLevel", affinities);
             x.put("upgradeCostByLevel", it.getUpgradeCostByLevel());
             x.put("upgradeDaysByLevel", it.getUpgradeDaysByLevel());
-            List<String> mothers = new ArrayList<>();
-            for (MotherBuildingType m : it.getApplicableMothers()) {
-                mothers.add(m.name());
-            }
-            x.put("applicableMothers", mothers);
             list.add(x);
         }
         return list;

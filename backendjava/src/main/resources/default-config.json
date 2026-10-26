@@ -85,203 +85,127 @@
       "id": "STANDARD_ROOM",
       "displayName": "标准客房",
       "category": "ACCOMMODATION",
-      "phase1Buildable": true,
-      "initialBuildDays": 3,
       "buildCost": 3000,
-      "capacityPerRoom": 2,
-      "serviceCapacity": 0,
       "isOpen": true,
-      "buildDays": 3,
-      "baseFormId": "STANDARD_ROOM"
+      "buildDays": 3
     },
     {
       "id": "LUXURY_ROOM",
       "displayName": "豪华客房",
       "category": "ACCOMMODATION",
-      "phase1Buildable": false,
-      "initialBuildDays": 5,
       "buildCost": 8000,
-      "capacityPerRoom": 4,
-      "serviceCapacity": 0,
       "isOpen": false,
-      "buildDays": 5,
-      "baseFormId": "LUXURY_ROOM"
+      "buildDays": 5
     },
     {
       "id": "WOODEN_CABIN",
       "displayName": "独栋木屋",
       "category": "ACCOMMODATION",
-      "phase1Buildable": false,
-      "initialBuildDays": 6,
       "buildCost": 12000,
-      "capacityPerRoom": 4,
-      "serviceCapacity": 0,
       "isOpen": false,
-      "buildDays": 6,
-      "baseFormId": "WOODEN_CABIN"
+      "buildDays": 6
     },
     {
       "id": "DUPLEX_LOFT",
       "displayName": "复式LOFT",
       "category": "ACCOMMODATION",
-      "phase1Buildable": false,
-      "initialBuildDays": 5,
       "buildCost": 10000,
-      "capacityPerRoom": 5,
-      "serviceCapacity": 0,
       "isOpen": false,
-      "buildDays": 5,
-      "baseFormId": "DUPLEX_LOFT"
+      "buildDays": 5
     },
     {
       "id": "COURTYARD_HOUSE",
       "displayName": "庭院小院",
       "category": "ACCOMMODATION",
-      "phase1Buildable": false,
-      "initialBuildDays": 7,
       "buildCost": 15000,
-      "capacityPerRoom": 6,
-      "serviceCapacity": 0,
       "isOpen": false,
-      "buildDays": 7,
-      "baseFormId": "COURTYARD_HOUSE"
+      "buildDays": 7
     },
     {
       "id": "MULTI_BEDROOM_HOUSE",
       "displayName": "多卧平房",
       "category": "ACCOMMODATION",
-      "phase1Buildable": false,
-      "initialBuildDays": 6,
       "buildCost": 11000,
-      "capacityPerRoom": 8,
-      "serviceCapacity": 0,
       "isOpen": false,
-      "buildDays": 6,
-      "baseFormId": "MULTI_BEDROOM_HOUSE"
+      "buildDays": 6
     },
     {
       "id": "RESTAURANT",
       "displayName": "餐厅",
       "category": "SUPPORT",
-      "phase1Buildable": true,
-      "initialBuildDays": 3,
       "buildCost": 6000,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 40,
       "isOpen": true,
-      "buildDays": 3,
-      "baseFormId": "RESTAURANT"
+      "buildDays": 3
     },
     {
       "id": "HOT_SPRING_POOL",
       "displayName": "温泉泡池",
       "category": "SUPPORT",
-      "phase1Buildable": true,
-      "initialBuildDays": 4,
       "buildCost": 7500,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 20,
       "isOpen": true,
-      "buildDays": 4,
-      "baseFormId": "HOT_SPRING_POOL"
+      "buildDays": 4
     },
     {
       "id": "VIEWING_PLATFORM",
       "displayName": "观景台",
       "category": "SUPPORT",
-      "phase1Buildable": true,
-      "initialBuildDays": 2,
       "buildCost": 4000,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 30,
       "isOpen": true,
-      "buildDays": 2,
-      "baseFormId": "VIEWING_PLATFORM"
+      "buildDays": 2
     },
     {
       "id": "RECEPTION_LOBBY",
       "displayName": "接待大堂",
       "category": "SUPPORT",
-      "phase1Buildable": false,
-      "initialBuildDays": 3,
       "buildCost": 5000,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 0,
       "isOpen": false,
-      "buildDays": 3,
-      "baseFormId": "RECEPTION_LOBBY"
+      "buildDays": 3
     },
     {
       "id": "TEA_LIBRARY",
       "displayName": "茶室书吧",
       "category": "SUPPORT",
-      "phase1Buildable": false,
-      "initialBuildDays": 2,
       "buildCost": 4500,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 15,
       "isOpen": false,
-      "buildDays": 2,
-      "baseFormId": "TEA_LIBRARY"
+      "buildDays": 2
     },
     {
       "id": "CULTURE_WORKSHOP",
       "displayName": "文创工坊",
       "category": "SUPPORT",
-      "phase1Buildable": false,
-      "initialBuildDays": 3,
       "buildCost": 5500,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 12,
       "isOpen": false,
-      "buildDays": 3,
-      "baseFormId": "CULTURE_WORKSHOP"
+      "buildDays": 3
     },
     {
       "id": "LOGISTICS_WAREHOUSE",
       "displayName": "后勤库房",
       "category": "SUPPORT",
-      "phase1Buildable": false,
-      "initialBuildDays": 2,
       "buildCost": 3500,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 0,
       "isOpen": false,
-      "buildDays": 2,
-      "baseFormId": "LOGISTICS_WAREHOUSE"
+      "buildDays": 2
     },
     {
       "id": "OUTDOOR_CAMP",
       "displayName": "户外营地",
       "category": "SUPPORT",
-      "phase1Buildable": false,
-      "initialBuildDays": 2,
       "buildCost": 3000,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 25,
       "isOpen": false,
-      "buildDays": 2,
-      "baseFormId": "OUTDOOR_CAMP"
+      "buildDays": 2
     },
     {
       "id": "PARENT_CHILD_PARK",
       "displayName": "亲子乐园",
       "category": "SUPPORT",
-      "phase1Buildable": false,
-      "initialBuildDays": 4,
       "buildCost": 6500,
-      "capacityPerRoom": 0,
-      "serviceCapacity": 35,
       "isOpen": false,
-      "buildDays": 4,
-      "baseFormId": "PARENT_CHILD_PARK"
+      "buildDays": 4
     }
   ],
   "buildingForms": [
     {
       "id": "STANDARD_ROOM",
       "displayName": "标准客房",
-      "line": "BASE",
       "tier": 0,
       "capacityPerRoom": 2,
       "serviceCapacity": 0,
@@ -295,7 +219,6 @@
         0,
         0
       ],
-      "buildCost": 3000,
       "evolveCost": 0,
       "evolveDays": 0,
       "formLevelUpCost": [
@@ -322,7 +245,6 @@
         "ROOM_CLEANING": 20,
         "ROOM_REPAIR": 10
       },
-      "evolveFrom": null,
       "availableInteriors": [
         "BED",
         "DINING_TABLE",
@@ -334,7 +256,6 @@
     {
       "id": "FAMILY_ROOM",
       "displayName": "家庭亲子房",
-      "line": "FAMILY",
       "tier": 1,
       "capacityPerRoom": 4,
       "serviceCapacity": 0,
@@ -348,7 +269,6 @@
         0,
         0
       ],
-      "buildCost": 6000,
       "evolveCost": 6000,
       "evolveDays": 4,
       "formLevelUpCost": [
@@ -375,7 +295,6 @@
         "ROOM_CLEANING": 26,
         "ROOM_REPAIR": 12
       },
-      "evolveFrom": "STANDARD_ROOM",
       "availableInteriors": [
         "BED",
         "DINING_TABLE",
@@ -387,7 +306,6 @@
     {
       "id": "FAMILY_SUITE",
       "displayName": "亲子套房",
-      "line": "FAMILY",
       "tier": 2,
       "capacityPerRoom": 6,
       "serviceCapacity": 0,
@@ -401,7 +319,6 @@
         0,
         0
       ],
-      "buildCost": 15000,
       "evolveCost": 15000,
       "evolveDays": 5,
       "formLevelUpCost": [
@@ -428,7 +345,6 @@
         "ROOM_CLEANING": 34,
         "ROOM_REPAIR": 16
       },
-      "evolveFrom": "FAMILY_ROOM",
       "availableInteriors": [
         "BED",
         "DINING_TABLE",
@@ -440,7 +356,6 @@
     {
       "id": "BUSINESS_ROOM",
       "displayName": "商务行政房",
-      "line": "BUSINESS",
       "tier": 1,
       "capacityPerRoom": 2,
       "serviceCapacity": 0,
@@ -454,7 +369,6 @@
         0,
         0
       ],
-      "buildCost": 7000,
       "evolveCost": 7000,
       "evolveDays": 4,
       "formLevelUpCost": [
@@ -481,7 +395,6 @@
         "ROOM_CLEANING": 22,
         "ROOM_REPAIR": 14
       },
-      "evolveFrom": "STANDARD_ROOM",
       "availableInteriors": [
         "BED",
         "DESK_WORKSPACE",
@@ -493,7 +406,6 @@
     {
       "id": "BUSINESS_SUITE",
       "displayName": "行政套房",
-      "line": "BUSINESS",
       "tier": 2,
       "capacityPerRoom": 3,
       "serviceCapacity": 0,
@@ -507,7 +419,6 @@
         0,
         0
       ],
-      "buildCost": 17000,
       "evolveCost": 17000,
       "evolveDays": 5,
       "formLevelUpCost": [
@@ -534,7 +445,6 @@
         "ROOM_CLEANING": 30,
         "ROOM_REPAIR": 18
       },
-      "evolveFrom": "BUSINESS_ROOM",
       "availableInteriors": [
         "BED",
         "DESK_WORKSPACE",
@@ -546,7 +456,6 @@
     {
       "id": "MERGED_FAMILY_VILLA",
       "displayName": "亲子合院",
-      "line": "MERGE",
       "tier": 3,
       "capacityPerRoom": 10,
       "serviceCapacity": 0,
@@ -560,7 +469,6 @@
         0,
         0
       ],
-      "buildCost": 30000,
       "evolveCost": 30000,
       "evolveDays": 5,
       "formLevelUpCost": [
@@ -587,7 +495,6 @@
         "ROOM_CLEANING": 45,
         "ROOM_REPAIR": 22
       },
-      "evolveFrom": null,
       "availableInteriors": [
         "BED",
         "DINING_TABLE",
@@ -600,7 +507,6 @@
     {
       "id": "MERGED_BUSINESS_HALL",
       "displayName": "商务行政馆",
-      "line": "MERGE",
       "tier": 3,
       "capacityPerRoom": 8,
       "serviceCapacity": 0,
@@ -614,7 +520,6 @@
         0,
         0
       ],
-      "buildCost": 32000,
       "evolveCost": 32000,
       "evolveDays": 5,
       "formLevelUpCost": [
@@ -641,7 +546,6 @@
         "ROOM_CLEANING": 44,
         "ROOM_REPAIR": 24
       },
-      "evolveFrom": null,
       "availableInteriors": [
         "BED",
         "DESK_WORKSPACE",
@@ -654,7 +558,6 @@
     {
       "id": "RESTAURANT",
       "displayName": "餐厅",
-      "line": "BASE",
       "tier": 0,
       "capacityPerRoom": 0,
       "serviceCapacity": 40,
@@ -668,7 +571,6 @@
         95,
         110
       ],
-      "buildCost": 6000,
       "evolveCost": 0,
       "evolveDays": 0,
       "formLevelUpCost": [
@@ -695,7 +597,6 @@
         "RESTAURANT_SERVICE": 20,
         "COOKING": 15
       },
-      "evolveFrom": null,
       "availableInteriors": [
         "DINING_TABLE",
         "KITCHEN_VENTILATION"
@@ -705,7 +606,6 @@
     {
       "id": "HOT_SPRING_POOL",
       "displayName": "温泉泡池",
-      "line": "BASE",
       "tier": 0,
       "capacityPerRoom": 0,
       "serviceCapacity": 20,
@@ -719,7 +619,6 @@
         75,
         90
       ],
-      "buildCost": 7500,
       "evolveCost": 0,
       "evolveDays": 0,
       "formLevelUpCost": [
@@ -746,7 +645,6 @@
         "HOT_SPRING_OPERATION": 18,
         "HOT_SPRING_REPAIR": 10
       },
-      "evolveFrom": null,
       "availableInteriors": [
         "HOT_SPRING_TUB",
         "WATER_PUMP"
@@ -756,7 +654,6 @@
     {
       "id": "VIEWING_PLATFORM",
       "displayName": "观景台",
-      "line": "BASE",
       "tier": 0,
       "capacityPerRoom": 0,
       "serviceCapacity": 30,
@@ -770,7 +667,6 @@
         50,
         60
       ],
-      "buildCost": 4000,
       "evolveCost": 0,
       "evolveDays": 0,
       "formLevelUpCost": [
@@ -794,7 +690,6 @@
         3
       ],
       "abilityDemands": {},
-      "evolveFrom": null,
       "availableInteriors": [
         "TELESCOPE"
       ],
@@ -806,19 +701,9 @@
       "id": "BED",
       "displayName": "床位",
       "category": "CARRY",
-      "applicableMothers": [
-        "STANDARD_ROOM",
-        "LUXURY_ROOM",
-        "WOODEN_CABIN",
-        "DUPLEX_LOFT",
-        "COURTYARD_HOUSE",
-        "MULTI_BEDROOM_HOUSE"
-      ],
       "comfortPerLevel": 3,
       "capacityPerLevel": 1,
       "revenueBonusPerLevel": 0.02,
-      "affinitySegment": "FAMILY",
-      "affinityPerLevel": 0.1,
       "upgradeCostByLevel": [
         800,
         1600,
@@ -834,19 +719,9 @@
       "id": "DINING_TABLE",
       "displayName": "餐桌",
       "category": "CARRY",
-      "applicableMothers": [
-        "STANDARD_ROOM",
-        "LUXURY_ROOM",
-        "WOODEN_CABIN",
-        "DUPLEX_LOFT",
-        "COURTYARD_HOUSE",
-        "MULTI_BEDROOM_HOUSE"
-      ],
       "comfortPerLevel": 2,
       "capacityPerLevel": 2,
       "revenueBonusPerLevel": 0.015,
-      "affinitySegment": "FAMILY",
-      "affinityPerLevel": 0.06,
       "upgradeCostByLevel": [
         600,
         1200,
@@ -862,19 +737,9 @@
       "id": "HOT_SPRING_TUB",
       "displayName": "泡池",
       "category": "CARRY",
-      "applicableMothers": [
-        "STANDARD_ROOM",
-        "LUXURY_ROOM",
-        "WOODEN_CABIN",
-        "DUPLEX_LOFT",
-        "COURTYARD_HOUSE",
-        "MULTI_BEDROOM_HOUSE"
-      ],
       "comfortPerLevel": 3,
       "capacityPerLevel": 1.5,
       "revenueBonusPerLevel": 0.03,
-      "affinitySegment": "ROMANTIC",
-      "affinityPerLevel": 0.12,
       "upgradeCostByLevel": [
         1200,
         2400,
@@ -890,19 +755,9 @@
       "id": "SOFA",
       "displayName": "沙发",
       "category": "NORMAL",
-      "applicableMothers": [
-        "STANDARD_ROOM",
-        "LUXURY_ROOM",
-        "WOODEN_CABIN",
-        "DUPLEX_LOFT",
-        "COURTYARD_HOUSE",
-        "MULTI_BEDROOM_HOUSE"
-      ],
       "comfortPerLevel": 2,
       "capacityPerLevel": 0,
       "revenueBonusPerLevel": 0.01,
-      "affinitySegment": "BUSINESS",
-      "affinityPerLevel": 0.08,
       "upgradeCostByLevel": [
         500,
         1000,
@@ -918,19 +773,9 @@
       "id": "LIGHTING",
       "displayName": "灯具",
       "category": "NORMAL",
-      "applicableMothers": [
-        "STANDARD_ROOM",
-        "LUXURY_ROOM",
-        "WOODEN_CABIN",
-        "DUPLEX_LOFT",
-        "COURTYARD_HOUSE",
-        "MULTI_BEDROOM_HOUSE"
-      ],
       "comfortPerLevel": 1.5,
       "capacityPerLevel": 0,
       "revenueBonusPerLevel": 0.01,
-      "affinitySegment": "ROMANTIC",
-      "affinityPerLevel": 0.1,
       "upgradeCostByLevel": [
         400,
         800,
@@ -946,19 +791,9 @@
       "id": "DECOR",
       "displayName": "软装",
       "category": "NORMAL",
-      "applicableMothers": [
-        "STANDARD_ROOM",
-        "LUXURY_ROOM",
-        "WOODEN_CABIN",
-        "DUPLEX_LOFT",
-        "COURTYARD_HOUSE",
-        "MULTI_BEDROOM_HOUSE"
-      ],
       "comfortPerLevel": 2.5,
       "capacityPerLevel": 0,
       "revenueBonusPerLevel": 0.025,
-      "affinitySegment": "ROMANTIC",
-      "affinityPerLevel": 0.08,
       "upgradeCostByLevel": [
         700,
         1400,
@@ -974,14 +809,9 @@
       "id": "KITCHEN",
       "displayName": "厨房设备",
       "category": "CARRY",
-      "applicableMothers": [
-        "RESTAURANT"
-      ],
       "comfortPerLevel": 2.5,
       "capacityPerLevel": 0,
       "revenueBonusPerLevel": 0.025,
-      "affinitySegment": "FAMILY",
-      "affinityPerLevel": 0.08,
       "upgradeCostByLevel": [
         1500,
         3000,
@@ -997,14 +827,9 @@
       "id": "DINING_SEAT",
       "displayName": "餐位桌椅",
       "category": "CARRY",
-      "applicableMothers": [
-        "RESTAURANT"
-      ],
       "comfortPerLevel": 2,
       "capacityPerLevel": 8,
       "revenueBonusPerLevel": 0.02,
-      "affinitySegment": "FAMILY",
-      "affinityPerLevel": 0.06,
       "upgradeCostByLevel": [
         1000,
         2000,
@@ -1020,14 +845,9 @@
       "id": "WATER_PUMP",
       "displayName": "水质循环泵",
       "category": "CARRY",
-      "applicableMothers": [
-        "HOT_SPRING_POOL"
-      ],
       "comfortPerLevel": 3,
       "capacityPerLevel": 4,
       "revenueBonusPerLevel": 0.03,
-      "affinitySegment": "WELLNESS",
-      "affinityPerLevel": 0.12,
       "upgradeCostByLevel": [
         1600,
         3200,
@@ -1043,14 +863,9 @@
       "id": "TELESCOPE",
       "displayName": "景观望远镜",
       "category": "CARRY",
-      "applicableMothers": [
-        "VIEWING_PLATFORM"
-      ],
       "comfortPerLevel": 2.5,
       "capacityPerLevel": 6,
       "revenueBonusPerLevel": 0.02,
-      "affinitySegment": "ROMANTIC",
-      "affinityPerLevel": 0.1,
       "upgradeCostByLevel": [
         800,
         1600,
@@ -1101,10 +916,6 @@
     {
       "id": "MERGE_FAMILY_VILLA",
       "displayName": "亲子合院（合并）",
-      "sourceFormA": "FAMILY_SUITE",
-      "sourceLevelA": 3,
-      "sourceFormB": "FAMILY_SUITE",
-      "sourceLevelB": 3,
       "resultForm": "MERGED_FAMILY_VILLA",
       "resultLevel": 1,
       "mergeCost": 30000,
@@ -1123,10 +934,6 @@
     {
       "id": "MERGE_BUSINESS_HALL",
       "displayName": "商务行政馆（合并）",
-      "sourceFormA": "BUSINESS_SUITE",
-      "sourceLevelA": 3,
-      "sourceFormB": "BUSINESS_SUITE",
-      "sourceLevelB": 3,
       "resultForm": "MERGED_BUSINESS_HALL",
       "resultLevel": 1,
       "mergeCost": 32000,
@@ -1145,10 +952,6 @@
     {
       "id": "MERGE_CROSS_LINE_HALL",
       "displayName": "跨线合并：商务行政馆",
-      "sourceFormA": "FAMILY_SUITE",
-      "sourceLevelA": 3,
-      "sourceFormB": "BUSINESS_SUITE",
-      "sourceLevelB": 3,
       "resultForm": "MERGED_BUSINESS_HALL",
       "resultLevel": 1,
       "mergeCost": 40000,
@@ -1174,16 +977,7 @@
       "width": 7,
       "height": 7,
       "buildableCellCount": 15,
-      "buildLimit": 8,
       "unlockCost": 0,
-      "accommodationWhitelist": [
-        "STANDARD_ROOM"
-      ],
-      "supportWhitelist": [
-        "RESTAURANT",
-        "HOT_SPRING_POOL",
-        "VIEWING_PLATFORM"
-      ],
       "evolveTierCap": 1,
       "unlockAchievementIds": [],
       "unlockedByDefault": true,
@@ -1202,15 +996,7 @@
       "width": 8,
       "height": 8,
       "buildableCellCount": 20,
-      "buildLimit": 8,
       "unlockCost": 100000,
-      "accommodationWhitelist": [
-        "STANDARD_ROOM"
-      ],
-      "supportWhitelist": [
-        "RESTAURANT",
-        "OUTDOOR_CAMP"
-      ],
       "evolveTierCap": 2,
       "unlockAchievementIds": [
         "ACH_ASSET_10"
@@ -1230,15 +1016,7 @@
       "width": 10,
       "height": 10,
       "buildableCellCount": 30,
-      "buildLimit": 10,
       "unlockCost": 1000000,
-      "accommodationWhitelist": [
-        "STANDARD_ROOM"
-      ],
-      "supportWhitelist": [
-        "RESTAURANT",
-        "HOT_SPRING_POOL"
-      ],
       "evolveTierCap": 3,
       "unlockAchievementIds": [
         "ACH_ASSET_100",
@@ -1259,16 +1037,7 @@
       "width": 8,
       "height": 8,
       "buildableCellCount": 20,
-      "buildLimit": 8,
       "unlockCost": 5000000,
-      "accommodationWhitelist": [
-        "STANDARD_ROOM"
-      ],
-      "supportWhitelist": [
-        "RESTAURANT",
-        "TEA_LIBRARY",
-        "VIEWING_PLATFORM"
-      ],
       "evolveTierCap": 3,
       "unlockAchievementIds": [
         "ACH_ASSET_500",
@@ -1291,16 +1060,7 @@
       "width": 12,
       "height": 12,
       "buildableCellCount": 30,
-      "buildLimit": 10,
       "unlockCost": 8000000,
-      "accommodationWhitelist": [
-        "STANDARD_ROOM"
-      ],
-      "supportWhitelist": [
-        "RESTAURANT",
-        "TEA_LIBRARY",
-        "CULTURE_WORKSHOP"
-      ],
       "evolveTierCap": 3,
       "unlockAchievementIds": [
         "ACH_BUILDING_20",
@@ -1322,16 +1082,7 @@
       "width": 15,
       "height": 15,
       "buildableCellCount": 30,
-      "buildLimit": 12,
       "unlockCost": 10000000,
-      "accommodationWhitelist": [
-        "STANDARD_ROOM"
-      ],
-      "supportWhitelist": [
-        "RESTAURANT",
-        "HOT_SPRING_POOL",
-        "VIEWING_PLATFORM"
-      ],
       "evolveTierCap": 3,
       "unlockAchievementIds": [
         "ACH_STAFF_50",
@@ -1387,18 +1138,19 @@
     {
       "id": "ROOM_CLEANER",
       "displayName": "客房保洁",
-      "abilities": [
-        "ROOM_CLEANING"
-      ],
-      "abilityValues": [
-        30,
-        55,
-        85
-      ],
       "hireCost": 400,
-      "upgradeDaysByLevel": [10, 20],
-      "trainDaysByLevel": [1, 2],
-      "trainCostByLevel": [240, 480],
+      "upgradeDaysByLevel": [
+        10,
+        20
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        240,
+        480
+      ],
       "compensationBase": 600,
       "abilityOutputs": {
         "ROOM_CLEANING": [
@@ -1411,18 +1163,19 @@
     {
       "id": "WAITER",
       "displayName": "餐厅服务员",
-      "abilities": [
-        "RESTAURANT_SERVICE"
-      ],
-      "abilityValues": [
-        30,
-        55,
-        85
-      ],
       "hireCost": 400,
-      "upgradeDaysByLevel": [10, 20],
-      "trainDaysByLevel": [1, 2],
-      "trainCostByLevel": [240, 480],
+      "upgradeDaysByLevel": [
+        10,
+        20
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        240,
+        480
+      ],
       "compensationBase": 600,
       "abilityOutputs": {
         "RESTAURANT_SERVICE": [
@@ -1435,18 +1188,19 @@
     {
       "id": "CHEF",
       "displayName": "厨师",
-      "abilities": [
-        "COOKING"
-      ],
-      "abilityValues": [
-        35,
-        60,
-        90
-      ],
       "hireCost": 800,
-      "upgradeDaysByLevel": [12, 24],
-      "trainDaysByLevel": [1, 2],
-      "trainCostByLevel": [480, 960],
+      "upgradeDaysByLevel": [
+        12,
+        24
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        480,
+        960
+      ],
       "compensationBase": 1200,
       "abilityOutputs": {
         "COOKING": [
@@ -1459,18 +1213,19 @@
     {
       "id": "HOT_SPRING_OPERATOR",
       "displayName": "温泉运维员",
-      "abilities": [
-        "HOT_SPRING_OPERATION"
-      ],
-      "abilityValues": [
-        30,
-        55,
-        85
-      ],
       "hireCost": 500,
-      "upgradeDaysByLevel": [10, 20],
-      "trainDaysByLevel": [1, 2],
-      "trainCostByLevel": [300, 600],
+      "upgradeDaysByLevel": [
+        10,
+        20
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        300,
+        600
+      ],
       "compensationBase": 700,
       "abilityOutputs": {
         "HOT_SPRING_OPERATION": [
@@ -1483,19 +1238,19 @@
     {
       "id": "MAINTENANCE_WORKER",
       "displayName": "综合维修员",
-      "abilities": [
-        "ROOM_REPAIR",
-        "HOT_SPRING_REPAIR"
-      ],
-      "abilityValues": [
-        25,
-        45,
-        70
-      ],
       "hireCost": 600,
-      "upgradeDaysByLevel": [12, 24],
-      "trainDaysByLevel": [1, 2],
-      "trainCostByLevel": [360, 720],
+      "upgradeDaysByLevel": [
+        12,
+        24
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        360,
+        720
+      ],
       "compensationBase": 900,
       "abilityOutputs": {
         "ROOM_REPAIR": [
@@ -1513,18 +1268,19 @@
     {
       "id": "MANAGER",
       "displayName": "店长",
-      "abilities": [
-        "GLOBAL_MANAGEMENT"
-      ],
-      "abilityValues": [
-        40,
-        70,
-        100
-      ],
       "hireCost": 1500,
-      "upgradeDaysByLevel": [15, 30],
-      "trainDaysByLevel": [2, 3],
-      "trainCostByLevel": [900, 1800],
+      "upgradeDaysByLevel": [
+        15,
+        30
+      ],
+      "trainDaysByLevel": [
+        2,
+        3
+      ],
+      "trainCostByLevel": [
+        900,
+        1800
+      ],
       "compensationBase": 2000,
       "abilityOutputs": {
         "GLOBAL_MANAGEMENT": [

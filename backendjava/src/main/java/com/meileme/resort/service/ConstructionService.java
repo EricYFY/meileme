@@ -26,16 +26,19 @@ public class ConstructionService {
 
     /** 新建花费（含技能「建造节流」减免） */
     public double buildCost(GameState state, MotherBuildingType mother) {
-        BuildingForm base = registry.baseFormOf(mother);
-        if (base == null) {
+        if (mother == null) {
             return 0;
         }
-        return base.getBuildCost() * skillTree.discount(state, SkillEffectKey.BUILD_COST_DISCOUNT);
+        double cost = registry != null ? registry.motherBuildCost(mother) : 3000.0;
+        return cost * skillTree.discount(state, SkillEffectKey.BUILD_COST_DISCOUNT);
     }
 
-    /** 新建工期（游戏日）：按母本各自配置（见 {@link MotherBuildingType#getBuildDays()}） */
+    /** 新建工期（游戏日）：按母本各自配置 */
     public int projectDays(MotherBuildingType mother) {
-        return mother.getBuildDays();
+        if (mother == null) {
+            return 3;
+        }
+        return registry != null ? registry.motherBuildDays(mother) : mother.getBuildDays();
     }
 
     /** 校验落格坐标：在地图内、可建造、未被占用；返回 null 表示可落格 */
@@ -70,8 +73,8 @@ public class ConstructionService {
         if (mother == null) {
             return "BUILDING_TYPE_NOT_FOUND";
         }
-        if (!mother.isPhase1Buildable()) {
-            return "MOTHER_NOT_BUILDABLE_IN_PHASE_1";
+        if (!mother.isOpen()) {
+            return "MOTHER_NOT_OPEN";
         }
         Plot plot = registry.plot(plotId);
         if (plot == null) {

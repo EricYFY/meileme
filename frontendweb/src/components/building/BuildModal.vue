@@ -12,10 +12,10 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const buildable = computed(() => {
-    const allowed = props.plot.allowedMothers || [...(props.plot.accommodationWhitelist || []), ...(props.plot.supportWhitelist || [])];
+    const allowed = props.plot.allowedMothers || [];
     return allowed
         .map((mid) => store.config?.mothersById?.[mid])
-        .filter((m) => m && (m.isOpen !== undefined ? m.isOpen : m.phase1Buildable));
+        .filter((m) => m && (m.isOpen ?? true));
 });
 
 const selectedId = ref(null);
@@ -23,9 +23,9 @@ const activeId = computed(() => selectedId.value || buildable.value[0]?.id || nu
 const baseForm = computed(() => store.config?.formsById?.[activeId.value]);
 const funds = computed(() => store.state?.funds ?? 0);
 
-const cost = computed(() => store.config?.mothersById?.[activeId.value]?.buildCost || baseForm.value?.buildCost || 0);
+const cost = computed(() => store.config?.mothersById?.[activeId.value]?.buildCost || 0);
 const canAfford = computed(() => funds.value >= cost.value);
-const days = computed(() => store.config?.mothersById?.[activeId.value]?.buildDays || store.config?.mothersById?.[activeId.value]?.initialBuildDays || 3);
+const days = computed(() => store.config?.mothersById?.[activeId.value]?.buildDays || 3);
 const isSupport = computed(() => store.config?.mothersById?.[activeId.value]?.category === 'SUPPORT');
 
 function confirm() {
@@ -44,7 +44,7 @@ function confirm() {
                 <div class="title">{{ m.displayName }}</div>
                 <div class="sub">{{ m.category === 'ACCOMMODATION' ? '住宿' : '配套' }}</div>
             </div>
-            <span class="tag base">造价 {{ fmtMoney(store.config?.formsById?.[m.id]?.buildCost || 0) }}</span>
+            <span class="tag base">造价 {{ fmtMoney(m.buildCost || 0) }}</span>
         </div>
 
         <div v-if="baseForm" class="panel" style="margin-top: 14px">

@@ -56,15 +56,24 @@ public enum MotherBuildingType {
     private final String displayName;
     /** 建筑大类 */
     private final BuildingCategory category;
-    /** 第一期是否开放建造（仅标准客房为 true） */
-    private final boolean phase1Buildable;
+    /** 是否开放建造 */
+    private final boolean open;
     /** 该母本的建造工期（游戏日，自开工次日起累计） */
     private final int buildDays;
 
-    MotherBuildingType(String displayName, BuildingCategory category, boolean phase1Buildable, int buildDays) {
+    MotherBuildingType(String displayName, BuildingCategory category, boolean open, int buildDays) {
         this.displayName = displayName;
         this.category = category;
-        this.phase1Buildable = phase1Buildable;
+        this.open = open;
         this.buildDays = buildDays;
+    }
+
+    public boolean isOpen() {
+        return open;
+    }
+
+    /** 兼容历史接口 */
+    public boolean isPhase1Buildable() {
+        return open;
     }
 }

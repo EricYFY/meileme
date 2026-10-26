@@ -80,21 +80,39 @@ function normalizeConfig() {
     if (!f.plots) f.plots = [];
     if (!f.abilities) f.abilities = [];
     if (!f.positions) f.positions = [];
-    if (!f.skills) f.skills = [];
     if (!f.achievements) f.achievements = [];
 
-    // 1. 规范化母体 isOpen
+    // 0. 规范化全局参数
+    if (!f.global) f.global = {};
+    if (f.global.minConversionRate === undefined) f.global.minConversionRate = 0.05;
+    if (f.global.defaultSegmentAffinity === undefined) f.global.defaultSegmentAffinity = 0.5;
+    if (f.global.formMinLevel === undefined) f.global.formMinLevel = 1;
+    if (f.global.formMaxLevel === undefined) f.global.formMaxLevel = 3;
+    if (f.global.interiorMaxLevelFallback === undefined) f.global.interiorMaxLevelFallback = 3;
+    if (f.global.staffMinLevel === undefined) f.global.staffMinLevel = 1;
+    if (f.global.staffMaxLevel === undefined) f.global.staffMaxLevel = 3;
+    if (f.global.fireCompensationPerDayRatio === undefined) f.global.fireCompensationPerDayRatio = 0.1;
+    if (f.global.mapSeed === undefined) f.global.mapSeed = 12345;
+
+    // 1. 规范化母体：彻底移除废弃字段
     f.mothers.forEach((m) => {
-        if (m.isOpen === undefined) m.isOpen = m.phase1Buildable ?? true;
-        m.phase1Buildable = m.isOpen;
+        if (m.isOpen === undefined) m.isOpen = true;
+        delete m.baseFormId;
+        delete m.initialBuildDays;
+        delete m.phase1Buildable;
+        delete m.capacityPerRoom;
+        delete m.serviceCapacity;
     });
 
-    // 2. 规范化形态升级费用、工期与 availableInteriors、大类
+    // 2. 规范化形态升级费用、工期与 availableInteriors、大类，彻底移除 line/buildCost/evolveFrom
     f.buildingForms.forEach((bf) => {
         if (!bf.availableInteriors) bf.availableInteriors = [];
         if (!bf.category) {
             bf.category = 'ACCOMMODATION';
         }
+        delete bf.line;
+        delete bf.buildCost;
+        delete bf.evolveFrom;
         delete bf.mother;
         if (!bf.formLevelUpCost || bf.formLevelUpCost.length < 2) {
             bf.formLevelUpCost = [bf.formLevelUpCost?.[0] || 2000, bf.formLevelUpCost?.[1] || 4000];
@@ -102,9 +120,15 @@ function normalizeConfig() {
         if (!bf.formLevelUpDays || bf.formLevelUpDays.length < 2) {
             bf.formLevelUpDays = [bf.formLevelUpDays?.[0] || 2, bf.formLevelUpDays?.[1] || 3];
         }
+        if (!Array.isArray(bf.maxInteriorLevel)) {
+            bf.maxInteriorLevel = [1, 2, 3];
+        }
+        if (!bf.abilityDemands || typeof bf.abilityDemands !== 'object') {
+            bf.abilityDemands = {};
+        }
     });
 
-    // 3. 规范化配方 sources
+    // 3. 规范化配方 sources，彻底移除 sourceFormA/B
     f.mergeRecipes.forEach((r) => {
         if (!r.sources || r.sources.length === 0) {
             r.sources = [
@@ -112,13 +136,20 @@ function normalizeConfig() {
                 { formId: r.sourceFormB || '', minLevel: r.sourceLevelB || 3 },
             ];
         }
+        delete r.sourceFormA;
+        delete r.sourceLevelA;
+        delete r.sourceFormB;
+        delete r.sourceLevelB;
     });
 
-    // 4. 规范化地块 allowedMothers
+    // 4. 规范化地块 allowedMothers，彻底移除 buildLimit/accommodationWhitelist/supportWhitelist
     f.plots.forEach((p) => {
         if (!p.allowedMothers) {
             p.allowedMothers = Array.from(new Set([...(p.accommodationWhitelist || []), ...(p.supportWhitelist || [])]));
         }
+        delete p.buildLimit;
+        delete p.accommodationWhitelist;
+        delete p.supportWhitelist;
     });
 
     // 4.5 规范化建筑形态多等级数组与客群相性
@@ -151,6 +182,12 @@ function normalizeConfig() {
 
     // 4.6 规范化内装升级工期、升级费用与多客群相性
     f.interiors.forEach((it) => {
+        if (!it.category) {
+            it.category = it.id === 'BED' ? 'CARRY' : 'NORMAL';
+        }
+        delete it.applicableMothers;
+        delete it.affinitySegment;
+        delete it.affinityPerLevel;
         if (!Array.isArray(it.upgradeDaysByLevel) || it.upgradeDaysByLevel.length === 0) {
             it.upgradeDaysByLevel = [1, 2, 3];
         }
@@ -169,9 +206,6 @@ function normalizeConfig() {
         }
         if (!it.segmentAffinityPerLevel) {
             it.segmentAffinityPerLevel = {};
-            if (it.affinitySegment) {
-                it.segmentAffinityPerLevel[it.affinitySegment] = it.affinityPerLevel || 0.1;
-            }
         }
         (f.segments || []).forEach((seg) => {
             if (it.segmentAffinityPerLevel[seg.id] === undefined) {
@@ -192,6 +226,9 @@ function normalizeConfig() {
         if (!Array.isArray(p.upgradeDaysByLevel) || p.upgradeDaysByLevel.length === 0) {
             p.upgradeDaysByLevel = [10, 20];
         }
+        delete p.abilities;
+        delete p.abilityValues;
+        delete p.abilityValueByLevel;
         delete p.upgradeDaysLv1ToLv2;
         delete p.upgradeDaysLv2ToLv3;
         if (!Array.isArray(p.trainDaysByLevel) || p.trainDaysByLevel.length === 0) {
@@ -209,11 +246,7 @@ function normalizeConfig() {
         }
         if (!p.abilityOutputs) {
             p.abilityOutputs = {};
-            if (p.abilities && p.abilities.length > 0) {
-                p.abilities.forEach((ab) => {
-                    p.abilityOutputs[ab] = p.abilityValues ? [...p.abilityValues] : [30, 55, 85];
-                });
-            } else if (f.abilities && f.abilities.length > 0) {
+            if (f.abilities && f.abilities.length > 0) {
                 p.abilityOutputs[f.abilities[0].id] = [30, 55, 85];
             }
         }
@@ -223,7 +256,6 @@ function normalizeConfig() {
                 p.abilityOutputs[abKey] = [30, 55, 85];
             }
         });
-        p.abilities = Object.keys(p.abilityOutputs);
         p.hireCost = p.hireCost || 400;
         p.compensationBase = p.compensationBase || 600;
         // 彻底移除薪资
@@ -241,6 +273,7 @@ function normalizeConfig() {
             sk.effectKey = matched.effectKey;
         }
         if (!sk.prerequisites) sk.prerequisites = [];
+        delete sk.skillPointsCost;
     });
 
     // 8. 规范化成就分类与参数映射
@@ -267,49 +300,50 @@ async function onSave() {
     if (!form.value) return;
 
     form.value.mothers.forEach((m) => {
-        m.phase1Buildable = m.isOpen;
+        delete m.baseFormId;
+        delete m.initialBuildDays;
+        delete m.phase1Buildable;
+        delete m.capacityPerRoom;
+        delete m.serviceCapacity;
     });
 
     form.value.buildingForms.forEach((bf) => {
         if (!bf.category) {
             bf.category = 'ACCOMMODATION';
         }
+        delete bf.line;
+        delete bf.buildCost;
+        delete bf.evolveFrom;
         delete bf.mother;
     });
 
     form.value.mergeRecipes.forEach((r) => {
-        if (r.sources && r.sources.length >= 2) {
-            r.sourceFormA = r.sources[0].formId;
-            r.sourceLevelA = r.sources[0].minLevel;
-            r.sourceFormB = r.sources[1].formId;
-            r.sourceLevelB = r.sources[1].minLevel;
-        }
+        delete r.sourceFormA;
+        delete r.sourceLevelA;
+        delete r.sourceFormB;
+        delete r.sourceLevelB;
     });
 
-    // 岗位能力同步
+    form.value.plots.forEach((p) => {
+        delete p.buildLimit;
+        delete p.accommodationWhitelist;
+        delete p.supportWhitelist;
+    });
+
     form.value.positions.forEach((p) => {
-        p.abilities = Object.keys(p.abilityOutputs || {});
-        const firstKey = p.abilities[0];
-        if (firstKey && p.abilityOutputs[firstKey]) {
-            p.abilityValues = [...p.abilityOutputs[firstKey]];
-        }
-        if (p.upgradeDaysByLevel && p.upgradeDaysByLevel.length > 0) {
-            delete p.upgradeDaysLv1ToLv2;
-            delete p.upgradeDaysLv2ToLv3;
-        }
+        delete p.abilities;
+        delete p.abilityValues;
+        delete p.abilityValueByLevel;
+        delete p.upgradeDaysLv1ToLv2;
+        delete p.upgradeDaysLv2ToLv3;
     });
 
-    // 内装客群偏好向下兼容同步
     form.value.interiors.forEach((it) => {
-        const entries = Object.entries(it.segmentAffinityPerLevel || {});
-        if (entries.length > 0) {
-            const top = entries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))[0];
-            it.affinitySegment = top[0];
-            it.affinityPerLevel = top[1];
-        }
+        delete it.applicableMothers;
+        delete it.affinitySegment;
+        delete it.affinityPerLevel;
     });
 
-    // 技能同步
     form.value.skills.forEach((sk) => {
         const cat = SKILL_CATEGORIES.find((c) => c.name === sk.category);
         if (cat) {
@@ -317,7 +351,7 @@ async function onSave() {
             sk.effectKey = cat.effectKey;
         }
         sk.costPoints = Math.max(1, sk.costPoints || 1);
-        sk.skillPointsCost = sk.costPoints;
+        delete sk.skillPointsCost;
     });
 
     // 成就同步
@@ -444,12 +478,8 @@ function addMother() {
         displayName: '新母体建筑',
         category: 'ACCOMMODATION',
         isOpen: true,
-        phase1Buildable: true,
         buildCost: 5000,
-        initialBuildDays: 3,
         buildDays: 3,
-        capacityPerRoom: 2,
-        serviceCapacity: 0,
     });
 }
 function removeMother(idx) {
@@ -466,17 +496,19 @@ function addBuildingForm() {
     (form.value.segments || []).forEach((s) => {
         initialAffinities[s.id] = 0.5;
     });
+    const initialDemands = {};
+    (form.value.abilities || []).forEach((ab) => {
+        initialDemands[ab.id] = 0;
+    });
     form.value.buildingForms.push({
         id: newId,
         displayName: '新建筑形态',
         category: 'ACCOMMODATION',
-        line: 'FAMILY',
         tier: 1,
         capacityPerRoom: 2,
         serviceCapacity: 0,
         pricePerRoom: [300, 350, 400],
         unitPrice: [0, 0, 0],
-        buildCost: 0,
         evolveCost: 10000,
         evolveDays: 3,
         formLevelUpCost: [2000, 4000],
@@ -485,6 +517,7 @@ function addBuildingForm() {
         capacityInterior: 'BED',
         affinities: initialAffinities,
         maxInteriorLevel: [3, 3, 3],
+        abilityDemands: initialDemands,
         availableInteriors: form.value.interiors?.slice(0, 3).map((it) => it.id) || [],
     });
 }
@@ -568,7 +601,6 @@ function addInterior() {
         id: newId,
         displayName: '新内装设施',
         category: 'NORMAL',
-        applicableMothers: form.value.mothers?.map((m) => m.id) || [],
         comfortPerLevel: 3,
         capacityPerLevel: 0,
         revenueBonusPerLevel: 0.02,
@@ -656,7 +688,6 @@ function addPlot() {
         width: 7,
         height: 7,
         buildableCellCount: 15,
-        buildLimit: 8,
         unlockCost: 50000,
         allowedMothers: form.value.mothers?.filter((m) => m.isOpen)?.map((m) => m.id) || [],
         evolveTierCap: 2,
@@ -1074,8 +1105,40 @@ function removeAchievement(idx) {
                                 <input type="number" v-model.number="form.global.staffShortageMinComfortRatio" step="0.05" min="0" max="1" />
                             </div>
                             <div class="form-group">
-                                <label>每级形态舒适度提升步长</label>
-                                <input type="number" v-model.number="form.global.formLevelComfortStep" step="0.05" />
+                                <label>最小客流转化率 (0~1.0)</label>
+                                <input type="number" v-model.number="form.global.minConversionRate" step="0.01" min="0" max="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>默认客群契合度 (相性保底)</label>
+                                <input type="number" v-model.number="form.global.defaultSegmentAffinity" step="0.05" min="0" max="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>建筑形态最低初始等级</label>
+                                <input type="number" v-model.number="form.global.formMinLevel" min="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>建筑形态最高等级上限</label>
+                                <input type="number" v-model.number="form.global.formMaxLevel" min="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>内装回退最高等级 (Fallback)</label>
+                                <input type="number" v-model.number="form.global.interiorMaxLevelFallback" min="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>员工最低初始等级</label>
+                                <input type="number" v-model.number="form.global.staffMinLevel" min="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>员工最高等级上限</label>
+                                <input type="number" v-model.number="form.global.staffMaxLevel" min="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>解雇补偿每日折算比例</label>
+                                <input type="number" v-model.number="form.global.fireCompensationPerDayRatio" step="0.01" min="0" />
+                            </div>
+                            <div class="form-group">
+                                <label>地图生成随机种子 (mapSeed)</label>
+                                <input type="number" v-model.number="form.global.mapSeed" step="1" />
                             </div>
                         </div>
                     </div>
@@ -1148,6 +1211,10 @@ function removeAchievement(idx) {
                                         <label>每日基础客流 (人/天)</label>
                                         <input type="number" v-model.number="reg.baseDailyFlow" />
                                     </div>
+                                    <div class="form-group full-row">
+                                        <label>区域特色与背景描述</label>
+                                        <input type="text" v-model="reg.description" placeholder="请输入区域特色与背景故事" />
+                                    </div>
                                 </div>
                                 <div class="sub-section">
                                     <div class="sub-label">各客群权重占比 (自动联动当前客群列表)：</div>
@@ -1183,7 +1250,7 @@ function removeAchievement(idx) {
                                     <div class="spacer"></div>
                                     <button class="danger micro-btn" @click="removeMother(mIdx)">🗑️ 删除</button>
                                 </div>
-                                <div class="form-grid four">
+                                <div class="form-grid five">
                                     <div class="form-group">
                                         <label>母体 ID</label>
                                         <input type="text" v-model="m.id" />
@@ -1204,16 +1271,8 @@ function removeAchievement(idx) {
                                         <input type="number" v-model.number="m.buildCost" step="500" />
                                     </div>
                                     <div class="form-group">
-                                        <label>基础建造型期 (天)</label>
-                                        <input type="number" v-model.number="m.initialBuildDays" min="1" />
-                                    </div>
-                                    <div class="form-group" v-if="m.category === 'ACCOMMODATION'">
-                                        <label>每间客房容量 (人)</label>
-                                        <input type="number" v-model.number="m.capacityPerRoom" min="1" />
-                                    </div>
-                                    <div class="form-group" v-else>
-                                        <label>配套服务容量 (人)</label>
-                                        <input type="number" v-model.number="m.serviceCapacity" min="1" />
+                                        <label>建造工期 (天)</label>
+                                        <input type="number" v-model.number="m.buildDays" min="1" />
                                     </div>
                                 </div>
                             </div>
@@ -1257,15 +1316,6 @@ function removeAchievement(idx) {
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label>进化线</label>
-                                        <select v-model="f.line">
-                                            <option value="BASE">基础线 (BASE)</option>
-                                            <option value="FAMILY">亲子线 (FAMILY)</option>
-                                            <option value="BUSINESS">行政线 (BUSINESS)</option>
-                                            <option value="MERGE">合并线 (MERGE)</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
                                         <label>形态阶数 (Tier)</label>
                                         <input type="number" v-model.number="f.tier" min="0" max="4" />
                                     </div>
@@ -1290,6 +1340,10 @@ function removeAchievement(idx) {
                                             </option>
                                         </select>
                                     </div>
+                                    <div class="form-group">
+                                        <label>Lv1 允许内装上限 (级)</label>
+                                        <input type="number" v-model.number="f.maxInteriorLevel[0]" min="1" />
+                                    </div>
                                 </div>
 
                                 <!-- ★ 核心：同形态等级升级消耗、工期与各级收益配置 (动态支持任意多级) -->
@@ -1304,6 +1358,7 @@ function removeAchievement(idx) {
                                             <span class="col-cost">升级费用 (元)</span>
                                             <span class="col-days">升级工期 (天)</span>
                                             <span class="col-rev">{{ f.category === 'ACCOMMODATION' ? '升至该级客房收益 (元/间)' : '升至该级配套收益 (元/人)' }}</span>
+                                            <span class="col-int" style="width: 100px; text-align: center;">内装上限 (级)</span>
                                             <span class="col-act">操作</span>
                                         </div>
                                         <div v-for="(cost, lvIdx) in (f.formLevelUpCost || [])" :key="lvIdx" class="form-level-row">
@@ -1330,6 +1385,15 @@ function removeAchievement(idx) {
                                                     placeholder="服务单价"
                                                 />
                                             </div>
+                                            <div class="col-int" style="width: 100px; text-align: center;">
+                                                <input
+                                                    type="number"
+                                                    v-model.number="f.maxInteriorLevel[lvIdx + 1]"
+                                                    min="1"
+                                                    placeholder="内装上限"
+                                                    style="width: 80px"
+                                                />
+                                            </div>
                                             <div class="col-act">
                                                 <button
                                                     v-if="lvIdx === f.formLevelUpCost.length - 1"
@@ -1346,6 +1410,29 @@ function removeAchievement(idx) {
                                     </div>
                                     <div class="tip-text">
                                         💡 提示：该形态当前最高等级为 <strong>Lv{{ (f.formLevelUpCost || []).length + 1 }}</strong>。点击上方按钮可任意扩充升级到 Lv4、Lv5...；若需配置跨形态变迁（如标准客房 ➔ 亲子套房），请前往左侧「🌿 进化路线」。
+                                    </div>
+                                </div>
+
+                                <!-- ★ 岗位能力需求配置 (abilityDemands) -->
+                                <div class="sub-section">
+                                    <div class="sub-label">★ 岗位能力需求配置 (abilityDemands - 运转该建筑所需各项能力基准值)：</div>
+                                    <div class="segment-affinities-grid">
+                                        <div v-for="ab in form.abilities" :key="ab.id" class="seg-affinity-item">
+                                            <span class="seg-name">{{ ab.displayName }} ({{ ab.id }})</span>
+                                            <div class="seg-input-wrap">
+                                                <input
+                                                    type="number"
+                                                    v-model.number="f.abilityDemands[ab.id]"
+                                                    min="0"
+                                                    step="5"
+                                                    placeholder="0"
+                                                />
+                                                <span class="unit-text">点</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tip-text">
+                                        💡 能力短缺影响：当在册员工提供的总能力低于所有建筑需求总和时，该建筑舒适度会按比例折损。
                                     </div>
                                 </div>
 
@@ -1471,12 +1558,21 @@ function removeAchievement(idx) {
                                         <input type="text" v-model="it.displayName" />
                                     </div>
                                     <div class="form-group">
+                                        <label>内装类别 (Category)</label>
+                                        <select v-model="it.category">
+                                            <option value="NORMAL">普通设施 (NORMAL)</option>
+                                            <option value="CARRY">承载设施 (CARRY)</option>
+                                            <option value="COMFORT">舒适设施 (COMFORT)</option>
+                                            <option value="ENTERTAINMENT">娱乐设施 (ENTERTAINMENT)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
                                         <label>每级舒适度加成</label>
                                         <input type="number" v-model.number="it.comfortPerLevel" step="0.5" />
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group" v-if="it.category === 'CARRY'">
                                         <label>★ 每级提供承载能力</label>
-                                        <input type="number" v-model.number="it.capacityPerLevel" step="1" placeholder="如床位设1，非承载设0" />
+                                        <input type="number" v-model.number="it.capacityPerLevel" step="1" placeholder="如床位设1" />
                                     </div>
                                     <div class="form-group">
                                         <label>★ 每级房屋收益加成比例</label>
@@ -1624,7 +1720,7 @@ function removeAchievement(idx) {
                                     <div class="spacer"></div>
                                     <button class="danger micro-btn" @click="removePlot(pIdx)">🗑️ 删除地块</button>
                                 </div>
-                                <div class="form-grid four">
+                                <div class="form-grid five">
                                     <div class="form-group">
                                         <label>地块 ID</label>
                                         <input type="text" v-model="p.id" />
@@ -1644,6 +1740,10 @@ function removeAchievement(idx) {
                                     <div class="form-group">
                                         <label>解锁花费 (元)</label>
                                         <input type="number" v-model.number="p.unlockCost" step="5000" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>形态阶数上限 (Tier Cap)</label>
+                                        <input type="number" v-model.number="p.evolveTierCap" min="1" max="5" />
                                     </div>
                                 </div>
                                 <div class="sub-section">
