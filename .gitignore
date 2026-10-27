@@ -42,6 +42,14 @@ frontendweb/.env.test.local
 frontendweb/.env.production.local
 
 # ==========================================
+# Phaser 3 Frontend (frontendphaser)
+# ==========================================
+frontendphaser/node_modules/
+frontendphaser/dist/
+frontendphaser/npm-debug.log*
+frontendphaser/yarn-debug.log*
+
+# ==========================================
 # Unity Client (future/existing Unity project)
 # ==========================================
 [Ll]ibrary/
