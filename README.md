@@ -142,7 +142,34 @@ $$意向到访转化率 = \min\Big(\text{maxConversionRate},\, \max\big(\text{mi
 
 ---
 
-## 📁 七、工程目录结构
+## 📖 七、图鉴收集系统（Codex System）
+
+度假村引入了全岛典藏收集系统，记录玩家经营发展中的每一处里程碑与创新印记：
+
+### 1. 四大图鉴类别与解锁时机
+- **🏰 建筑形态图鉴（`unlockedForms`）**：
+  - 玩家**首次完成**某个基础建筑形态的建造竣工时解锁；
+  - 玩家**首次完成**高阶分支进化竣工（如家庭亲子房、行政套房）或多建筑合并融合竣工（如温泉木屋）时解锁该目标形态图鉴；
+- **🛋️ 内装设施图鉴（`unlockedInteriors`）**：
+  - 玩家在任意建筑中**首次安装/建造**某项内装设施（如大床、餐位桌椅、露天温泉泡池）竣工时解锁；
+- **🗺️ 度假村地块图鉴（`unlockedPlots`）**：
+  - 开局初始化自动解锁的默认领地地块直接收录至图鉴；
+  - 玩家后续通过消耗资金达成成就**首次解锁**新地块时收录至图鉴；
+- **👔 员工岗位图鉴（`unlockedPositions`）**：
+  - 玩家在人才市场**首次成功招聘**某个岗位员工（如客房保洁员、主厨、安全员、运营经理等）时解锁。
+
+### 2. 前后端数据下发与典藏交互
+- **数据结构**：后端在 `GameState` 维护 `CodexState`，并在 `RESORT_STATE` 全量下发；
+- **即时通知**：首次解锁时，后端精准广播 `CODEX_UNLOCKED` 事件，前台触发金色庆贺动画 Toast；
+- **典藏大厅（`CodexPanel.vue`）**：
+  - **总览成就仪表盘**：显示总收集数、总收集率（%）与进度条，根据达成率自动授予称号（*初出茅庐 ➔ 度假村筑梦新秀 ➔ 卓越庄园开拓者 ➔ 度假王国传奇大师 ➔ 全知全能度假王国典藏家*）；
+  - **四大分项卡片**：快捷切换分类查看子收集率与进度；
+  - **精美卡片网格**：已解锁图鉴带有发光边框与真实参数，未收录图鉴呈现神秘剪影、编号问号与解锁指引；
+  - **档案详情浮窗**：点击已收录卡片可查阅各形态的客群偏好、能力需求、容纳/单价与典藏印章。
+
+---
+
+## 📁 八、工程目录结构
 
 ```
 meileme/
@@ -154,14 +181,14 @@ meileme/
 │       │   ├── java/com/meileme/resort/
 │       │   │   ├── ResortApplication.java    # 启动入口类
 │       │   │   ├── config/                   # 数据驱动配置实体类 (BuildingForm, Plot, etc.)
-│       │   │   ├── model/                    # 运行时内存实体 (GameState, BuildingInstance, etc.)
+│       │   │   ├── model/                    # 运行时内存实体 (GameState, CodexState, BuildingInstance, etc.)
 │       │   │   ├── repository/               # 内存态仓储管理
 │       │   │   ├── service/                  # 核心服务 (GameEngine, Settlement, Comfort, etc.)
 │       │   │   └── websocket/                # WebSocket 握手与消息路由网关
 │       │   └── resources/
 │       │       ├── application.properties    # 服务端口与系统参数配置
 │       │       └── default-config.json       # 出厂只读备份全量配置
-│       └── test/java/com/meileme/resort/     # 自动化业务回归测试集
+│       └── test/java/com/meileme/resort/     # 自动化业务回归测试集 (含 CodexTest, CategoryDecoupleTest)
 │
 ├── frontendweb/                          # 🎨 Vue3 前台交互界面与管理员后台 (端口 5173)
 │   ├── package.json
@@ -171,6 +198,7 @@ meileme/
 │       ├── services/                         # WebSocket 客户端与全局状态 store
 │       └── components/
 │           ├── admin/                        # ⚙️ AdminConfigModal.vue (13大模块可视化后管)
+│           ├── codex/                        # 📖 CodexPanel.vue (图鉴收集系统大厅与卡片详情)
 │           ├── overview/                     # 状态栏、今日预计、客流构成、能力供需面板
 │           ├── building/                     # 地块网格地图、新建弹窗、建筑详情演化面板
 │           ├── staff/                        # 招聘中心、在册员工列表、培训晋升操作
@@ -184,7 +212,7 @@ meileme/
 
 ---
 
-## 🚀 八、快速启动与调试指引
+## 🚀 九、快速启动与调试指引
 
 ### 1. 启动后端
 ```bash

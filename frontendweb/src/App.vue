@@ -16,6 +16,7 @@ import BuildModal from './components/building/BuildModal.vue';
 import BuildingDetailModal from './components/building/BuildingDetailModal.vue';
 import SettlementLogModal from './components/log/SettlementLogModal.vue';
 import AdminConfigModal from './components/admin/AdminConfigModal.vue';
+import CodexPanel from './components/codex/CodexPanel.vue';
 import Toast from './components/common/Toast.vue';
 
 onMounted(() => connect());
@@ -27,6 +28,7 @@ const TABS = [
     { key: 'staff', label: '员工' },
     { key: 'skill', label: '技能' },
     { key: 'achievement', label: '成就' },
+    { key: 'codex', label: '📖 图鉴' },
 ];
 
 const activeTab = ref('overview');
@@ -92,6 +94,10 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
 
                 <div v-else-if="activeTab === 'achievement'">
                     <AchievementProgress />
+                </div>
+
+                <div v-else-if="activeTab === 'codex'">
+                    <CodexPanel />
                 </div>
             </template>
         </div>

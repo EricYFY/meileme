@@ -75,6 +75,9 @@ public class GameState {
     /** 已达成成就 ID */
     private Set<String> unlockedAchievements = new LinkedHashSet<>();
 
+    /** 图鉴收集系统（建筑形态、内装设施、地块地图、员工岗位） */
+    private CodexState codex = new CodexState();
+
     // ===================== 统计与日志 =====================
 
     /** 全局累计统计（成就判定） */

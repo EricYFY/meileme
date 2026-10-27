@@ -88,6 +88,10 @@ public class RegionService {
         state.getUnlockedRegions().add(plot.getRegion());
         state.setSkillPoints(state.getSkillPoints() + GameConfig.SKILL_POINT_PER_PLOT);
 
+        if (state.getCodex() != null && state.getCodex().unlockPlot(plot.getId())) {
+            messages.add("📖 图鉴解锁：地块【" + plot.getDisplayName() + "】！");
+        }
+
         Milestone m = new Milestone();
         m.setId("PLOT_" + plot.getId());
         m.setDescription("地块解锁：" + plot.getDisplayName());

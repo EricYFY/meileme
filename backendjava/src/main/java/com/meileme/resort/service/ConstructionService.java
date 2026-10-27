@@ -113,6 +113,9 @@ public class ConstructionService {
         b.setBuiltDay(state.getDay());
         state.getBuildings().add(b);
         state.getStats().setBuildingsBuiltCount(state.getStats().getBuildingsBuiltCount() + 1);
+        if (state.getCodex() != null && b.getForm() != null) {
+            state.getCodex().unlockForm(b.getForm().getId());
+        }
         return b;
     }
 }

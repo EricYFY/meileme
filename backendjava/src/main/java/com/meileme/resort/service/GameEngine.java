@@ -122,6 +122,19 @@ public class GameEngine {
         state.setStartDate(LocalDate.parse(GameConfig.DEFAULT_START_DATE));
 
         List<String> initMessages = regionService.initialize(state);
+        for (String plotId : state.getUnlockedPlots()) {
+            state.getCodex().unlockPlot(plotId);
+        }
+        for (BuildingInstance b : state.aliveBuildings()) {
+            if (b.getForm() != null) {
+                state.getCodex().unlockForm(b.getForm().getId());
+            }
+        }
+        for (StaffInstance st : state.aliveStaffs()) {
+            if (st.getPosition() != null) {
+                state.getCodex().unlockPosition(st.getPosition().name());
+            }
+        }
         statsService.rebuild(state);
         repository.save(state);
         refreshPreview();
@@ -302,7 +315,10 @@ public class GameEngine {
                 if (cellReason != null) {
                     return cellReason;
                 }
-                constructionService.completeBuild(s, p.getMother(), p.getPlotId(), p.getCellX(), p.getCellY());
+                BuildingInstance b = constructionService.completeBuild(s, p.getMother(), p.getPlotId(), p.getCellX(), p.getCellY());
+                if (b != null && b.getForm() != null) {
+                    checkUnlockForm(s, b.getForm());
+                }
                 return null;
             }
             case FORM_LEVEL_UP: {
@@ -330,6 +346,7 @@ public class GameEngine {
                     return "EVOLVE_PATH_NOT_ALLOWED";
                 }
                 evolutionService.completeBranchEvolve(b, target);
+                checkUnlockForm(s, target);
                 return null;
             }
             case MERGE_EVOLVE: {
@@ -340,6 +357,9 @@ public class GameEngine {
                     return "MERGE_RECIPE_NOT_MATCHED";
                 }
                 evolutionService.completeMerge(s, a, b, recipe);
+                if (recipe.getResultForm() != null) {
+                    checkUnlockForm(s, recipe.getResultForm());
+                }
                 return null;
             }
             case INTERIOR_UPGRADE: {
@@ -356,10 +376,55 @@ public class GameEngine {
                     return "INTERIOR_LEVEL_CAP_REACHED";
                 }
                 interiorService.completeUpgrade(s, b, p.getInteriorType());
+                checkUnlockInterior(s, p.getInteriorType());
                 return null;
             }
             default:
                 return "UNKNOWN_PROJECT";
+        }
+    }
+
+    public void checkUnlockForm(GameState s, BuildingForm form) {
+        if (s == null || s.getCodex() == null || form == null) return;
+        if (s.getCodex().unlockForm(form.getId())) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("category", "FORM");
+            payload.put("id", form.getId());
+            payload.put("name", form.getDisplayName());
+            broadcast("CODEX_UNLOCKED", payload);
+        }
+    }
+
+    public void checkUnlockInterior(GameState s, InteriorType interiorType) {
+        if (s == null || s.getCodex() == null || interiorType == null) return;
+        if (s.getCodex().unlockInterior(interiorType.name())) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("category", "INTERIOR");
+            payload.put("id", interiorType.name());
+            payload.put("name", interiorType.getDisplayName());
+            broadcast("CODEX_UNLOCKED", payload);
+        }
+    }
+
+    public void checkUnlockPlot(GameState s, Plot plot) {
+        if (s == null || s.getCodex() == null || plot == null) return;
+        if (s.getCodex().unlockPlot(plot.getId())) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("category", "PLOT");
+            payload.put("id", plot.getId());
+            payload.put("name", plot.getDisplayName());
+            broadcast("CODEX_UNLOCKED", payload);
+        }
+    }
+
+    public void checkUnlockPosition(GameState s, PositionType position) {
+        if (s == null || s.getCodex() == null || position == null) return;
+        if (s.getCodex().unlockPosition(position.name())) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("category", "POSITION");
+            payload.put("id", position.name());
+            payload.put("name", position.getDisplayName());
+            broadcast("CODEX_UNLOCKED", payload);
         }
     }
 
@@ -624,6 +689,7 @@ public class GameEngine {
                     reason = staffService.validateHire(s, position);
                     if (reason == null) {
                         staffService.hire(s, position);
+                        checkUnlockPosition(s, position);
                     }
                     break;
                 }
@@ -656,6 +722,7 @@ public class GameEngine {
                     reason = regionService.validateUnlock(s, plot);
                     if (reason == null) {
                         regionService.unlock(s, plot);
+                        checkUnlockPlot(s, plot);
                     }
                     break;
                 }
@@ -817,6 +884,7 @@ public class GameEngine {
         m.put("unlockedPlots", s.getUnlockedPlots());
         m.put("unlockedRegions", s.getUnlockedRegions());
         m.put("unlockedAchievements", s.getUnlockedAchievements());
+        m.put("codex", s.getCodex());
         m.put("pendingCommands", s.getPendingCommands());
         m.put("stats", s.getStats());
         m.put("lastSettle", s.getLastSettle());

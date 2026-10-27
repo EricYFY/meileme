@@ -700,7 +700,7 @@
     "height" : 7,
     "buildableCellCount" : 15,
     "unlockCost" : 0,
-    "evolveTierCap" : 1,
+    "evolveTierCap" : 2,
     "unlockAchievementIds" : [ ],
     "unlockedByDefault" : true,
     "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "HOT_SPRING_POOL", "VIEWING_PLATFORM" ]
@@ -713,7 +713,7 @@
     "height" : 8,
     "buildableCellCount" : 20,
     "unlockCost" : 100000,
-    "evolveTierCap" : 2,
+    "evolveTierCap" : 3,
     "unlockAchievementIds" : [ "ACH_ASSET_10" ],
     "unlockedByDefault" : false,
     "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "OUTDOOR_CAMP" ]

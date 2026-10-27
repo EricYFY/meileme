@@ -272,6 +272,17 @@ ws.onAdminConfigReset = (msg) => {
     toast('已删除 admin-config.json 并恢复默认 default-config.json！', 'info');
 };
 
+ws.onCodexUnlocked = (msg) => {
+    const categoryNames = {
+        FORM: '建筑形态',
+        INTERIOR: '内装设施',
+        PLOT: '度假村地块',
+        POSITION: '员工岗位'
+    };
+    const cat = categoryNames[msg.category] || '图鉴';
+    toast(`🎉【${cat}】图鉴已解锁：${msg.name || msg.id}！可在“📖 图鉴”页面查看`, 'unlock');
+};
+
 ws.onError = (msg) => {
     const reason = msg.reason || msg.message || '未知异常';
     toast(`操作失败: ${reason}`, 'alert');

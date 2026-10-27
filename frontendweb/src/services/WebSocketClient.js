@@ -23,6 +23,7 @@ export default class WebSocketClient {
         this.onProjectFailed = null;    // PROJECT_FAILED：工程失败（已退款）
         this.onDailyLog = null;      // DAILY_LOG {history}
         this.onRangeReport = null;   // RANGE_REPORT {...}
+        this.onCodexUnlocked = null; // CODEX_UNLOCKED {category, id, name}
     }
 
     connect() {
@@ -116,6 +117,9 @@ export default class WebSocketClient {
                 break;
             case 'ADMIN_CONFIG_RESET':
                 if (this.onAdminConfigReset) this.onAdminConfigReset(msg);
+                break;
+            case 'CODEX_UNLOCKED':
+                if (this.onCodexUnlocked) this.onCodexUnlocked(msg);
                 break;
             case 'ERROR':
                 console.warn('[WS] 服务端错误', msg);

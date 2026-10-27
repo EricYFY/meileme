@@ -154,6 +154,9 @@ public class StaffService {
         s.setAlive(true);
         s.setHireDay(state.getDay());
         state.getStaffs().add(s);
+        if (state.getCodex() != null && position != null) {
+            state.getCodex().unlockPosition(position.name());
+        }
         return s;
     }
 
