@@ -185,6 +185,8 @@ function indexConfig(cfg) {
     cfg.segmentsById = Object.fromEntries((cfg.segments || []).map((x) => [x.id, x]));
     cfg.abilitiesById = Object.fromEntries((cfg.abilities || []).map((x) => [x.id, x]));
     cfg.interiorsById = Object.fromEntries((cfg.interiors || []).map((x) => [x.id, x]));
+    cfg.evolutionLines = cfg.evolutionLines || [];
+    cfg.evolutionLinesById = Object.fromEntries(cfg.evolutionLines.map((x) => [x.id, x]));
     return cfg;
 }
 

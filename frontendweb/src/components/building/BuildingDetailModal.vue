@@ -200,14 +200,44 @@ const canLevelUp = computed(
 );
 
 const branchTargets = computed(() => {
-    if (level.value < maxLevel.value) return [];
-    return (store.config?.buildingForms || []).filter((f) => f.evolveFrom?.id === form.value.id);
+    const lines = store.config?.evolutionLines || [];
+    const myLines = lines.filter((l) => l.sourceFormId === form.value?.id);
+    return myLines.map((line) => {
+        const targetForm = store.config?.formsById?.[line.targetFormId] || 
+                           (store.config?.buildingForms || []).find((f) => f.id === line.targetFormId);
+        if (!targetForm) return null;
+        const reqLevel = line.requiredLevel ?? maxLevel.value;
+        const cost = (line.cost && line.cost > 0) ? line.cost : (targetForm.evolveCost || 0);
+        const days = (line.days && line.days > 0) ? line.days : (targetForm.evolveDays || 0);
+        return {
+            ...targetForm,
+            lineConfig: line,
+            evolveCost: cost,
+            evolveDays: days,
+            requiredLevel: reqLevel,
+        };
+    }).filter(Boolean);
 });
 
 function branchMeta(t) {
     const cost = Math.round((t.evolveCost || 0) * evolveDiscount.value);
-    const tierOk = !plot.value || (t.tier || 0) <= (plot.value.evolveTierCap || 3);
-    return { cost, days: t.evolveDays || 0, can: funds.value >= cost && tierOk && !activeProject.value };
+    const tierOk = !plot.value || (t.tier || 0) <= (plot.value.evolveTierCap ?? 3);
+    const reqLevelOk = level.value >= (t.requiredLevel || maxLevel.value);
+    const fundsOk = funds.value >= cost;
+    const noProject = !activeProject.value;
+
+    let reason = '';
+    if (!reqLevelOk) reason = `需升至 Lv${t.requiredLevel || maxLevel.value}`;
+    else if (!tierOk) reason = `超过地块上限 Tier ${plot.value?.evolveTierCap ?? 3}`;
+    else if (!fundsOk) reason = '资金不足';
+    else if (!noProject) reason = '已有工程进行中';
+
+    return {
+        cost,
+        days: t.evolveDays || 0,
+        can: reqLevelOk && tierOk && fundsOk && noProject,
+        reason,
+    };
 }
 
 /** 百分比格式化：0.02 → 2%，0.015 → 1.5% */
@@ -375,17 +405,26 @@ function affinityText(it) {
 
         <template v-if="!isSupport">
             <h4 class="sec">分支进化 <span class="faint" style="font-weight:400">（形态满级后可选，选定不可切换）</span></h4>
-            <div v-if="level < maxLevel" class="faint">需先将形态升到 Lv{{ maxLevel }}</div>
-            <div v-else-if="!branchTargets.length" class="faint">该形态无可分支的下一阶段</div>
-            <div v-for="t in branchTargets" :key="t.id" class="bld-row">
-                <div class="main">
-                    <div class="title">{{ t.displayName }}</div>
-                    <div class="sub">每间 {{ t.capacityPerRoom }} 人 · 房屋收益 Lv1 {{ fmtMoney(t.pricePerRoomByLevel?.[0] || 0) }}</div>
+            <div v-if="!branchTargets.length" class="faint">该形态无可分支的下一阶段</div>
+            <div v-else>
+                <div v-if="level < maxLevel" class="faint" style="margin-bottom: 8px">
+                    当前 Lv{{ level }}，需先升到 Lv{{ maxLevel }} 达到进化条件
                 </div>
-                <button class="gold" :disabled="!branchMeta(t).can || !!activeProject"
-                        @click="api.branchEvolve(building.id, t.id)">
-                    进化 {{ fmtMoney(branchMeta(t).cost) }}（{{ branchMeta(t).days }} 天）
-                </button>
+                <div v-for="t in branchTargets" :key="t.id" class="bld-row">
+                    <div class="main">
+                        <div class="title">{{ t.displayName }} <span class="tag base" style="font-size: 11px">Tier {{ t.tier }}</span></div>
+                        <div class="sub">
+                            每间 {{ t.capacityPerRoom }} 人 · 房屋收益 Lv1 {{ fmtMoney(t.pricePerRoomByLevel?.[0] || t.pricePerRoom?.[0] || 0) }}
+                        </div>
+                        <div v-if="!branchMeta(t).can && branchMeta(t).reason" class="sub" style="color: var(--neg); font-size: 11px">
+                            不可进化：{{ branchMeta(t).reason }}
+                        </div>
+                    </div>
+                    <button class="gold" :disabled="!branchMeta(t).can"
+                            @click="api.branchEvolve(building.id, t.id)">
+                        进化 {{ fmtMoney(branchMeta(t).cost) }}（{{ branchMeta(t).days }} 天）
+                    </button>
+                </div>
             </div>
         </template>
 

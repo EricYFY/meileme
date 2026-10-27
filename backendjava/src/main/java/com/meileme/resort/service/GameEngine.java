@@ -519,8 +519,8 @@ public class GameEngine {
         p.setPlotId(b.getPlotId());
         p.setTargetFormId(targetFormId);
         p.setDisplayName(b.getForm().getDisplayName() + " → " + target.getDisplayName());
-        p.setTotalDays(evolutionService.branchEvolveDays(target));
-        startProject(session, s, p, evolutionService.branchEvolveCost(s, target));
+        p.setTotalDays(evolutionService.branchEvolveDays(b, target));
+        startProject(session, s, p, evolutionService.branchEvolveCost(s, b, target));
     }
 
     public synchronized void requestMergeEvolve(WebSocketSession session, String buildingIdA, String buildingIdB) {
@@ -1015,6 +1015,7 @@ public class GameEngine {
         m.put("speedOptions", GameConfig.SPEED_OPTIONS);
         m.put("formMaxLevel", GameConfig.FORM_MAX_LEVEL);
         m.put("staffMaxLevel", GameConfig.STAFF_MAX_LEVEL);
+        m.put("evolutionLines", registry.allEvolutionLines());
         return m;
     }
 

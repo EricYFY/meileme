@@ -105,4 +105,36 @@ public class CodexTest {
         assertTrue(state.getCodex().getUnlockedPositions().contains(PositionType.CHEF.name()),
                 "首次招聘主厨应解锁对应图鉴");
     }
+
+    @Test
+    public void testStandardRoomBranchEvolveAtLv3() {
+        GameState state = new GameState();
+        state.setFunds(200000);
+        state.setRunning(true);
+        state.getUnlockedPlots().add("STORMVEIL_CASTLE");
+
+        MotherBuildingType mother = MotherBuildingType.STANDARD_ROOM;
+        var building = constructionService.completeBuild(state, mother, "STORMVEIL_CASTLE", 0, 0);
+        building.setFormLevel(3); // 升到 Lv3
+
+        SkillTreeService skillTree = new SkillTreeService(registry, null);
+        com.meileme.resort.service.EvolutionService evolutionService =
+                new com.meileme.resort.service.EvolutionService(registry, skillTree, idGenerator);
+
+        var targets = registry.branchTargetsOf(building.getForm());
+        assertFalse(targets.isEmpty(), "Lv3 标准客房应该在 evolutionLines 中存在可进化分支");
+
+        var target = targets.get(0); // 例如 FAMILY_ROOM
+        String reason = evolutionService.validateBranchEvolve(state, building, target);
+        assertNull(reason, "Lv3 标准客房应可顺利通过分支进化校验，实际返回: " + reason);
+
+        // 竣工进化
+        evolutionService.completeBranchEvolve(building, target);
+        assertEquals(target.getId(), building.getForm().getId());
+        assertEquals(1, building.getFormLevel());
+
+        // 解锁图鉴
+        state.getCodex().unlockForm(target.getId());
+        assertTrue(state.getCodex().getUnlockedForms().contains(target.getId()));
+    }
 }

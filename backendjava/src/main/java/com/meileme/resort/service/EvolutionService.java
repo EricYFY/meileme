@@ -40,11 +40,6 @@ public class EvolutionService {
         return form == null ? 0 : form.formLevelUpDaysOf(currentLevel);
     }
 
-    /** 分支进化工期：按目标形态配置 */
-    public int branchEvolveDays(BuildingForm target) {
-        return target == null ? 0 : target.getEvolveDays();
-    }
-
     /** 合并进化工期：按合并配方配置 */
     public int mergeEvolveDays(MergeRecipe recipe) {
         return recipe == null ? 0 : recipe.getMergeDays();
@@ -81,8 +76,28 @@ public class EvolutionService {
 
     // ===================== 分支进化 =====================
 
+    public double branchEvolveCost(GameState state, BuildingInstance building, BuildingForm target) {
+        EvolutionLineConfig line = (building != null && building.getForm() != null && target != null)
+                ? registry.findEvolutionLine(building.getForm().getId(), target.getId()) : null;
+        double base = (line != null && line.getCost() > 0) ? line.getCost() : (target != null ? target.getEvolveCost() : 0);
+        return base * skillTree.discount(state, SkillEffectKey.EVOLVE_COST_DISCOUNT);
+    }
+
     public double branchEvolveCost(GameState state, BuildingForm target) {
-        return target.getEvolveCost() * skillTree.discount(state, SkillEffectKey.EVOLVE_COST_DISCOUNT);
+        return branchEvolveCost(state, null, target);
+    }
+
+    public int branchEvolveDays(BuildingInstance building, BuildingForm target) {
+        EvolutionLineConfig line = (building != null && building.getForm() != null && target != null)
+                ? registry.findEvolutionLine(building.getForm().getId(), target.getId()) : null;
+        if (line != null && line.getDays() > 0) {
+            return line.getDays();
+        }
+        return target == null ? 0 : target.getEvolveDays();
+    }
+
+    public int branchEvolveDays(BuildingForm target) {
+        return branchEvolveDays(null, target);
     }
 
     public String validateBranchEvolve(GameState state, BuildingInstance building, BuildingForm target) {
@@ -113,7 +128,7 @@ public class EvolutionService {
         if (plot != null && target.getTier() > plot.getEvolveTierCap()) {
             return "PLOT_EVOLVE_TIER_CAP_EXCEEDED";
         }
-        if (state.getFunds() < branchEvolveCost(state, target)) {
+        if (state.getFunds() < branchEvolveCost(state, building, target)) {
             return "INSUFFICIENT_FUNDS";
         }
         return null;

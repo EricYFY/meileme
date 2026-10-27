@@ -686,6 +686,10 @@ public class ConfigRegistry {
         return Collections.unmodifiableList(mergeRecipes);
     }
 
+    public List<EvolutionLineConfig> allEvolutionLines() {
+        return Collections.unmodifiableList(evolutionLines);
+    }
+
     public Plot plot(String id) {
         return id == null ? null : plotsById.get(id);
     }
