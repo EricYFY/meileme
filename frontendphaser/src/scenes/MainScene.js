@@ -176,7 +176,9 @@ export default class MainScene extends Phaser.Scene {
 
         if (bld) {
             const formName = bld.form?.displayName || '度假建筑';
-            const status = (bld.status === 'UNDER_CONSTRUCTION' || bld.underConstruction) ? '🚧 施工中' : `Lv${bld.level || 1} ★`;
+            const bldLevel = bld.formLevel ?? bld.level ?? 1;
+            const stars = '★'.repeat(Math.max(1, bldLevel));
+            const status = (bld.status === 'UNDER_CONSTRUCTION' || bld.underConstruction) ? '🚧 施工中' : `Lv${bldLevel} ${stars}`;
             text = `${formName} ${status}`;
             strokeColor = 0x38bdf8;
         } else if (cell) {
@@ -453,10 +455,11 @@ export default class MainScene extends Phaser.Scene {
             this.buildingsContainer.add([tagBg, tagText]);
         } else {
             const name = form?.displayName || '度假建筑';
-            const stars = '★'.repeat(Math.max(1, bld.level || 1));
+            const bldLevel = bld.formLevel ?? bld.level ?? 1;
+            const stars = '★'.repeat(Math.max(1, bldLevel));
             const badge = theme.badge || '基';
-            const title = `[${badge}] ${name} ${stars}`;
-            const tagWidth = Math.max(86, title.length * 11 + 22);
+            const title = `[${badge}] ${name} Lv${bldLevel} ${stars}`;
+            const tagWidth = Math.max(96, title.length * 11 + 24);
 
             const tagBg = this.add.rectangle(isoPos.x, topY - 32, tagWidth, 22, 0x0f172a, 0.9)
                 .setStrokeStyle(1.2, theme.stroke)
@@ -497,7 +500,7 @@ export default class MainScene extends Phaser.Scene {
             this.buildingsContainer.add([tagBg, tagText]);
         } else {
             const formId = form?.id || form?.formId;
-            const level = bld.level || bld.formLevel || 1;
+            const level = bld.formLevel ?? bld.level ?? 1;
             const texKey = getBuildingTextureKey(formId, level, bld.id);
 
             const buildingSprite = this.add.image(isoPos.x, isoPos.y, texKey)
@@ -506,14 +509,15 @@ export default class MainScene extends Phaser.Scene {
                 .setDepth(depth);
             this.buildingsContainer.add(buildingSprite);
 
-            const stars = '★'.repeat(Math.max(1, bld.level || 1));
+            const stars = '★'.repeat(Math.max(1, level));
             const name = form?.displayName || '度假建筑';
-            const tagWidth = Math.max(76, name.length * 13 + 20);
+            const title = `${name} Lv${level} ${stars}`;
+            const tagWidth = Math.max(86, title.length * 11 + 22);
             
             const tagBg = this.add.rectangle(isoPos.x, isoPos.y - 88, tagWidth, 22, 0x0f172a, 0.85)
                 .setStrokeStyle(1, 0x38bdf8)
                 .setDepth(depth + 1);
-            const tagText = this.add.text(isoPos.x, isoPos.y - 88, `${name} ${stars}`, {
+            const tagText = this.add.text(isoPos.x, isoPos.y - 88, title, {
                 fontSize: '11px',
                 color: '#ffffff',
                 fontFamily: 'sans-serif'

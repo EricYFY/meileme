@@ -146,10 +146,13 @@ export default class OverviewModal {
             const isUnderConstruction = b.status === 'UNDER_CONSTRUCTION' || b.underConstruction;
             const plotName = config.plotsById?.[b.plotId]?.displayName || b.plotId;
 
+            const bldLevel = b.formLevel ?? b.level ?? 1;
+            const stars = '★'.repeat(Math.max(1, bldLevel));
+
             return `
                 <div class="game-card" style="cursor:pointer;" data-open-bld-id="${b.id}">
                     <div class="card-top">
-                        <span class="card-title">${form.displayName || b.id} (Lv${b.level || 1} ★)</span>
+                        <span class="card-title">${form.displayName || b.id} (Lv${bldLevel} ${stars})</span>
                         <span class="chip ${isUnderConstruction ? 'chip-value' : 'chip-category'}">
                             ${isUnderConstruction ? '🚧 施工中' : '🟢 正常营业'}
                         </span>
