@@ -251,7 +251,8 @@
         "AROMA_DIFFUSER",
         "SMART_SPEAKER"
       ],
-      "category": "ACCOMMODATION"
+      "category": "ACCOMMODATION",
+      "story": "坐落于向阳缓坡之上的初代小筑。原木梁架间散发着松柏芬芳，推窗即可拥抱山谷晨曦，是每一位旅人开启山野静修的温馨起点。"
     },
     {
       "id": "FAMILY_ROOM",
@@ -301,7 +302,8 @@
         "CHILD_PLAY_CORNER",
         "AROMA_DIFFUSER"
       ],
-      "category": "ACCOMMODATION"
+      "category": "ACCOMMODATION",
+      "story": "专为带娃家庭精心重构的童趣天地。铺设了软木防摔地垫，设有上下双层树屋子母床，让欢声笑语在青峦翠谷间回荡。"
     },
     {
       "id": "FAMILY_SUITE",
@@ -351,7 +353,8 @@
         "CHILD_PLAY_CORNER",
         "AROMA_DIFFUSER"
       ],
-      "category": "ACCOMMODATION"
+      "category": "ACCOMMODATION",
+      "story": "依山就势的双层挑高独栋套房。配有全景落地窗与私人星空露台，三代同堂亦能在清风松涛中共享天伦与私密山居。"
     },
     {
       "id": "BUSINESS_ROOM",
@@ -401,7 +404,8 @@
         "SMART_SPEAKER",
         "SOUNDPROOF_CURTAIN"
       ],
-      "category": "ACCOMMODATION"
+      "category": "ACCOMMODATION",
+      "story": "在宁静山谷中开辟的高效沉浸空间。静音胡桃木桌面配备高速光纤网络与人体工学椅，让深度思考与清新山林气息完美共鸣。"
     },
     {
       "id": "BUSINESS_SUITE",
@@ -451,7 +455,8 @@
         "SMART_SPEAKER",
         "SOUNDPROOF_CURTAIN"
       ],
-      "category": "ACCOMMODATION"
+      "category": "ACCOMMODATION",
+      "story": "融合了高级商务洽谈与山水隐逸的云端雅居。自带独立小会议客厅与茶席，山岚缭绕间从容敲定万千决策。"
     },
     {
       "id": "MERGED_FAMILY_VILLA",
@@ -502,7 +507,8 @@
         "AROMA_DIFFUSER",
         "HOT_SPRING_TUB"
       ],
-      "category": "ACCOMMODATION"
+      "category": "ACCOMMODATION",
+      "story": "两座高级亲子寓所破壁相融而成的传世合院。围合出私家庭院与中央儿童秋千，树影婆娑中缔造一大家族的温馨回忆。"
     },
     {
       "id": "MERGED_BUSINESS_HALL",
@@ -553,7 +559,8 @@
         "SOUNDPROOF_CURTAIN",
         "HIGH_SPEED_WIFI"
       ],
-      "category": "ACCOMMODATION"
+      "category": "ACCOMMODATION",
+      "story": "由双子行馆合璧而起的气派商务大堂。石材壁炉常年温暖，环形长桌静候八方名流，山居度假与高端商务会晤于此融会贯通。"
     },
     {
       "id": "RESTAURANT",
@@ -601,7 +608,8 @@
         "DINING_TABLE",
         "KITCHEN_VENTILATION"
       ],
-      "category": "SUPPORT"
+      "category": "SUPPORT",
+      "story": "搜罗群山四时野趣的生态山珍食堂。柴火土灶烹饪晨露竹笋与溪涧活鱼，炊烟升起处，皆是远道而来的归乡滋味。"
     },
     {
       "id": "HOT_SPRING_POOL",
@@ -649,7 +657,8 @@
         "HOT_SPRING_TUB",
         "WATER_PUMP"
       ],
-      "category": "SUPPORT"
+      "category": "SUPPORT",
+      "story": "汲取地下千米深岩层温润矿泉的露天汤池。水汽蒸腾于林木石阶之间，枕石听泉，一身风尘尽消于热汤与松香之中。"
     },
     {
       "id": "VIEWING_PLATFORM",
@@ -693,7 +702,8 @@
       "availableInteriors": [
         "TELESCOPE"
       ],
-      "category": "SUPPORT"
+      "category": "SUPPORT",
+      "story": "悬挑于绝壁之上的云海眺望台。晨观旭日喷薄破雾而出，暮览落霞孤鹜齐飞，是全度假村最引人沉醉的心灵栖居之所。"
     }
   ],
   "interiors": [
@@ -713,7 +723,8 @@
         1,
         2,
         3
-      ]
+      ],
+      "story": "选用天然乳胶与手工慢回弹棕丝层层垫衬，裹以高支纯棉亲肤被褥，令每一个沉睡之夜都仿佛漂浮在静谧云端。"
     },
     {
       "id": "DINING_TABLE",
@@ -731,7 +742,8 @@
         1,
         2,
         2
-      ]
+      ],
+      "story": "整块百年老榆木自然切割而成的大板桌，保留了风雨沉淀的自然边缘与苍劲年轮，见证四海食客的每一次杯盏相碰。"
     },
     {
       "id": "HOT_SPRING_TUB",
@@ -749,7 +761,8 @@
         2,
         3,
         4
-      ]
+      ],
+      "story": "甄选高山整块火山玄武岩凿刻而成的养生汤桶，保温耐热且富含微量元素，浸润其中暖意直达心脾。"
     },
     {
       "id": "SOFA",
@@ -767,7 +780,8 @@
         1,
         1,
         2
-      ]
+      ],
+      "story": "棉麻粗织面料包裹高密度回弹海绵，斜靠其上翻阅闲书或静观窗外落叶，偷得浮生半日闲。"
     },
     {
       "id": "LIGHTING",
@@ -785,7 +799,8 @@
         1,
         1,
         2
-      ]
+      ],
+      "story": "手工竹编工艺灯罩滤出的暖黄灯影，如摇曳林间的小橘灯，在夜幕降临时为旅人投下最抚慰人心的归家暖意。"
     },
     {
       "id": "DECOR",
@@ -803,7 +818,8 @@
         1,
         2,
         2
-      ]
+      ],
+      "story": "采自后山的枯枝、青苔与山泉卵石拼就的野趣装置，将山川灵气化作居所角落里的点睛诗意。"
     },
     {
       "id": "KITCHEN",
@@ -821,7 +837,8 @@
         2,
         3,
         4
-      ]
+      ],
+      "story": "兼具传统铸铁柴火灶与现代低音油烟灶具的匠心工坊，让山野纯正食材在明火翻炒中迸发出诱人原香。"
     },
     {
       "id": "DINING_SEAT",
@@ -839,7 +856,8 @@
         1,
         2,
         3
-      ]
+      ],
+      "story": "符合人体工学弧度的实木靠椅，配上细密麻织软垫，即便是慢条斯理品尝长宴亦不会产生丝毫倦意。"
     },
     {
       "id": "WATER_PUMP",
@@ -857,7 +875,8 @@
         2,
         3,
         4
-      ]
+      ],
+      "story": "超静音德国进口地磁循环过滤泵，日夜不息地为温泉池注入活水与清澈泉流，保证每一刻汤水的极致澄澈。"
     },
     {
       "id": "TELESCOPE",
@@ -875,7 +894,8 @@
         1,
         2,
         2
-      ]
+      ],
+      "story": "专业级高清大口径天文光学望远镜，能将数万光年外的遥远星云与月球环形山清晰拉近至眼前。"
     }
   ],
   "evolutionLines": [
@@ -986,7 +1006,8 @@
         "RESTAURANT",
         "HOT_SPRING_POOL",
         "VIEWING_PLATFORM"
-      ]
+      ],
+      "story": "建于绝壁险峰之上的古老石筑卫城。虽然岁月剥蚀了往日的刀光剑影，但那宽阔的石质回廊与稳固地基，是建立度假基地的最佳摇篮。"
     },
     {
       "id": "MISTWOOD_EDGE",
@@ -1006,7 +1027,8 @@
         "STANDARD_ROOM",
         "RESTAURANT",
         "OUTDOOR_CAMP"
-      ]
+      ],
+      "story": "常年被淡蓝色轻纱薄雾笼罩的静谧森林边缘。高大乔木遮天蔽日，泥土芬芳混合着野莓甜香，是隐士客群最渴望的避世之所。"
     },
     {
       "id": "AGHEEL_LAKE",
@@ -1027,7 +1049,8 @@
         "STANDARD_ROOM",
         "RESTAURANT",
         "HOT_SPRING_POOL"
-      ]
+      ],
+      "story": "群山环抱下如蓝宝石般明净的高原堰塞湖泊。水波粼粼，白鹭成群，微风拂过湖面带来令人心旷神怡的水汽。"
     },
     {
       "id": "CARIA_MANOR",
@@ -1050,7 +1073,8 @@
         "RESTAURANT",
         "TEA_LIBRARY",
         "VIEWING_PLATFORM"
-      ]
+      ],
+      "story": "掩映在银色月光与古典园林深处的贵族旧址。石雕喷泉与蔓藤长廊相映成趣，天生流淌着无与伦比的高雅与浪漫。"
     },
     {
       "id": "RAYA_LUCARIA",
@@ -1072,7 +1096,8 @@
         "RESTAURANT",
         "TEA_LIBRARY",
         "CULTURE_WORKSHOP"
-      ]
+      ],
+      "story": "伫立于浅水湿地之上的宏伟学术殿堂群。尖顶塔楼直插云霄，这里弥漫着智慧求索的沉静氛围，是学者与高端商旅的最爱。"
     },
     {
       "id": "FOUR_BELFRIES",
@@ -1094,7 +1119,8 @@
         "RESTAURANT",
         "HOT_SPRING_POOL",
         "VIEWING_PLATFORM"
-      ]
+      ],
+      "story": "矗立在苍茫高原上的四座远古钟楼遗址。山风吹过石柱宛若远古长鸣，视野开阔无垠，能俯瞰整座度假王国的壮丽全景。"
     }
   ],
   "abilities": [
@@ -1158,7 +1184,8 @@
           55,
           85
         ]
-      }
+      },
+      "story": "穿梭于晨昏林间客舍的勤勉使者。她们以一丝不苟的匠心抹去每一寸浮尘，让每间客房都常保白玉般的清爽与整洁。"
     },
     {
       "id": "WAITER",
@@ -1183,7 +1210,8 @@
           55,
           85
         ]
-      }
+      },
+      "story": "面带春风般亲切微笑的前厅引路人。熟记每一位常客的忌口与习惯，用无微不至的轻柔服务温润旅人的心田。"
     },
     {
       "id": "CHEF",
@@ -1208,7 +1236,8 @@
           60,
           90
         ]
-      }
+      },
+      "story": "执掌炉火与四时风味的味蕾魔法师。深谙每一种高山时蔬的本真之味，化平凡土产为惊艳舌尖的珍馐美馔。"
     },
     {
       "id": "HOT_SPRING_OPERATOR",
@@ -1233,7 +1262,8 @@
           55,
           85
         ]
-      }
+      },
+      "story": "精通管路水质与恒温调控的技术巧匠。在水汽氤氲中默默守护着地脉涌泉的温度与天然矿物活性。"
     },
     {
       "id": "MAINTENANCE_WORKER",
@@ -1263,7 +1293,8 @@
           45,
           70
         ]
-      }
+      },
+      "story": "随身携带万能工具包的庄园守护者。从修缮瓦木到检修电路，凡有损耗之处，必能迅速妙手回春。"
     },
     {
       "id": "MANAGER",
@@ -1288,7 +1319,8 @@
           70,
           100
         ]
-      }
+      },
+      "story": "统筹全局运行、协调人际与资源的大管家。以卓越的洞察力与温暖关怀，让整个度假村如精密时钟般有条不紊地舒缓流淌。"
     }
   ],
   "skills": [

@@ -1125,6 +1125,7 @@ public class GameEngine {
                 x.put("trainDaysByLevel", pc.getTrainDaysByLevel());
                 x.put("trainCostByLevel", pc.getTrainCostByLevel());
                 x.put("compensationBase", pc.getCompensationBase());
+                x.put("story", pc.getStory() != null ? pc.getStory() : "");
                 list.add(x);
             }
             return list;
@@ -1144,6 +1145,7 @@ public class GameEngine {
             x.put("trainDaysByLevel", p.getTrainDaysByLevel());
             x.put("trainCostByLevel", p.getTrainCostByLevel());
             x.put("compensationBase", p.getCompensationBase());
+            x.put("story", "");
             list.add(x);
         }
         return list;
@@ -1164,6 +1166,7 @@ public class GameEngine {
                 x.put("segmentAffinityPerLevel", ic.getSegmentAffinityPerLevel());
                 x.put("upgradeCostByLevel", ic.getUpgradeCostByLevel());
                 x.put("upgradeDaysByLevel", ic.getUpgradeDaysByLevel());
+                x.put("story", ic.getStory() != null ? ic.getStory() : "");
                 list.add(x);
             }
             return list;

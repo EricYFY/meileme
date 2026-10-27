@@ -26,6 +26,8 @@ public class PositionConfig {
     private final double[] trainCostByLevel;
     /** 解雇补偿基准值 */
     private final double compensationBase;
+    /** 典藏图鉴背景故事 */
+    private final String story;
 
     public List<AbilityType> getAbilities() {
         if (abilityOutputs != null && !abilityOutputs.isEmpty()) {

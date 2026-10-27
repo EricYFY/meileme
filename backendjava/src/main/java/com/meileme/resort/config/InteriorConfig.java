@@ -21,6 +21,8 @@ public class InteriorConfig {
     private final Map<String, Double> segmentAffinityPerLevel;
     private final double[] upgradeCostByLevel;
     private final int[] upgradeDaysByLevel;
+    /** 典藏图鉴背景故事 */
+    private final String story;
 
     public Set<MotherBuildingType> getApplicableMothers() {
         return Collections.emptySet();

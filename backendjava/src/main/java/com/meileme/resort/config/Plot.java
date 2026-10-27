@@ -41,6 +41,15 @@ public class Plot {
     private final List<String> unlockAchievementIds;
     /** 是否为开局默认解锁地块 */
     private final boolean unlockedByDefault;
+    /** 典藏图鉴背景故事 */
+    private final String story;
+
+    public Plot(String id, String displayName, Region region, int orderInRegion, int width, int height,
+                int buildableCellCount, double unlockCost, Set<MotherBuildingType> allowedMothers,
+                int evolveTierCap, List<String> unlockAchievementIds, boolean unlockedByDefault) {
+        this(id, displayName, region, orderInRegion, width, height, buildableCellCount, unlockCost,
+                allowedMothers, evolveTierCap, unlockAchievementIds, unlockedByDefault, "");
+    }
 
     /** 该母本是否允许在本地块建造 */
     public boolean allows(MotherBuildingType mother) {

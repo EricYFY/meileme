@@ -56,6 +56,8 @@ public class BuildingForm {
     private final List<String> availableInteriors;
     /** 该形态承载能力加成所对应的内装 ID（至多对应一个内装，如 BED / DINING_TABLE） */
     private final String capacityInterior;
+    /** 典藏图鉴背景故事 */
+    private final String story;
 
     private BuildingForm(Builder b) {
         this.id = b.id;
@@ -76,6 +78,7 @@ public class BuildingForm {
         this.abilityDemand = b.abilityDemand;
         this.availableInteriors = Collections.unmodifiableList(new ArrayList<>(b.availableInteriors));
         this.capacityInterior = b.capacityInterior;
+        this.story = b.story != null ? b.story : "";
     }
 
     /** 是否为合并形态 */
@@ -218,6 +221,7 @@ public class BuildingForm {
         private Map<AbilityType, Double> abilityDemand = new EnumMap<>(AbilityType.class);
         private List<String> availableInteriors = new ArrayList<>();
         private String capacityInterior = null;
+        private String story = "";
 
         private Builder(String id, String displayName, BuildingCategory category) {
             this.id = id;
@@ -227,6 +231,11 @@ public class BuildingForm {
 
         public Builder category(BuildingCategory category) {
             this.category = category;
+            return this;
+        }
+
+        public Builder story(String story) {
+            this.story = story != null ? story : "";
             return this;
         }
 

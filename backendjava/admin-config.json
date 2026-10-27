@@ -1,1211 +1,1809 @@
 {
-  "global" : {
-    "startingFunds" : 10000,
-    "defaultStartDate" : "2026-07-01",
-    "reportHistoryLimit" : 365,
-    "realSecondsPerGameDay" : 60,
-    "tickIntervalMs" : 1000,
-    "defaultSpeed" : 1,
-    "speedOptions" : [ 0.5, 1, 2, 4, 8, 16 ],
-    "conversionDenominator" : 1000,
-    "maxConversionRate" : 0.9,
-    "minConversionRate" : 0,
-    "defaultSegmentAffinity" : 0.5,
-    "formMaxLevel" : 3,
-    "formMinLevel" : 1,
-    "formLevelComfortStep" : 0.15,
-    "interiorMaxLevelFallback" : 3,
-    "staffShortageMinComfortRatio" : 0.1,
-    "staffMaxLevel" : 3,
-    "staffMinLevel" : 1,
-    "fireCompensationPerDayRatio" : 0.001,
-    "mapSeed" : 42
+  "global": {
+    "startingFunds": 10000,
+    "defaultStartDate": "2026-07-01",
+    "reportHistoryLimit": 365,
+    "realSecondsPerGameDay": 60,
+    "tickIntervalMs": 1000,
+    "defaultSpeed": 1,
+    "speedOptions": [
+      0.5,
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "conversionDenominator": 1000,
+    "maxConversionRate": 0.9,
+    "minConversionRate": 0,
+    "defaultSegmentAffinity": 0.5,
+    "formMaxLevel": 3,
+    "formMinLevel": 1,
+    "formLevelComfortStep": 0.15,
+    "interiorMaxLevelFallback": 3,
+    "staffShortageMinComfortRatio": 0.1,
+    "staffMaxLevel": 3,
+    "staffMinLevel": 1,
+    "fireCompensationPerDayRatio": 0.001,
+    "mapSeed": 42
   },
-  "segments" : [ {
-    "id" : "FAMILY",
-    "displayName" : "家庭",
-    "description" : "亲子家庭客群，偏好大床、多床位与儿童娱乐配套",
-    "color" : "#7ee0a3"
-  }, {
-    "id" : "BUSINESS",
-    "displayName" : "商务",
-    "description" : "商旅出差客群，偏好独立办公、静音环境与餐饮",
-    "color" : "#8ab4ff"
-  }, {
-    "id" : "ROMANTIC",
-    "displayName" : "浪漫",
-    "description" : "情侣夫妻度假客群，偏好景观、私汤泡池与高品质软装",
-    "color" : "#f4a5d0"
-  }, {
-    "id" : "WELLNESS",
-    "displayName" : "康养",
-    "description" : "银发疗愈康养客群，偏好温泉调理、自然步道与适老服务",
-    "color" : "#ffd37a"
-  }, {
-    "id" : "TEST",
-    "displayName" : "测试客群",
-    "description" : "测试",
-    "color" : "#38bdf8"
-  } ],
-  "regions" : [ {
-    "id" : "LIMGRAVE",
-    "displayName" : "宁姆格福",
-    "description" : "开局初始大区域，风景秀丽，客流充沛",
-    "baseDailyFlow" : 100,
-    "segmentRatios" : {
-      "FAMILY" : 0.4,
-      "BUSINESS" : 0.2,
-      "ROMANTIC" : 0.3,
-      "WELLNESS" : 0.05,
-      "SEG_7991" : 0.2,
-      "TEST" : 0.05
+  "segments": [
+    {
+      "id": "FAMILY",
+      "displayName": "家庭",
+      "description": "亲子家庭客群，偏好大床、多床位与儿童娱乐配套",
+      "color": "#7ee0a3"
+    },
+    {
+      "id": "BUSINESS",
+      "displayName": "商务",
+      "description": "商旅出差客群，偏好独立办公、静音环境与餐饮",
+      "color": "#8ab4ff"
+    },
+    {
+      "id": "ROMANTIC",
+      "displayName": "浪漫",
+      "description": "情侣夫妻度假客群，偏好景观、私汤泡池与高品质软装",
+      "color": "#f4a5d0"
+    },
+    {
+      "id": "WELLNESS",
+      "displayName": "康养",
+      "description": "银发疗愈康养客群，偏好温泉调理、自然步道与适老服务",
+      "color": "#ffd37a"
+    },
+    {
+      "id": "TEST",
+      "displayName": "测试客群",
+      "description": "测试",
+      "color": "#38bdf8"
     }
-  }, {
-    "id" : "LIURNIA",
-    "displayName" : "湖之利耶尼亚",
-    "description" : "湖区高阶大区域，情侣与康养客群更为显著",
-    "baseDailyFlow" : 200,
-    "segmentRatios" : {
-      "FAMILY" : 0.2,
-      "BUSINESS" : 0.1,
-      "ROMANTIC" : 0.4,
-      "WELLNESS" : 0.25,
-      "SEG_7991" : 0.2,
-      "TEST" : 0.05
+  ],
+  "regions": [
+    {
+      "id": "LIMGRAVE",
+      "displayName": "宁姆格福",
+      "description": "开局初始大区域，风景秀丽，客流充沛",
+      "baseDailyFlow": 100,
+      "segmentRatios": {
+        "FAMILY": 0.4,
+        "BUSINESS": 0.2,
+        "ROMANTIC": 0.3,
+        "WELLNESS": 0.05,
+        "SEG_7991": 0.2,
+        "TEST": 0.05
+      }
+    },
+    {
+      "id": "LIURNIA",
+      "displayName": "湖之利耶尼亚",
+      "description": "湖区高阶大区域，情侣与康养客群更为显著",
+      "baseDailyFlow": 200,
+      "segmentRatios": {
+        "FAMILY": 0.2,
+        "BUSINESS": 0.1,
+        "ROMANTIC": 0.4,
+        "WELLNESS": 0.25,
+        "SEG_7991": 0.2,
+        "TEST": 0.05
+      }
     }
-  } ],
-  "mothers" : [ {
-    "id" : "STANDARD_ROOM",
-    "displayName" : "标准客房",
-    "category" : "ACCOMMODATION",
-    "buildCost" : 3000,
-    "isOpen" : true,
-    "buildDays" : 3
-  }, {
-    "id" : "LUXURY_ROOM",
-    "displayName" : "豪华客房",
-    "category" : "ACCOMMODATION",
-    "buildCost" : 8000,
-    "isOpen" : false,
-    "buildDays" : 5
-  }, {
-    "id" : "WOODEN_CABIN",
-    "displayName" : "独栋木屋",
-    "category" : "ACCOMMODATION",
-    "buildCost" : 12000,
-    "isOpen" : false,
-    "buildDays" : 6
-  }, {
-    "id" : "DUPLEX_LOFT",
-    "displayName" : "复式LOFT",
-    "category" : "ACCOMMODATION",
-    "buildCost" : 10000,
-    "isOpen" : false,
-    "buildDays" : 5
-  }, {
-    "id" : "COURTYARD_HOUSE",
-    "displayName" : "庭院小院",
-    "category" : "ACCOMMODATION",
-    "buildCost" : 15000,
-    "isOpen" : false,
-    "buildDays" : 7
-  }, {
-    "id" : "MULTI_BEDROOM_HOUSE",
-    "displayName" : "多卧平房",
-    "category" : "ACCOMMODATION",
-    "buildCost" : 11000,
-    "isOpen" : false,
-    "buildDays" : 6
-  }, {
-    "id" : "RESTAURANT",
-    "displayName" : "餐厅",
-    "category" : "SUPPORT",
-    "buildCost" : 6000,
-    "isOpen" : true,
-    "buildDays" : 3
-  }, {
-    "id" : "HOT_SPRING_POOL",
-    "displayName" : "温泉泡池",
-    "category" : "SUPPORT",
-    "buildCost" : 7500,
-    "isOpen" : true,
-    "buildDays" : 4
-  }, {
-    "id" : "VIEWING_PLATFORM",
-    "displayName" : "观景台",
-    "category" : "SUPPORT",
-    "buildCost" : 4000,
-    "isOpen" : true,
-    "buildDays" : 2
-  }, {
-    "id" : "RECEPTION_LOBBY",
-    "displayName" : "接待大堂",
-    "category" : "SUPPORT",
-    "buildCost" : 5000,
-    "isOpen" : false,
-    "buildDays" : 3
-  }, {
-    "id" : "TEA_LIBRARY",
-    "displayName" : "茶室书吧",
-    "category" : "SUPPORT",
-    "buildCost" : 4500,
-    "isOpen" : false,
-    "buildDays" : 2
-  }, {
-    "id" : "CULTURE_WORKSHOP",
-    "displayName" : "文创工坊",
-    "category" : "SUPPORT",
-    "buildCost" : 5500,
-    "isOpen" : false,
-    "buildDays" : 3
-  }, {
-    "id" : "LOGISTICS_WAREHOUSE",
-    "displayName" : "后勤库房",
-    "category" : "SUPPORT",
-    "buildCost" : 3500,
-    "isOpen" : false,
-    "buildDays" : 2
-  }, {
-    "id" : "OUTDOOR_CAMP",
-    "displayName" : "户外营地",
-    "category" : "SUPPORT",
-    "buildCost" : 3000,
-    "isOpen" : false,
-    "buildDays" : 2
-  }, {
-    "id" : "PARENT_CHILD_PARK",
-    "displayName" : "亲子乐园",
-    "category" : "SUPPORT",
-    "buildCost" : 6500,
-    "isOpen" : false,
-    "buildDays" : 4
-  } ],
-  "buildingForms" : [ {
-    "id" : "STANDARD_ROOM",
-    "displayName" : "标准客房",
-    "tier" : 0,
-    "capacityPerRoom" : 2,
-    "serviceCapacity" : 0,
-    "pricePerRoom" : [ 280, 330, 380 ],
-    "unitPrice" : [ 0, 0, 0 ],
-    "evolveCost" : 0,
-    "evolveDays" : 0,
-    "formLevelUpCost" : [ 1500, 2500 ],
-    "formLevelUpDays" : [ 2, 3 ],
-    "baseComfort" : 50,
-    "affinities" : {
-      "FAMILY" : 1,
-      "BUSINESS" : 1,
-      "ROMANTIC" : 0.8,
-      "WELLNESS" : 0.8,
-      "TEST" : 0.5
+  ],
+  "mothers": [
+    {
+      "id": "STANDARD_ROOM",
+      "displayName": "标准客房",
+      "category": "ACCOMMODATION",
+      "buildCost": 3000,
+      "isOpen": true,
+      "buildDays": 3
     },
-    "maxInteriorLevel" : [ 1, 2, 3 ],
-    "abilityDemands" : {
-      "ROOM_CLEANING" : 20,
-      "ROOM_REPAIR" : 10
+    {
+      "id": "LUXURY_ROOM",
+      "displayName": "豪华客房",
+      "category": "ACCOMMODATION",
+      "buildCost": 8000,
+      "isOpen": false,
+      "buildDays": 5
     },
-    "availableInteriors" : [ "BED", "DINING_TABLE", "AROMA_DIFFUSER", "SMART_SPEAKER" ],
-    "category" : "ACCOMMODATION",
-    "capacityInterior" : "BED"
-  }, {
-    "id" : "FAMILY_ROOM",
-    "displayName" : "家庭亲子房",
-    "tier" : 1,
-    "capacityPerRoom" : 4,
-    "serviceCapacity" : 0,
-    "pricePerRoom" : [ 500, 580, 660 ],
-    "unitPrice" : [ 0, 0, 0 ],
-    "evolveCost" : 6000,
-    "evolveDays" : 4,
-    "formLevelUpCost" : [ 3000, 5000 ],
-    "formLevelUpDays" : [ 3, 4 ],
-    "baseComfort" : 62,
-    "affinities" : {
-      "FAMILY" : 1.8,
-      "BUSINESS" : 0.5,
-      "ROMANTIC" : 1,
-      "WELLNESS" : 0.9,
-      "TEST" : 0.5
+    {
+      "id": "WOODEN_CABIN",
+      "displayName": "独栋木屋",
+      "category": "ACCOMMODATION",
+      "buildCost": 12000,
+      "isOpen": false,
+      "buildDays": 6
     },
-    "maxInteriorLevel" : [ 2, 3, 3 ],
-    "abilityDemands" : {
-      "ROOM_CLEANING" : 26,
-      "ROOM_REPAIR" : 12
+    {
+      "id": "DUPLEX_LOFT",
+      "displayName": "复式LOFT",
+      "category": "ACCOMMODATION",
+      "buildCost": 10000,
+      "isOpen": false,
+      "buildDays": 5
     },
-    "availableInteriors" : [ "BED", "DINING_TABLE", "CHILD_PLAY_CORNER", "AROMA_DIFFUSER" ],
-    "category" : "ACCOMMODATION",
-    "capacityInterior" : "BED"
-  }, {
-    "id" : "FAMILY_SUITE",
-    "displayName" : "亲子套房",
-    "tier" : 2,
-    "capacityPerRoom" : 6,
-    "serviceCapacity" : 0,
-    "pricePerRoom" : [ 760, 880, 1000 ],
-    "unitPrice" : [ 0, 0, 0 ],
-    "evolveCost" : 15000,
-    "evolveDays" : 5,
-    "formLevelUpCost" : [ 7000, 11000 ],
-    "formLevelUpDays" : [ 4, 5 ],
-    "baseComfort" : 76,
-    "affinities" : {
-      "FAMILY" : 2.2,
-      "BUSINESS" : 0.4,
-      "ROMANTIC" : 1.1,
-      "WELLNESS" : 1,
-      "TEST" : 0.5
+    {
+      "id": "COURTYARD_HOUSE",
+      "displayName": "庭院小院",
+      "category": "ACCOMMODATION",
+      "buildCost": 15000,
+      "isOpen": false,
+      "buildDays": 7
     },
-    "maxInteriorLevel" : [ 2, 3, 3 ],
-    "abilityDemands" : {
-      "ROOM_CLEANING" : 34,
-      "ROOM_REPAIR" : 16
+    {
+      "id": "MULTI_BEDROOM_HOUSE",
+      "displayName": "多卧平房",
+      "category": "ACCOMMODATION",
+      "buildCost": 11000,
+      "isOpen": false,
+      "buildDays": 6
     },
-    "availableInteriors" : [ "BED", "DINING_TABLE", "CHILD_PLAY_CORNER", "AROMA_DIFFUSER" ],
-    "category" : "ACCOMMODATION",
-    "capacityInterior" : "BED"
-  }, {
-    "id" : "BUSINESS_ROOM",
-    "displayName" : "商务行政房",
-    "tier" : 1,
-    "capacityPerRoom" : 2,
-    "serviceCapacity" : 0,
-    "pricePerRoom" : [ 620, 720, 820 ],
-    "unitPrice" : [ 0, 0, 0 ],
-    "evolveCost" : 7000,
-    "evolveDays" : 4,
-    "formLevelUpCost" : [ 3200, 5200 ],
-    "formLevelUpDays" : [ 3, 4 ],
-    "baseComfort" : 64,
-    "affinities" : {
-      "BUSINESS" : 1.9,
-      "FAMILY" : 0.5,
-      "ROMANTIC" : 1,
-      "WELLNESS" : 0.9,
-      "TEST" : 0.5
+    {
+      "id": "RESTAURANT",
+      "displayName": "餐厅",
+      "category": "SUPPORT",
+      "buildCost": 6000,
+      "isOpen": true,
+      "buildDays": 3
     },
-    "maxInteriorLevel" : [ 2, 3, 3 ],
-    "abilityDemands" : {
-      "ROOM_CLEANING" : 22,
-      "ROOM_REPAIR" : 14
+    {
+      "id": "HOT_SPRING_POOL",
+      "displayName": "温泉泡池",
+      "category": "SUPPORT",
+      "buildCost": 7500,
+      "isOpen": true,
+      "buildDays": 4
     },
-    "availableInteriors" : [ "BED", "DESK_WORKSPACE", "SMART_SPEAKER", "SOUNDPROOF_CURTAIN" ],
-    "category" : "ACCOMMODATION",
-    "capacityInterior" : "BED"
-  }, {
-    "id" : "BUSINESS_SUITE",
-    "displayName" : "行政套房",
-    "tier" : 2,
-    "capacityPerRoom" : 3,
-    "serviceCapacity" : 0,
-    "pricePerRoom" : [ 950, 1100, 1250 ],
-    "unitPrice" : [ 0, 0, 0 ],
-    "evolveCost" : 17000,
-    "evolveDays" : 5,
-    "formLevelUpCost" : [ 7500, 12000 ],
-    "formLevelUpDays" : [ 4, 5 ],
-    "baseComfort" : 80,
-    "affinities" : {
-      "BUSINESS" : 2.3,
-      "FAMILY" : 0.4,
-      "ROMANTIC" : 1.2,
-      "WELLNESS" : 1.1,
-      "TEST" : 0.5
+    {
+      "id": "VIEWING_PLATFORM",
+      "displayName": "观景台",
+      "category": "SUPPORT",
+      "buildCost": 4000,
+      "isOpen": true,
+      "buildDays": 2
     },
-    "maxInteriorLevel" : [ 2, 3, 3 ],
-    "abilityDemands" : {
-      "ROOM_CLEANING" : 30,
-      "ROOM_REPAIR" : 18
+    {
+      "id": "RECEPTION_LOBBY",
+      "displayName": "接待大堂",
+      "category": "SUPPORT",
+      "buildCost": 5000,
+      "isOpen": false,
+      "buildDays": 3
     },
-    "availableInteriors" : [ "BED", "DESK_WORKSPACE", "SMART_SPEAKER", "SOUNDPROOF_CURTAIN" ],
-    "category" : "ACCOMMODATION",
-    "capacityInterior" : "BED"
-  }, {
-    "id" : "MERGED_FAMILY_VILLA",
-    "displayName" : "亲子合院",
-    "tier" : 3,
-    "capacityPerRoom" : 10,
-    "serviceCapacity" : 0,
-    "pricePerRoom" : [ 1500, 1750, 2000 ],
-    "unitPrice" : [ 0, 0, 0 ],
-    "evolveCost" : 30000,
-    "evolveDays" : 5,
-    "formLevelUpCost" : [ 9000, 14000 ],
-    "formLevelUpDays" : [ 5, 6 ],
-    "baseComfort" : 95,
-    "affinities" : {
-      "FAMILY" : 2.6,
-      "BUSINESS" : 0.6,
-      "ROMANTIC" : 1.4,
-      "WELLNESS" : 1.3,
-      "TEST" : 0.5
+    {
+      "id": "TEA_LIBRARY",
+      "displayName": "茶室书吧",
+      "category": "SUPPORT",
+      "buildCost": 4500,
+      "isOpen": false,
+      "buildDays": 2
     },
-    "maxInteriorLevel" : [ 3, 3, 3 ],
-    "abilityDemands" : {
-      "ROOM_CLEANING" : 45,
-      "ROOM_REPAIR" : 22
+    {
+      "id": "CULTURE_WORKSHOP",
+      "displayName": "文创工坊",
+      "category": "SUPPORT",
+      "buildCost": 5500,
+      "isOpen": false,
+      "buildDays": 3
     },
-    "availableInteriors" : [ "BED", "DINING_TABLE", "CHILD_PLAY_CORNER", "AROMA_DIFFUSER", "HOT_SPRING_TUB" ],
-    "category" : "ACCOMMODATION",
-    "capacityInterior" : "BED"
-  }, {
-    "id" : "MERGED_BUSINESS_HALL",
-    "displayName" : "商务行政馆",
-    "tier" : 3,
-    "capacityPerRoom" : 8,
-    "serviceCapacity" : 0,
-    "pricePerRoom" : [ 1600, 1850, 2100 ],
-    "unitPrice" : [ 0, 0, 0 ],
-    "evolveCost" : 32000,
-    "evolveDays" : 5,
-    "formLevelUpCost" : [ 9500, 15000 ],
-    "formLevelUpDays" : [ 5, 6 ],
-    "baseComfort" : 98,
-    "affinities" : {
-      "BUSINESS" : 2.6,
-      "FAMILY" : 0.6,
-      "ROMANTIC" : 1.5,
-      "WELLNESS" : 1.4,
-      "TEST" : 0.5
+    {
+      "id": "LOGISTICS_WAREHOUSE",
+      "displayName": "后勤库房",
+      "category": "SUPPORT",
+      "buildCost": 3500,
+      "isOpen": false,
+      "buildDays": 2
     },
-    "maxInteriorLevel" : [ 3, 3, 3 ],
-    "abilityDemands" : {
-      "ROOM_CLEANING" : 44,
-      "ROOM_REPAIR" : 24
+    {
+      "id": "OUTDOOR_CAMP",
+      "displayName": "户外营地",
+      "category": "SUPPORT",
+      "buildCost": 3000,
+      "isOpen": false,
+      "buildDays": 2
     },
-    "availableInteriors" : [ "BED", "DESK_WORKSPACE", "SMART_SPEAKER", "SOUNDPROOF_CURTAIN", "HIGH_SPEED_WIFI" ],
-    "category" : "ACCOMMODATION",
-    "capacityInterior" : "BED"
-  }, {
-    "id" : "RESTAURANT",
-    "displayName" : "餐厅",
-    "tier" : 0,
-    "capacityPerRoom" : 0,
-    "serviceCapacity" : 40,
-    "pricePerRoom" : [ 0, 0, 0 ],
-    "unitPrice" : [ 80, 95, 110 ],
-    "evolveCost" : 0,
-    "evolveDays" : 0,
-    "formLevelUpCost" : [ 2500, 4200 ],
-    "formLevelUpDays" : [ 2, 3 ],
-    "baseComfort" : 40,
-    "affinities" : {
-      "FAMILY" : 1.2,
-      "BUSINESS" : 1,
-      "ROMANTIC" : 1,
-      "WELLNESS" : 0.8,
-      "TEST" : 0.5
-    },
-    "maxInteriorLevel" : [ 2, 3, 3 ],
-    "abilityDemands" : {
-      "RESTAURANT_SERVICE" : 20,
-      "COOKING" : 15
-    },
-    "availableInteriors" : [ "DINING_TABLE", "KITCHEN_VENTILATION" ],
-    "category" : "SUPPORT",
-    "capacityInterior" : "DINING_TABLE"
-  }, {
-    "id" : "HOT_SPRING_POOL",
-    "displayName" : "温泉泡池",
-    "tier" : 0,
-    "capacityPerRoom" : 0,
-    "serviceCapacity" : 20,
-    "pricePerRoom" : [ 0, 0, 0 ],
-    "unitPrice" : [ 60, 75, 90 ],
-    "evolveCost" : 0,
-    "evolveDays" : 0,
-    "formLevelUpCost" : [ 2800, 4600 ],
-    "formLevelUpDays" : [ 3, 4 ],
-    "baseComfort" : 45,
-    "affinities" : {
-      "WELLNESS" : 1.8,
-      "ROMANTIC" : 1.3,
-      "FAMILY" : 0.9,
-      "BUSINESS" : 0.7,
-      "TEST" : 0.5
-    },
-    "maxInteriorLevel" : [ 2, 3, 3 ],
-    "abilityDemands" : {
-      "HOT_SPRING_OPERATION" : 18,
-      "HOT_SPRING_REPAIR" : 10
-    },
-    "availableInteriors" : [ "HOT_SPRING_TUB", "WATER_PUMP" ],
-    "category" : "SUPPORT",
-    "capacityInterior" : "HOT_SPRING_TUB"
-  }, {
-    "id" : "VIEWING_PLATFORM",
-    "displayName" : "观景台",
-    "tier" : 0,
-    "capacityPerRoom" : 0,
-    "serviceCapacity" : 30,
-    "pricePerRoom" : [ 0, 0, 0 ],
-    "unitPrice" : [ 40, 50, 60 ],
-    "evolveCost" : 0,
-    "evolveDays" : 0,
-    "formLevelUpCost" : [ 1800, 3000 ],
-    "formLevelUpDays" : [ 1, 2 ],
-    "baseComfort" : 35,
-    "affinities" : {
-      "ROMANTIC" : 1.4,
-      "WELLNESS" : 1.2,
-      "FAMILY" : 1.1,
-      "BUSINESS" : 0.9,
-      "TEST" : 0.5
-    },
-    "maxInteriorLevel" : [ 2, 3, 3 ],
-    "abilityDemands" : { },
-    "availableInteriors" : [ "TELESCOPE" ],
-    "category" : "SUPPORT",
-    "capacityInterior" : null
-  } ],
-  "interiors" : [ {
-    "id" : "BED",
-    "displayName" : "床位",
-    "category" : "CARRY",
-    "comfortPerLevel" : 3,
-    "capacityPerLevel" : 1,
-    "revenueBonusPerLevel" : 0.02,
-    "upgradeCostByLevel" : [ 800, 1600, 3200 ],
-    "upgradeDaysByLevel" : [ 1, 2, 3 ],
-    "segmentAffinityPerLevel" : {
-      "FAMILY" : 0.1,
-      "BUSINESS" : 0,
-      "ROMANTIC" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0.1
+    {
+      "id": "PARENT_CHILD_PARK",
+      "displayName": "亲子乐园",
+      "category": "SUPPORT",
+      "buildCost": 6500,
+      "isOpen": false,
+      "buildDays": 4
     }
-  }, {
-    "id" : "DINING_TABLE",
-    "displayName" : "餐桌",
-    "category" : "CARRY",
-    "comfortPerLevel" : 2,
-    "capacityPerLevel" : 2,
-    "revenueBonusPerLevel" : 0.015,
-    "upgradeCostByLevel" : [ 600, 1200, 2400 ],
-    "upgradeDaysByLevel" : [ 1, 2, 2 ],
-    "segmentAffinityPerLevel" : {
-      "FAMILY" : 0.06,
-      "BUSINESS" : 0,
-      "ROMANTIC" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "HOT_SPRING_TUB",
-    "displayName" : "泡池",
-    "category" : "CARRY",
-    "comfortPerLevel" : 3,
-    "capacityPerLevel" : 1.5,
-    "revenueBonusPerLevel" : 0.03,
-    "upgradeCostByLevel" : [ 1200, 2400, 4800 ],
-    "upgradeDaysByLevel" : [ 2, 3, 4 ],
-    "segmentAffinityPerLevel" : {
-      "ROMANTIC" : 0.12,
-      "FAMILY" : 0,
-      "BUSINESS" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "SOFA",
-    "displayName" : "沙发",
-    "category" : "NORMAL",
-    "comfortPerLevel" : 2,
-    "capacityPerLevel" : 0,
-    "revenueBonusPerLevel" : 0.01,
-    "upgradeCostByLevel" : [ 500, 1000, 2000 ],
-    "upgradeDaysByLevel" : [ 1, 1, 2 ],
-    "segmentAffinityPerLevel" : {
-      "BUSINESS" : 0.08,
-      "FAMILY" : 0,
-      "ROMANTIC" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "LIGHTING",
-    "displayName" : "灯具",
-    "category" : "NORMAL",
-    "comfortPerLevel" : 1.5,
-    "capacityPerLevel" : 0,
-    "revenueBonusPerLevel" : 0.01,
-    "upgradeCostByLevel" : [ 400, 800, 1600 ],
-    "upgradeDaysByLevel" : [ 1, 1, 2 ],
-    "segmentAffinityPerLevel" : {
-      "ROMANTIC" : 0.1,
-      "FAMILY" : 0,
-      "BUSINESS" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "DECOR",
-    "displayName" : "软装",
-    "category" : "NORMAL",
-    "comfortPerLevel" : 2.5,
-    "capacityPerLevel" : 0,
-    "revenueBonusPerLevel" : 0.025,
-    "upgradeCostByLevel" : [ 700, 1400, 2800 ],
-    "upgradeDaysByLevel" : [ 1, 2, 2 ],
-    "segmentAffinityPerLevel" : {
-      "ROMANTIC" : 0.08,
-      "FAMILY" : 0,
-      "BUSINESS" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "KITCHEN",
-    "displayName" : "厨房设备",
-    "category" : "CARRY",
-    "comfortPerLevel" : 2.5,
-    "capacityPerLevel" : 0,
-    "revenueBonusPerLevel" : 0.025,
-    "upgradeCostByLevel" : [ 1500, 3000, 6000 ],
-    "upgradeDaysByLevel" : [ 2, 3, 4 ],
-    "segmentAffinityPerLevel" : {
-      "FAMILY" : 0.08,
-      "BUSINESS" : 0,
-      "ROMANTIC" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "DINING_SEAT",
-    "displayName" : "餐位桌椅",
-    "category" : "CARRY",
-    "comfortPerLevel" : 2,
-    "capacityPerLevel" : 8,
-    "revenueBonusPerLevel" : 0.02,
-    "upgradeCostByLevel" : [ 1000, 2000, 4000 ],
-    "upgradeDaysByLevel" : [ 1, 2, 3 ],
-    "segmentAffinityPerLevel" : {
-      "FAMILY" : 0.06,
-      "BUSINESS" : 0,
-      "ROMANTIC" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "WATER_PUMP",
-    "displayName" : "水质循环泵",
-    "category" : "CARRY",
-    "comfortPerLevel" : 3,
-    "capacityPerLevel" : 4,
-    "revenueBonusPerLevel" : 0.03,
-    "upgradeCostByLevel" : [ 1600, 3200, 6400 ],
-    "upgradeDaysByLevel" : [ 2, 3, 4 ],
-    "segmentAffinityPerLevel" : {
-      "WELLNESS" : 0.12,
-      "FAMILY" : 0,
-      "BUSINESS" : 0,
-      "ROMANTIC" : 0,
-      "TEST" : 0
-    }
-  }, {
-    "id" : "TELESCOPE",
-    "displayName" : "景观望远镜",
-    "category" : "CARRY",
-    "comfortPerLevel" : 2.5,
-    "capacityPerLevel" : 6,
-    "revenueBonusPerLevel" : 0.02,
-    "upgradeCostByLevel" : [ 800, 1600, 3200 ],
-    "upgradeDaysByLevel" : [ 1, 2, 2 ],
-    "segmentAffinityPerLevel" : {
-      "ROMANTIC" : 0.1,
-      "FAMILY" : 0,
-      "BUSINESS" : 0,
-      "WELLNESS" : 0,
-      "TEST" : 0
-    }
-  } ],
-  "evolutionLines" : [ {
-    "id" : "EVO_STD_TO_FAMILY_ROOM",
-    "sourceFormId" : "STANDARD_ROOM",
-    "requiredLevel" : 3,
-    "targetFormId" : "FAMILY_ROOM",
-    "cost" : 5000,
-    "days" : 3
-  }, {
-    "id" : "EVO_FAMILY_ROOM_TO_SUITE",
-    "sourceFormId" : "FAMILY_ROOM",
-    "requiredLevel" : 3,
-    "targetFormId" : "FAMILY_SUITE",
-    "cost" : 12000,
-    "days" : 4
-  }, {
-    "id" : "EVO_STD_TO_BUSINESS_ROOM",
-    "sourceFormId" : "STANDARD_ROOM",
-    "requiredLevel" : 3,
-    "targetFormId" : "BUSINESS_ROOM",
-    "cost" : 6000,
-    "days" : 3
-  }, {
-    "id" : "EVO_BUSINESS_ROOM_TO_SUITE",
-    "sourceFormId" : "BUSINESS_ROOM",
-    "requiredLevel" : 3,
-    "targetFormId" : "BUSINESS_SUITE",
-    "cost" : 14000,
-    "days" : 4
-  } ],
-  "mergeRecipes" : [ {
-    "id" : "MERGE_FAMILY_VILLA",
-    "displayName" : "亲子合院（合并）",
-    "resultForm" : "MERGED_FAMILY_VILLA",
-    "resultLevel" : 1,
-    "mergeCost" : 30000,
-    "mergeDays" : 5,
-    "sources" : [ {
-      "formId" : "FAMILY_SUITE",
-      "minLevel" : 3
-    }, {
-      "formId" : "FAMILY_SUITE",
-      "minLevel" : 3
-    } ]
-  }, {
-    "id" : "MERGE_BUSINESS_HALL",
-    "displayName" : "商务行政馆（合并）",
-    "resultForm" : "MERGED_BUSINESS_HALL",
-    "resultLevel" : 1,
-    "mergeCost" : 32000,
-    "mergeDays" : 5,
-    "sources" : [ {
-      "formId" : "BUSINESS_SUITE",
-      "minLevel" : 3
-    }, {
-      "formId" : "BUSINESS_SUITE",
-      "minLevel" : 3
-    } ]
-  }, {
-    "id" : "MERGE_CROSS_LINE_HALL",
-    "displayName" : "跨线合并：商务行政馆",
-    "resultForm" : "MERGED_BUSINESS_HALL",
-    "resultLevel" : 1,
-    "mergeCost" : 40000,
-    "mergeDays" : 6,
-    "sources" : [ {
-      "formId" : "FAMILY_SUITE",
-      "minLevel" : 3
-    }, {
-      "formId" : "BUSINESS_SUITE",
-      "minLevel" : 3
-    } ]
-  } ],
-  "plots" : [ {
-    "id" : "STORMVEIL_CASTLE",
-    "displayName" : "史东薇尔城",
-    "region" : "LIMGRAVE",
-    "orderInRegion" : 1,
-    "width" : 7,
-    "height" : 7,
-    "buildableCellCount" : 15,
-    "unlockCost" : 0,
-    "evolveTierCap" : 2,
-    "unlockAchievementIds" : [ ],
-    "unlockedByDefault" : true,
-    "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "HOT_SPRING_POOL", "VIEWING_PLATFORM" ]
-  }, {
-    "id" : "MISTWOOD_EDGE",
-    "displayName" : "雾林边缘",
-    "region" : "LIMGRAVE",
-    "orderInRegion" : 2,
-    "width" : 8,
-    "height" : 8,
-    "buildableCellCount" : 20,
-    "unlockCost" : 100000,
-    "evolveTierCap" : 3,
-    "unlockAchievementIds" : [ "ACH_ASSET_10" ],
-    "unlockedByDefault" : false,
-    "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "OUTDOOR_CAMP" ]
-  }, {
-    "id" : "AGHEEL_LAKE",
-    "displayName" : "亚基尔湖",
-    "region" : "LIMGRAVE",
-    "orderInRegion" : 3,
-    "width" : 10,
-    "height" : 10,
-    "buildableCellCount" : 30,
-    "unlockCost" : 1000000,
-    "evolveTierCap" : 3,
-    "unlockAchievementIds" : [ "ACH_ASSET_100", "ACH_GUEST_5000" ],
-    "unlockedByDefault" : false,
-    "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "HOT_SPRING_POOL" ]
-  }, {
-    "id" : "CARIA_MANOR",
-    "displayName" : "卡利亚城寨",
-    "region" : "LIURNIA",
-    "orderInRegion" : 1,
-    "width" : 8,
-    "height" : 8,
-    "buildableCellCount" : 20,
-    "unlockCost" : 5000000,
-    "evolveTierCap" : 3,
-    "unlockAchievementIds" : [ "ACH_ASSET_500", "ACH_GUEST_10000", "ACH_STAFF_20" ],
-    "unlockedByDefault" : false,
-    "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "TEA_LIBRARY", "VIEWING_PLATFORM" ]
-  }, {
-    "id" : "RAYA_LUCARIA",
-    "displayName" : "雷亚卢卡利亚学院",
-    "region" : "LIURNIA",
-    "orderInRegion" : 2,
-    "width" : 12,
-    "height" : 12,
-    "buildableCellCount" : 30,
-    "unlockCost" : 8000000,
-    "evolveTierCap" : 3,
-    "unlockAchievementIds" : [ "ACH_BUILDING_20", "ACH_FAMILY_SUITE" ],
-    "unlockedByDefault" : false,
-    "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "TEA_LIBRARY", "CULTURE_WORKSHOP" ]
-  }, {
-    "id" : "FOUR_BELFRIES",
-    "displayName" : "四钟楼",
-    "region" : "LIURNIA",
-    "orderInRegion" : 3,
-    "width" : 15,
-    "height" : 15,
-    "buildableCellCount" : 30,
-    "unlockCost" : 10000000,
-    "evolveTierCap" : 3,
-    "unlockAchievementIds" : [ "ACH_STAFF_50", "ACH_MANAGER_LV3" ],
-    "unlockedByDefault" : false,
-    "allowedMothers" : [ "STANDARD_ROOM", "RESTAURANT", "HOT_SPRING_POOL", "VIEWING_PLATFORM" ]
-  } ],
-  "abilities" : [ {
-    "id" : "ROOM_CLEANING",
-    "displayName" : "客房清洁",
-    "description" : "保持客房卫生洁净"
-  }, {
-    "id" : "ROOM_REPAIR",
-    "displayName" : "客房维修",
-    "description" : "客房内设施保养与维护"
-  }, {
-    "id" : "RESTAURANT_SERVICE",
-    "displayName" : "餐厅服务",
-    "description" : "餐厅接待与点餐服务"
-  }, {
-    "id" : "COOKING",
-    "displayName" : "烹饪",
-    "description" : "餐饮菜品制作"
-  }, {
-    "id" : "HOT_SPRING_REPAIR",
-    "displayName" : "温泉维修",
-    "description" : "泡池管道与水循环系统检修"
-  }, {
-    "id" : "GLOBAL_MANAGEMENT",
-    "displayName" : "全局管理",
-    "description" : "全店统筹与店长领导"
-  } ],
-  "positions" : [ {
-    "id" : "ROOM_CLEANER",
-    "displayName" : "客房保洁",
-    "hireCost" : 400,
-    "compensationBase" : 600,
-    "abilityOutputs" : {
-      "ROOM_CLEANING" : [ 30, 55, 85 ]
+  ],
+  "buildingForms": [
+    {
+      "id": "STANDARD_ROOM",
+      "displayName": "标准客房",
+      "tier": 0,
+      "capacityPerRoom": 2,
+      "serviceCapacity": 0,
+      "pricePerRoom": [
+        280,
+        330,
+        380
+      ],
+      "unitPrice": [
+        0,
+        0,
+        0
+      ],
+      "evolveCost": 0,
+      "evolveDays": 0,
+      "formLevelUpCost": [
+        1500,
+        2500
+      ],
+      "formLevelUpDays": [
+        2,
+        3
+      ],
+      "baseComfort": 50,
+      "affinities": {
+        "FAMILY": 1,
+        "BUSINESS": 1,
+        "ROMANTIC": 0.8,
+        "WELLNESS": 0.8,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        1,
+        2,
+        3
+      ],
+      "abilityDemands": {
+        "ROOM_CLEANING": 20,
+        "ROOM_REPAIR": 10
+      },
+      "availableInteriors": [
+        "BED",
+        "DINING_TABLE",
+        "AROMA_DIFFUSER",
+        "SMART_SPEAKER"
+      ],
+      "category": "ACCOMMODATION",
+      "capacityInterior": "BED",
+      "story": "坐落于向阳缓坡之上的初代小筑。原木梁架间散发着松柏芬芳，推窗即可拥抱山谷晨曦，是每一位旅人开启山野静修的温馨起点。"
     },
-    "upgradeDaysByLevel" : [ 10, 20 ],
-    "trainDaysByLevel" : [ 1, 2 ],
-    "trainCostByLevel" : [ 240, 480 ]
-  }, {
-    "id" : "WAITER",
-    "displayName" : "餐厅服务员",
-    "hireCost" : 400,
-    "compensationBase" : 600,
-    "abilityOutputs" : {
-      "RESTAURANT_SERVICE" : [ 30, 55, 85 ]
+    {
+      "id": "FAMILY_ROOM",
+      "displayName": "家庭亲子房",
+      "tier": 1,
+      "capacityPerRoom": 4,
+      "serviceCapacity": 0,
+      "pricePerRoom": [
+        500,
+        580,
+        660
+      ],
+      "unitPrice": [
+        0,
+        0,
+        0
+      ],
+      "evolveCost": 6000,
+      "evolveDays": 4,
+      "formLevelUpCost": [
+        3000,
+        5000
+      ],
+      "formLevelUpDays": [
+        3,
+        4
+      ],
+      "baseComfort": 62,
+      "affinities": {
+        "FAMILY": 1.8,
+        "BUSINESS": 0.5,
+        "ROMANTIC": 1,
+        "WELLNESS": 0.9,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        2,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "ROOM_CLEANING": 26,
+        "ROOM_REPAIR": 12
+      },
+      "availableInteriors": [
+        "BED",
+        "DINING_TABLE",
+        "CHILD_PLAY_CORNER",
+        "AROMA_DIFFUSER"
+      ],
+      "category": "ACCOMMODATION",
+      "capacityInterior": "BED",
+      "story": "专为带娃家庭精心重构的童趣天地。铺设了软木防摔地垫，设有上下双层树屋子母床，让欢声笑语在青峦翠谷间回荡。"
     },
-    "upgradeDaysByLevel" : [ 10, 20 ],
-    "trainDaysByLevel" : [ 1, 2 ],
-    "trainCostByLevel" : [ 240, 480 ]
-  }, {
-    "id" : "CHEF",
-    "displayName" : "厨师",
-    "hireCost" : 800,
-    "compensationBase" : 1200,
-    "abilityOutputs" : {
-      "COOKING" : [ 35, 60, 90 ]
+    {
+      "id": "FAMILY_SUITE",
+      "displayName": "亲子套房",
+      "tier": 2,
+      "capacityPerRoom": 6,
+      "serviceCapacity": 0,
+      "pricePerRoom": [
+        760,
+        880,
+        1000
+      ],
+      "unitPrice": [
+        0,
+        0,
+        0
+      ],
+      "evolveCost": 15000,
+      "evolveDays": 5,
+      "formLevelUpCost": [
+        7000,
+        11000
+      ],
+      "formLevelUpDays": [
+        4,
+        5
+      ],
+      "baseComfort": 76,
+      "affinities": {
+        "FAMILY": 2.2,
+        "BUSINESS": 0.4,
+        "ROMANTIC": 1.1,
+        "WELLNESS": 1,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        2,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "ROOM_CLEANING": 34,
+        "ROOM_REPAIR": 16
+      },
+      "availableInteriors": [
+        "BED",
+        "DINING_TABLE",
+        "CHILD_PLAY_CORNER",
+        "AROMA_DIFFUSER"
+      ],
+      "category": "ACCOMMODATION",
+      "capacityInterior": "BED",
+      "story": "依山就势的双层挑高独栋套房。配有全景落地窗与私人星空露台，三代同堂亦能在清风松涛中共享天伦与私密山居。"
     },
-    "upgradeDaysByLevel" : [ 12, 24 ],
-    "trainDaysByLevel" : [ 1, 2 ],
-    "trainCostByLevel" : [ 480, 960 ]
-  }, {
-    "id" : "HOT_SPRING_OPERATOR",
-    "displayName" : "温泉维修员",
-    "hireCost" : 500,
-    "compensationBase" : 700,
-    "abilityOutputs" : {
-      "HOT_SPRING_OPERATION" : [ 30, 55, 85 ]
+    {
+      "id": "BUSINESS_ROOM",
+      "displayName": "商务行政房",
+      "tier": 1,
+      "capacityPerRoom": 2,
+      "serviceCapacity": 0,
+      "pricePerRoom": [
+        620,
+        720,
+        820
+      ],
+      "unitPrice": [
+        0,
+        0,
+        0
+      ],
+      "evolveCost": 7000,
+      "evolveDays": 4,
+      "formLevelUpCost": [
+        3200,
+        5200
+      ],
+      "formLevelUpDays": [
+        3,
+        4
+      ],
+      "baseComfort": 64,
+      "affinities": {
+        "BUSINESS": 1.9,
+        "FAMILY": 0.5,
+        "ROMANTIC": 1,
+        "WELLNESS": 0.9,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        2,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "ROOM_CLEANING": 22,
+        "ROOM_REPAIR": 14
+      },
+      "availableInteriors": [
+        "BED",
+        "DESK_WORKSPACE",
+        "SMART_SPEAKER",
+        "SOUNDPROOF_CURTAIN"
+      ],
+      "category": "ACCOMMODATION",
+      "capacityInterior": "BED",
+      "story": "在宁静山谷中开辟的高效沉浸空间。静音胡桃木桌面配备高速光纤网络与人体工学椅，让深度思考与清新山林气息完美共鸣。"
     },
-    "upgradeDaysByLevel" : [ 10, 20 ],
-    "trainDaysByLevel" : [ 1, 2 ],
-    "trainCostByLevel" : [ 300, 600 ]
-  }, {
-    "id" : "MAINTENANCE_WORKER",
-    "displayName" : "综合维修员",
-    "hireCost" : 600,
-    "compensationBase" : 900,
-    "abilityOutputs" : {
-      "ROOM_REPAIR" : [ 25, 45, 70 ]
+    {
+      "id": "BUSINESS_SUITE",
+      "displayName": "行政套房",
+      "tier": 2,
+      "capacityPerRoom": 3,
+      "serviceCapacity": 0,
+      "pricePerRoom": [
+        950,
+        1100,
+        1250
+      ],
+      "unitPrice": [
+        0,
+        0,
+        0
+      ],
+      "evolveCost": 17000,
+      "evolveDays": 5,
+      "formLevelUpCost": [
+        7500,
+        12000
+      ],
+      "formLevelUpDays": [
+        4,
+        5
+      ],
+      "baseComfort": 80,
+      "affinities": {
+        "BUSINESS": 2.3,
+        "FAMILY": 0.4,
+        "ROMANTIC": 1.2,
+        "WELLNESS": 1.1,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        2,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "ROOM_CLEANING": 30,
+        "ROOM_REPAIR": 18
+      },
+      "availableInteriors": [
+        "BED",
+        "DESK_WORKSPACE",
+        "SMART_SPEAKER",
+        "SOUNDPROOF_CURTAIN"
+      ],
+      "category": "ACCOMMODATION",
+      "capacityInterior": "BED",
+      "story": "融合了高级商务洽谈与山水隐逸的云端雅居。自带独立小会议客厅与茶席，山岚缭绕间从容敲定万千决策。"
     },
-    "upgradeDaysByLevel" : [ 12, 24 ],
-    "trainDaysByLevel" : [ 1, 2 ],
-    "trainCostByLevel" : [ 360, 720 ]
-  }, {
-    "id" : "MANAGER",
-    "displayName" : "店长",
-    "hireCost" : 1500,
-    "compensationBase" : 2000,
-    "abilityOutputs" : {
-      "GLOBAL_MANAGEMENT" : [ 40, 70, 100 ]
+    {
+      "id": "MERGED_FAMILY_VILLA",
+      "displayName": "亲子合院",
+      "tier": 3,
+      "capacityPerRoom": 10,
+      "serviceCapacity": 0,
+      "pricePerRoom": [
+        1500,
+        1750,
+        2000
+      ],
+      "unitPrice": [
+        0,
+        0,
+        0
+      ],
+      "evolveCost": 30000,
+      "evolveDays": 5,
+      "formLevelUpCost": [
+        9000,
+        14000
+      ],
+      "formLevelUpDays": [
+        5,
+        6
+      ],
+      "baseComfort": 95,
+      "affinities": {
+        "FAMILY": 2.6,
+        "BUSINESS": 0.6,
+        "ROMANTIC": 1.4,
+        "WELLNESS": 1.3,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        3,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "ROOM_CLEANING": 45,
+        "ROOM_REPAIR": 22
+      },
+      "availableInteriors": [
+        "BED",
+        "DINING_TABLE",
+        "CHILD_PLAY_CORNER",
+        "AROMA_DIFFUSER",
+        "HOT_SPRING_TUB"
+      ],
+      "category": "ACCOMMODATION",
+      "capacityInterior": "BED",
+      "story": "两座高级亲子寓所破壁相融而成的传世合院。围合出私家庭院与中央儿童秋千，树影婆娑中缔造一大家族的温馨回忆。"
     },
-    "upgradeDaysByLevel" : [ 15, 30 ],
-    "trainDaysByLevel" : [ 2, 3 ],
-    "trainCostByLevel" : [ 900, 1800 ]
-  } ],
-  "skills" : [ {
-    "id" : "SK_INTERIOR_COST",
-    "displayName" : "内装节流 I",
-    "description" : "内装升级费用 −10%",
-    "category" : "减少内装升级费用",
-    "prerequisites" : [ ],
-    "effectType" : "COST_DISCOUNT",
-    "effectKey" : "INTERIOR_UPGRADE_COST_DISCOUNT",
-    "value" : 0.1,
-    "costPoints" : 1
-  }, {
-    "id" : "SK_HIRE_COST",
-    "displayName" : "招聘节流 I",
-    "description" : "招聘消耗 −10%",
-    "category" : "减少招聘费用",
-    "prerequisites" : [ ],
-    "effectType" : "COST_DISCOUNT",
-    "effectKey" : "HIRE_COST_DISCOUNT",
-    "value" : 0.1,
-    "costPoints" : 1
-  }, {
-    "id" : "SK_FIRE_COMP",
-    "displayName" : "离职安抚 I",
-    "description" : "解雇补偿 −10%",
-    "category" : "减少解雇费用",
-    "prerequisites" : [ ],
-    "effectType" : "COST_DISCOUNT",
-    "effectKey" : "FIRE_COMPENSATION_DISCOUNT",
-    "value" : 0.1,
-    "costPoints" : 1
-  }, {
-    "id" : "SK_EVOLVE_COST",
-    "displayName" : "进化节流 I",
-    "description" : "建筑形态进化费用 −10%",
-    "category" : "减少建筑进化费用",
-    "prerequisites" : [ "SK_INTERIOR_COST" ],
-    "effectType" : "COST_DISCOUNT",
-    "effectKey" : "EVOLVE_COST_DISCOUNT",
-    "value" : 0.1,
-    "costPoints" : 1
-  }, {
-    "id" : "SK_INTERIOR_COMFORT",
-    "displayName" : "舒适内装 I",
-    "description" : "内装舒适度加成 +15%",
-    "category" : "提升内装舒适度",
-    "prerequisites" : [ "SK_INTERIOR_COST" ],
-    "effectType" : "MULTIPLIER",
-    "effectKey" : "INTERIOR_COMFORT_MULT",
-    "value" : 0.15,
-    "costPoints" : 1
-  }, {
-    "id" : "SK_STAFF_ABILITY",
-    "displayName" : "人力素质 I",
-    "description" : "员工能力值 +10%",
-    "category" : "提升岗位能力值贡献",
-    "prerequisites" : [ "SK_HIRE_COST", "SK_FIRE_COMP" ],
-    "effectType" : "MULTIPLIER",
-    "effectKey" : "STAFF_ABILITY_MULT",
-    "value" : 0.1,
-    "costPoints" : 1
-  }, {
-    "id" : "SK_BUILD_COST",
-    "displayName" : "建造节流 I",
-    "description" : "新建建筑费用 −10%",
-    "category" : "减少建筑建造费用",
-    "prerequisites" : [ "SK_INTERIOR_COST", "SK_EVOLVE_COST" ],
-    "effectType" : "COST_DISCOUNT",
-    "effectKey" : "BUILD_COST_DISCOUNT",
-    "value" : 0.1,
-    "costPoints" : 1
-  }, {
-    "id" : "SK_ROOM_PRICE",
-    "displayName" : "房屋收益溢价 I",
-    "description" : "房屋收益基准 +10%",
-    "category" : "提升住宿收益",
-    "prerequisites" : [ "SK_EVOLVE_COST", "SK_BUILD_COST" ],
-    "effectType" : "MULTIPLIER",
-    "effectKey" : "ROOM_PRICE_MULT",
-    "value" : 0.1,
-    "costPoints" : 1
-  } ],
-  "achievements" : [ {
-    "id" : "ACH_ASSET_10",
-    "displayName" : "总资产 10 万",
-    "category" : "总资产达到N万",
-    "type" : "TOTAL_ASSETS",
-    "target" : 100000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 100000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_ASSET_100",
-    "displayName" : "总资产 100 万",
-    "category" : "总资产达到N万",
-    "type" : "TOTAL_ASSETS",
-    "target" : 1000000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 1000000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_ASSET_500",
-    "displayName" : "总资产 500 万",
-    "category" : "总资产达到N万",
-    "type" : "TOTAL_ASSETS",
-    "target" : 5000000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 5000000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_ASSET_1000",
-    "displayName" : "总资产 1000 万",
-    "category" : "总资产达到N万",
-    "type" : "TOTAL_ASSETS",
-    "target" : 10000000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 10000000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_ASSET_10000",
-    "displayName" : "总资产 10000 万",
-    "category" : "总资产达到N万",
-    "type" : "TOTAL_ASSETS",
-    "target" : 100000000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 100000000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_BUILDING_5",
-    "displayName" : "已建建筑 5 座",
-    "category" : "已建N个建筑",
-    "type" : "BUILDING_COUNT",
-    "target" : 5,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 5,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_BUILDING_10",
-    "displayName" : "已建建筑 10 座",
-    "category" : "已建N个建筑",
-    "type" : "BUILDING_COUNT",
-    "target" : 10,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 10,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_BUILDING_20",
-    "displayName" : "已建建筑 20 座",
-    "category" : "已建N个建筑",
-    "type" : "BUILDING_COUNT",
-    "target" : 20,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 20,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_BUILDING_50",
-    "displayName" : "已建建筑 50 座",
-    "category" : "已建N个建筑",
-    "type" : "BUILDING_COUNT",
-    "target" : 50,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 50,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_BUILDING_100",
-    "displayName" : "已建建筑 100 座",
-    "category" : "已建N个建筑",
-    "type" : "BUILDING_COUNT",
-    "target" : 100,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 100,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_GUEST_100",
-    "displayName" : "累计接待 100 人",
-    "category" : "累计接待N名顾客",
-    "type" : "CUMULATIVE_GUESTS",
-    "target" : 100,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 100,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_GUEST_1000",
-    "displayName" : "累计接待 1000 人",
-    "category" : "累计接待N名顾客",
-    "type" : "CUMULATIVE_GUESTS",
-    "target" : 1000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 1000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_GUEST_5000",
-    "displayName" : "累计接待 5000 人",
-    "category" : "累计接待N名顾客",
-    "type" : "CUMULATIVE_GUESTS",
-    "target" : 5000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 5000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_GUEST_10000",
-    "displayName" : "累计接待 10000 人",
-    "category" : "累计接待N名顾客",
-    "type" : "CUMULATIVE_GUESTS",
-    "target" : 10000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 10000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_GUEST_100000",
-    "displayName" : "累计接待 100000 人",
-    "category" : "累计接待N名顾客",
-    "type" : "CUMULATIVE_GUESTS",
-    "target" : 100000,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 100000,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_STAFF_5",
-    "displayName" : "员工总数 5 人",
-    "category" : "员工总数达到N个",
-    "type" : "STAFF_COUNT",
-    "target" : 5,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 5,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_STAFF_10",
-    "displayName" : "员工总数 10 人",
-    "category" : "员工总数达到N个",
-    "type" : "STAFF_COUNT",
-    "target" : 10,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 10,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_STAFF_20",
-    "displayName" : "员工总数 20 人",
-    "category" : "员工总数达到N个",
-    "type" : "STAFF_COUNT",
-    "target" : 20,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 20,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_STAFF_50",
-    "displayName" : "员工总数 50 人",
-    "category" : "员工总数达到N个",
-    "type" : "STAFF_COUNT",
-    "target" : 50,
-    "param" : "",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 50,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_STAFF_500",
-    "displayName" : "员工总数 500 人",
-    "category" : "员工总数达到N个",
-    "type" : "STAFF_COUNT",
-    "target" : 500,
-    "param" : "",
-    "rewardSkillPoints" : 2,
-    "targetValue" : 500,
-    "targetEntity" : "STANDARD_ROOM",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_CHEF_LV3",
-    "displayName" : "拥有 1 名 3 级厨师",
-    "category" : "拥有N名A等级的B岗位",
-    "type" : "POSITION_LEVEL_COUNT",
-    "target" : 1,
-    "param" : "CHEF_3",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 1,
-    "targetEntity" : "CHEF",
-    "targetLevel" : 3
-  }, {
-    "id" : "ACH_MANAGER_LV3",
-    "displayName" : "拥有 1 名 3 级店长",
-    "category" : "拥有N名A等级的B岗位",
-    "type" : "POSITION_LEVEL_COUNT",
-    "target" : 1,
-    "param" : "MANAGER_3",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 1,
-    "targetEntity" : "MANAGER",
-    "targetLevel" : 3
-  }, {
-    "id" : "ACH_FAMILY_SUITE",
-    "displayName" : "建造 1 座亲子套房",
-    "category" : "建造N个A等级B形态建筑",
-    "type" : "FORM_LEVEL_COUNT",
-    "target" : 1,
-    "param" : "FAMILY_SUITE_1",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 1,
-    "targetEntity" : "FAMILY_SUITE",
-    "targetLevel" : 1
-  }, {
-    "id" : "ACH_BUSINESS_SUITE",
-    "displayName" : "建造 1 座行政套房",
-    "category" : "建造N个A等级B形态建筑",
-    "type" : "FORM_LEVEL_COUNT",
-    "target" : 1,
-    "param" : "BUSINESS_SUITE_1",
-    "rewardSkillPoints" : 1,
-    "targetValue" : 1,
-    "targetEntity" : "BUSINESS_SUITE",
-    "targetLevel" : 1
-  } ]
+    {
+      "id": "MERGED_BUSINESS_HALL",
+      "displayName": "商务行政馆",
+      "tier": 3,
+      "capacityPerRoom": 8,
+      "serviceCapacity": 0,
+      "pricePerRoom": [
+        1600,
+        1850,
+        2100
+      ],
+      "unitPrice": [
+        0,
+        0,
+        0
+      ],
+      "evolveCost": 32000,
+      "evolveDays": 5,
+      "formLevelUpCost": [
+        9500,
+        15000
+      ],
+      "formLevelUpDays": [
+        5,
+        6
+      ],
+      "baseComfort": 98,
+      "affinities": {
+        "BUSINESS": 2.6,
+        "FAMILY": 0.6,
+        "ROMANTIC": 1.5,
+        "WELLNESS": 1.4,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        3,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "ROOM_CLEANING": 44,
+        "ROOM_REPAIR": 24
+      },
+      "availableInteriors": [
+        "BED",
+        "DESK_WORKSPACE",
+        "SMART_SPEAKER",
+        "SOUNDPROOF_CURTAIN",
+        "HIGH_SPEED_WIFI"
+      ],
+      "category": "ACCOMMODATION",
+      "capacityInterior": "BED",
+      "story": "由双子行馆合璧而起的气派商务大堂。石材壁炉常年温暖，环形长桌静候八方名流，山居度假与高端商务会晤于此融会贯通。"
+    },
+    {
+      "id": "RESTAURANT",
+      "displayName": "餐厅",
+      "tier": 0,
+      "capacityPerRoom": 0,
+      "serviceCapacity": 40,
+      "pricePerRoom": [
+        0,
+        0,
+        0
+      ],
+      "unitPrice": [
+        80,
+        95,
+        110
+      ],
+      "evolveCost": 0,
+      "evolveDays": 0,
+      "formLevelUpCost": [
+        2500,
+        4200
+      ],
+      "formLevelUpDays": [
+        2,
+        3
+      ],
+      "baseComfort": 40,
+      "affinities": {
+        "FAMILY": 1.2,
+        "BUSINESS": 1,
+        "ROMANTIC": 1,
+        "WELLNESS": 0.8,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        2,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "RESTAURANT_SERVICE": 20,
+        "COOKING": 15
+      },
+      "availableInteriors": [
+        "DINING_TABLE",
+        "KITCHEN_VENTILATION"
+      ],
+      "category": "SUPPORT",
+      "capacityInterior": "DINING_TABLE",
+      "story": "搜罗群山四时野趣的生态山珍食堂。柴火土灶烹饪晨露竹笋与溪涧活鱼，炊烟升起处，皆是远道而来的归乡滋味。"
+    },
+    {
+      "id": "HOT_SPRING_POOL",
+      "displayName": "温泉泡池",
+      "tier": 0,
+      "capacityPerRoom": 0,
+      "serviceCapacity": 20,
+      "pricePerRoom": [
+        0,
+        0,
+        0
+      ],
+      "unitPrice": [
+        60,
+        75,
+        90
+      ],
+      "evolveCost": 0,
+      "evolveDays": 0,
+      "formLevelUpCost": [
+        2800,
+        4600
+      ],
+      "formLevelUpDays": [
+        3,
+        4
+      ],
+      "baseComfort": 45,
+      "affinities": {
+        "WELLNESS": 1.8,
+        "ROMANTIC": 1.3,
+        "FAMILY": 0.9,
+        "BUSINESS": 0.7,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        2,
+        3,
+        3
+      ],
+      "abilityDemands": {
+        "HOT_SPRING_OPERATION": 18,
+        "HOT_SPRING_REPAIR": 10
+      },
+      "availableInteriors": [
+        "HOT_SPRING_TUB",
+        "WATER_PUMP"
+      ],
+      "category": "SUPPORT",
+      "capacityInterior": "HOT_SPRING_TUB",
+      "story": "汲取地下千米深岩层温润矿泉的露天汤池。水汽蒸腾于林木石阶之间，枕石听泉，一身风尘尽消于热汤与松香之中。"
+    },
+    {
+      "id": "VIEWING_PLATFORM",
+      "displayName": "观景台",
+      "tier": 0,
+      "capacityPerRoom": 0,
+      "serviceCapacity": 30,
+      "pricePerRoom": [
+        0,
+        0,
+        0
+      ],
+      "unitPrice": [
+        40,
+        50,
+        60
+      ],
+      "evolveCost": 0,
+      "evolveDays": 0,
+      "formLevelUpCost": [
+        1800,
+        3000
+      ],
+      "formLevelUpDays": [
+        1,
+        2
+      ],
+      "baseComfort": 35,
+      "affinities": {
+        "ROMANTIC": 1.4,
+        "WELLNESS": 1.2,
+        "FAMILY": 1.1,
+        "BUSINESS": 0.9,
+        "TEST": 0.5
+      },
+      "maxInteriorLevel": [
+        2,
+        3,
+        3
+      ],
+      "abilityDemands": {},
+      "availableInteriors": [
+        "TELESCOPE"
+      ],
+      "category": "SUPPORT",
+      "capacityInterior": null,
+      "story": "悬挑于绝壁之上的云海眺望台。晨观旭日喷薄破雾而出，暮览落霞孤鹜齐飞，是全度假村最引人沉醉的心灵栖居之所。"
+    }
+  ],
+  "interiors": [
+    {
+      "id": "BED",
+      "displayName": "床位",
+      "category": "CARRY",
+      "comfortPerLevel": 3,
+      "capacityPerLevel": 1,
+      "revenueBonusPerLevel": 0.02,
+      "upgradeCostByLevel": [
+        800,
+        1600,
+        3200
+      ],
+      "upgradeDaysByLevel": [
+        1,
+        2,
+        3
+      ],
+      "segmentAffinityPerLevel": {
+        "FAMILY": 0.1,
+        "BUSINESS": 0,
+        "ROMANTIC": 0,
+        "WELLNESS": 0,
+        "TEST": 0.1
+      },
+      "story": "选用天然乳胶与手工慢回弹棕丝层层垫衬，裹以高支纯棉亲肤被褥，令每一个沉睡之夜都仿佛漂浮在静谧云端。"
+    },
+    {
+      "id": "DINING_TABLE",
+      "displayName": "餐桌",
+      "category": "CARRY",
+      "comfortPerLevel": 2,
+      "capacityPerLevel": 2,
+      "revenueBonusPerLevel": 0.015,
+      "upgradeCostByLevel": [
+        600,
+        1200,
+        2400
+      ],
+      "upgradeDaysByLevel": [
+        1,
+        2,
+        2
+      ],
+      "segmentAffinityPerLevel": {
+        "FAMILY": 0.06,
+        "BUSINESS": 0,
+        "ROMANTIC": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "整块百年老榆木自然切割而成的大板桌，保留了风雨沉淀的自然边缘与苍劲年轮，见证四海食客的每一次杯盏相碰。"
+    },
+    {
+      "id": "HOT_SPRING_TUB",
+      "displayName": "泡池",
+      "category": "CARRY",
+      "comfortPerLevel": 3,
+      "capacityPerLevel": 1.5,
+      "revenueBonusPerLevel": 0.03,
+      "upgradeCostByLevel": [
+        1200,
+        2400,
+        4800
+      ],
+      "upgradeDaysByLevel": [
+        2,
+        3,
+        4
+      ],
+      "segmentAffinityPerLevel": {
+        "ROMANTIC": 0.12,
+        "FAMILY": 0,
+        "BUSINESS": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "甄选高山整块火山玄武岩凿刻而成的养生汤桶，保温耐热且富含微量元素，浸润其中暖意直达心脾。"
+    },
+    {
+      "id": "SOFA",
+      "displayName": "沙发",
+      "category": "NORMAL",
+      "comfortPerLevel": 2,
+      "capacityPerLevel": 0,
+      "revenueBonusPerLevel": 0.01,
+      "upgradeCostByLevel": [
+        500,
+        1000,
+        2000
+      ],
+      "upgradeDaysByLevel": [
+        1,
+        1,
+        2
+      ],
+      "segmentAffinityPerLevel": {
+        "BUSINESS": 0.08,
+        "FAMILY": 0,
+        "ROMANTIC": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "棉麻粗织面料包裹高密度回弹海绵，斜靠其上翻阅闲书或静观窗外落叶，偷得浮生半日闲。"
+    },
+    {
+      "id": "LIGHTING",
+      "displayName": "灯具",
+      "category": "NORMAL",
+      "comfortPerLevel": 1.5,
+      "capacityPerLevel": 0,
+      "revenueBonusPerLevel": 0.01,
+      "upgradeCostByLevel": [
+        400,
+        800,
+        1600
+      ],
+      "upgradeDaysByLevel": [
+        1,
+        1,
+        2
+      ],
+      "segmentAffinityPerLevel": {
+        "ROMANTIC": 0.1,
+        "FAMILY": 0,
+        "BUSINESS": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "手工竹编工艺灯罩滤出的暖黄灯影，如摇曳林间的小橘灯，在夜幕降临时为旅人投下最抚慰人心的归家暖意。"
+    },
+    {
+      "id": "DECOR",
+      "displayName": "软装",
+      "category": "NORMAL",
+      "comfortPerLevel": 2.5,
+      "capacityPerLevel": 0,
+      "revenueBonusPerLevel": 0.025,
+      "upgradeCostByLevel": [
+        700,
+        1400,
+        2800
+      ],
+      "upgradeDaysByLevel": [
+        1,
+        2,
+        2
+      ],
+      "segmentAffinityPerLevel": {
+        "ROMANTIC": 0.08,
+        "FAMILY": 0,
+        "BUSINESS": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "采自后山的枯枝、青苔与山泉卵石拼就的野趣装置，将山川灵气化作居所角落里的点睛诗意。"
+    },
+    {
+      "id": "KITCHEN",
+      "displayName": "厨房设备",
+      "category": "CARRY",
+      "comfortPerLevel": 2.5,
+      "capacityPerLevel": 0,
+      "revenueBonusPerLevel": 0.025,
+      "upgradeCostByLevel": [
+        1500,
+        3000,
+        6000
+      ],
+      "upgradeDaysByLevel": [
+        2,
+        3,
+        4
+      ],
+      "segmentAffinityPerLevel": {
+        "FAMILY": 0.08,
+        "BUSINESS": 0,
+        "ROMANTIC": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "兼具传统铸铁柴火灶与现代低音油烟灶具的匠心工坊，让山野纯正食材在明火翻炒中迸发出诱人原香。"
+    },
+    {
+      "id": "DINING_SEAT",
+      "displayName": "餐位桌椅",
+      "category": "CARRY",
+      "comfortPerLevel": 2,
+      "capacityPerLevel": 8,
+      "revenueBonusPerLevel": 0.02,
+      "upgradeCostByLevel": [
+        1000,
+        2000,
+        4000
+      ],
+      "upgradeDaysByLevel": [
+        1,
+        2,
+        3
+      ],
+      "segmentAffinityPerLevel": {
+        "FAMILY": 0.06,
+        "BUSINESS": 0,
+        "ROMANTIC": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "符合人体工学弧度的实木靠椅，配上细密麻织软垫，即便是慢条斯理品尝长宴亦不会产生丝毫倦意。"
+    },
+    {
+      "id": "WATER_PUMP",
+      "displayName": "水质循环泵",
+      "category": "CARRY",
+      "comfortPerLevel": 3,
+      "capacityPerLevel": 4,
+      "revenueBonusPerLevel": 0.03,
+      "upgradeCostByLevel": [
+        1600,
+        3200,
+        6400
+      ],
+      "upgradeDaysByLevel": [
+        2,
+        3,
+        4
+      ],
+      "segmentAffinityPerLevel": {
+        "WELLNESS": 0.12,
+        "FAMILY": 0,
+        "BUSINESS": 0,
+        "ROMANTIC": 0,
+        "TEST": 0
+      },
+      "story": "超静音德国进口地磁循环过滤泵，日夜不息地为温泉池注入活水与清澈泉流，保证每一刻汤水的极致澄澈。"
+    },
+    {
+      "id": "TELESCOPE",
+      "displayName": "景观望远镜",
+      "category": "CARRY",
+      "comfortPerLevel": 2.5,
+      "capacityPerLevel": 6,
+      "revenueBonusPerLevel": 0.02,
+      "upgradeCostByLevel": [
+        800,
+        1600,
+        3200
+      ],
+      "upgradeDaysByLevel": [
+        1,
+        2,
+        2
+      ],
+      "segmentAffinityPerLevel": {
+        "ROMANTIC": 0.1,
+        "FAMILY": 0,
+        "BUSINESS": 0,
+        "WELLNESS": 0,
+        "TEST": 0
+      },
+      "story": "专业级高清大口径天文光学望远镜，能将数万光年外的遥远星云与月球环形山清晰拉近至眼前。"
+    }
+  ],
+  "evolutionLines": [
+    {
+      "id": "EVO_STD_TO_FAMILY_ROOM",
+      "sourceFormId": "STANDARD_ROOM",
+      "requiredLevel": 3,
+      "targetFormId": "FAMILY_ROOM",
+      "cost": 5000,
+      "days": 3
+    },
+    {
+      "id": "EVO_FAMILY_ROOM_TO_SUITE",
+      "sourceFormId": "FAMILY_ROOM",
+      "requiredLevel": 3,
+      "targetFormId": "FAMILY_SUITE",
+      "cost": 12000,
+      "days": 4
+    },
+    {
+      "id": "EVO_STD_TO_BUSINESS_ROOM",
+      "sourceFormId": "STANDARD_ROOM",
+      "requiredLevel": 3,
+      "targetFormId": "BUSINESS_ROOM",
+      "cost": 6000,
+      "days": 3
+    },
+    {
+      "id": "EVO_BUSINESS_ROOM_TO_SUITE",
+      "sourceFormId": "BUSINESS_ROOM",
+      "requiredLevel": 3,
+      "targetFormId": "BUSINESS_SUITE",
+      "cost": 14000,
+      "days": 4
+    }
+  ],
+  "mergeRecipes": [
+    {
+      "id": "MERGE_FAMILY_VILLA",
+      "displayName": "亲子合院（合并）",
+      "resultForm": "MERGED_FAMILY_VILLA",
+      "resultLevel": 1,
+      "mergeCost": 30000,
+      "mergeDays": 5,
+      "sources": [
+        {
+          "formId": "FAMILY_SUITE",
+          "minLevel": 3
+        },
+        {
+          "formId": "FAMILY_SUITE",
+          "minLevel": 3
+        }
+      ]
+    },
+    {
+      "id": "MERGE_BUSINESS_HALL",
+      "displayName": "商务行政馆（合并）",
+      "resultForm": "MERGED_BUSINESS_HALL",
+      "resultLevel": 1,
+      "mergeCost": 32000,
+      "mergeDays": 5,
+      "sources": [
+        {
+          "formId": "BUSINESS_SUITE",
+          "minLevel": 3
+        },
+        {
+          "formId": "BUSINESS_SUITE",
+          "minLevel": 3
+        }
+      ]
+    },
+    {
+      "id": "MERGE_CROSS_LINE_HALL",
+      "displayName": "跨线合并：商务行政馆",
+      "resultForm": "MERGED_BUSINESS_HALL",
+      "resultLevel": 1,
+      "mergeCost": 40000,
+      "mergeDays": 6,
+      "sources": [
+        {
+          "formId": "FAMILY_SUITE",
+          "minLevel": 3
+        },
+        {
+          "formId": "BUSINESS_SUITE",
+          "minLevel": 3
+        }
+      ]
+    }
+  ],
+  "plots": [
+    {
+      "id": "STORMVEIL_CASTLE",
+      "displayName": "史东薇尔城",
+      "region": "LIMGRAVE",
+      "orderInRegion": 1,
+      "width": 7,
+      "height": 7,
+      "buildableCellCount": 15,
+      "unlockCost": 0,
+      "evolveTierCap": 2,
+      "unlockAchievementIds": [],
+      "unlockedByDefault": true,
+      "allowedMothers": [
+        "STANDARD_ROOM",
+        "RESTAURANT",
+        "HOT_SPRING_POOL",
+        "VIEWING_PLATFORM"
+      ],
+      "story": "建于绝壁险峰之上的古老石筑卫城。虽然岁月剥蚀了往日的刀光剑影，但那宽阔的石质回廊与稳固地基，是建立度假基地的最佳摇篮。"
+    },
+    {
+      "id": "MISTWOOD_EDGE",
+      "displayName": "雾林边缘",
+      "region": "LIMGRAVE",
+      "orderInRegion": 2,
+      "width": 8,
+      "height": 8,
+      "buildableCellCount": 20,
+      "unlockCost": 100000,
+      "evolveTierCap": 3,
+      "unlockAchievementIds": [
+        "ACH_ASSET_10"
+      ],
+      "unlockedByDefault": false,
+      "allowedMothers": [
+        "STANDARD_ROOM",
+        "RESTAURANT",
+        "OUTDOOR_CAMP"
+      ],
+      "story": "常年被淡蓝色轻纱薄雾笼罩的静谧森林边缘。高大乔木遮天蔽日，泥土芬芳混合着野莓甜香，是隐士客群最渴望的避世之所。"
+    },
+    {
+      "id": "AGHEEL_LAKE",
+      "displayName": "亚基尔湖",
+      "region": "LIMGRAVE",
+      "orderInRegion": 3,
+      "width": 10,
+      "height": 10,
+      "buildableCellCount": 30,
+      "unlockCost": 1000000,
+      "evolveTierCap": 3,
+      "unlockAchievementIds": [
+        "ACH_ASSET_100",
+        "ACH_GUEST_5000"
+      ],
+      "unlockedByDefault": false,
+      "allowedMothers": [
+        "STANDARD_ROOM",
+        "RESTAURANT",
+        "HOT_SPRING_POOL"
+      ],
+      "story": "群山环抱下如蓝宝石般明净的高原堰塞湖泊。水波粼粼，白鹭成群，微风拂过湖面带来令人心旷神怡的水汽。"
+    },
+    {
+      "id": "CARIA_MANOR",
+      "displayName": "卡利亚城寨",
+      "region": "LIURNIA",
+      "orderInRegion": 1,
+      "width": 8,
+      "height": 8,
+      "buildableCellCount": 20,
+      "unlockCost": 5000000,
+      "evolveTierCap": 3,
+      "unlockAchievementIds": [
+        "ACH_ASSET_500",
+        "ACH_GUEST_10000",
+        "ACH_STAFF_20"
+      ],
+      "unlockedByDefault": false,
+      "allowedMothers": [
+        "STANDARD_ROOM",
+        "RESTAURANT",
+        "TEA_LIBRARY",
+        "VIEWING_PLATFORM"
+      ],
+      "story": "掩映在银色月光与古典园林深处的贵族旧址。石雕喷泉与蔓藤长廊相映成趣，天生流淌着无与伦比的高雅与浪漫。"
+    },
+    {
+      "id": "RAYA_LUCARIA",
+      "displayName": "雷亚卢卡利亚学院",
+      "region": "LIURNIA",
+      "orderInRegion": 2,
+      "width": 12,
+      "height": 12,
+      "buildableCellCount": 30,
+      "unlockCost": 8000000,
+      "evolveTierCap": 3,
+      "unlockAchievementIds": [
+        "ACH_BUILDING_20",
+        "ACH_FAMILY_SUITE"
+      ],
+      "unlockedByDefault": false,
+      "allowedMothers": [
+        "STANDARD_ROOM",
+        "RESTAURANT",
+        "TEA_LIBRARY",
+        "CULTURE_WORKSHOP"
+      ],
+      "story": "伫立于浅水湿地之上的宏伟学术殿堂群。尖顶塔楼直插云霄，这里弥漫着智慧求索的沉静氛围，是学者与高端商旅的最爱。"
+    },
+    {
+      "id": "FOUR_BELFRIES",
+      "displayName": "四钟楼",
+      "region": "LIURNIA",
+      "orderInRegion": 3,
+      "width": 15,
+      "height": 15,
+      "buildableCellCount": 30,
+      "unlockCost": 10000000,
+      "evolveTierCap": 3,
+      "unlockAchievementIds": [
+        "ACH_STAFF_50",
+        "ACH_MANAGER_LV3"
+      ],
+      "unlockedByDefault": false,
+      "allowedMothers": [
+        "STANDARD_ROOM",
+        "RESTAURANT",
+        "HOT_SPRING_POOL",
+        "VIEWING_PLATFORM"
+      ],
+      "story": "矗立在苍茫高原上的四座远古钟楼遗址。山风吹过石柱宛若远古长鸣，视野开阔无垠，能俯瞰整座度假王国的壮丽全景。"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "ROOM_CLEANING",
+      "displayName": "客房清洁",
+      "description": "保持客房卫生洁净"
+    },
+    {
+      "id": "ROOM_REPAIR",
+      "displayName": "客房维修",
+      "description": "客房内设施保养与维护"
+    },
+    {
+      "id": "RESTAURANT_SERVICE",
+      "displayName": "餐厅服务",
+      "description": "餐厅接待与点餐服务"
+    },
+    {
+      "id": "COOKING",
+      "displayName": "烹饪",
+      "description": "餐饮菜品制作"
+    },
+    {
+      "id": "HOT_SPRING_REPAIR",
+      "displayName": "温泉维修",
+      "description": "泡池管道与水循环系统检修"
+    },
+    {
+      "id": "GLOBAL_MANAGEMENT",
+      "displayName": "全局管理",
+      "description": "全店统筹与店长领导"
+    }
+  ],
+  "positions": [
+    {
+      "id": "ROOM_CLEANER",
+      "displayName": "客房保洁",
+      "hireCost": 400,
+      "compensationBase": 600,
+      "abilityOutputs": {
+        "ROOM_CLEANING": [
+          30,
+          55,
+          85
+        ]
+      },
+      "upgradeDaysByLevel": [
+        10,
+        20
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        240,
+        480
+      ],
+      "story": "穿梭于晨昏林间客舍的勤勉使者。她们以一丝不苟的匠心抹去每一寸浮尘，让每间客房都常保白玉般的清爽与整洁。"
+    },
+    {
+      "id": "WAITER",
+      "displayName": "餐厅服务员",
+      "hireCost": 400,
+      "compensationBase": 600,
+      "abilityOutputs": {
+        "RESTAURANT_SERVICE": [
+          30,
+          55,
+          85
+        ]
+      },
+      "upgradeDaysByLevel": [
+        10,
+        20
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        240,
+        480
+      ],
+      "story": "面带春风般亲切微笑的前厅引路人。熟记每一位常客的忌口与习惯，用无微不至的轻柔服务温润旅人的心田。"
+    },
+    {
+      "id": "CHEF",
+      "displayName": "厨师",
+      "hireCost": 800,
+      "compensationBase": 1200,
+      "abilityOutputs": {
+        "COOKING": [
+          35,
+          60,
+          90
+        ]
+      },
+      "upgradeDaysByLevel": [
+        12,
+        24
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        480,
+        960
+      ],
+      "story": "执掌炉火与四时风味的味蕾魔法师。深谙每一种高山时蔬的本真之味，化平凡土产为惊艳舌尖的珍馐美馔。"
+    },
+    {
+      "id": "HOT_SPRING_OPERATOR",
+      "displayName": "温泉维修员",
+      "hireCost": 500,
+      "compensationBase": 700,
+      "abilityOutputs": {
+        "HOT_SPRING_OPERATION": [
+          30,
+          55,
+          85
+        ]
+      },
+      "upgradeDaysByLevel": [
+        10,
+        20
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        300,
+        600
+      ],
+      "story": "精通管路水质与恒温调控的技术巧匠。在水汽氤氲中默默守护着地脉涌泉的温度与天然矿物活性。"
+    },
+    {
+      "id": "MAINTENANCE_WORKER",
+      "displayName": "综合维修员",
+      "hireCost": 600,
+      "compensationBase": 900,
+      "abilityOutputs": {
+        "ROOM_REPAIR": [
+          25,
+          45,
+          70
+        ]
+      },
+      "upgradeDaysByLevel": [
+        12,
+        24
+      ],
+      "trainDaysByLevel": [
+        1,
+        2
+      ],
+      "trainCostByLevel": [
+        360,
+        720
+      ],
+      "story": "随身携带万能工具包的庄园守护者。从修缮瓦木到检修电路，凡有损耗之处，必能迅速妙手回春。"
+    },
+    {
+      "id": "MANAGER",
+      "displayName": "店长",
+      "hireCost": 1500,
+      "compensationBase": 2000,
+      "abilityOutputs": {
+        "GLOBAL_MANAGEMENT": [
+          40,
+          70,
+          100
+        ]
+      },
+      "upgradeDaysByLevel": [
+        15,
+        30
+      ],
+      "trainDaysByLevel": [
+        2,
+        3
+      ],
+      "trainCostByLevel": [
+        900,
+        1800
+      ],
+      "story": "统筹全局运行、协调人际与资源的大管家。以卓越的洞察力与温暖关怀，让整个度假村如精密时钟般有条不紊地舒缓流淌。"
+    }
+  ],
+  "skills": [
+    {
+      "id": "SK_INTERIOR_COST",
+      "displayName": "内装节流 I",
+      "description": "内装升级费用 −10%",
+      "category": "减少内装升级费用",
+      "prerequisites": [],
+      "effectType": "COST_DISCOUNT",
+      "effectKey": "INTERIOR_UPGRADE_COST_DISCOUNT",
+      "value": 0.1,
+      "costPoints": 1
+    },
+    {
+      "id": "SK_HIRE_COST",
+      "displayName": "招聘节流 I",
+      "description": "招聘消耗 −10%",
+      "category": "减少招聘费用",
+      "prerequisites": [],
+      "effectType": "COST_DISCOUNT",
+      "effectKey": "HIRE_COST_DISCOUNT",
+      "value": 0.1,
+      "costPoints": 1
+    },
+    {
+      "id": "SK_FIRE_COMP",
+      "displayName": "离职安抚 I",
+      "description": "解雇补偿 −10%",
+      "category": "减少解雇费用",
+      "prerequisites": [],
+      "effectType": "COST_DISCOUNT",
+      "effectKey": "FIRE_COMPENSATION_DISCOUNT",
+      "value": 0.1,
+      "costPoints": 1
+    },
+    {
+      "id": "SK_EVOLVE_COST",
+      "displayName": "进化节流 I",
+      "description": "建筑形态进化费用 −10%",
+      "category": "减少建筑进化费用",
+      "prerequisites": [
+        "SK_INTERIOR_COST"
+      ],
+      "effectType": "COST_DISCOUNT",
+      "effectKey": "EVOLVE_COST_DISCOUNT",
+      "value": 0.1,
+      "costPoints": 1
+    },
+    {
+      "id": "SK_INTERIOR_COMFORT",
+      "displayName": "舒适内装 I",
+      "description": "内装舒适度加成 +15%",
+      "category": "提升内装舒适度",
+      "prerequisites": [
+        "SK_INTERIOR_COST"
+      ],
+      "effectType": "MULTIPLIER",
+      "effectKey": "INTERIOR_COMFORT_MULT",
+      "value": 0.15,
+      "costPoints": 1
+    },
+    {
+      "id": "SK_STAFF_ABILITY",
+      "displayName": "人力素质 I",
+      "description": "员工能力值 +10%",
+      "category": "提升岗位能力值贡献",
+      "prerequisites": [
+        "SK_HIRE_COST",
+        "SK_FIRE_COMP"
+      ],
+      "effectType": "MULTIPLIER",
+      "effectKey": "STAFF_ABILITY_MULT",
+      "value": 0.1,
+      "costPoints": 1
+    },
+    {
+      "id": "SK_BUILD_COST",
+      "displayName": "建造节流 I",
+      "description": "新建建筑费用 −10%",
+      "category": "减少建筑建造费用",
+      "prerequisites": [
+        "SK_INTERIOR_COST",
+        "SK_EVOLVE_COST"
+      ],
+      "effectType": "COST_DISCOUNT",
+      "effectKey": "BUILD_COST_DISCOUNT",
+      "value": 0.1,
+      "costPoints": 1
+    },
+    {
+      "id": "SK_ROOM_PRICE",
+      "displayName": "房屋收益溢价 I",
+      "description": "房屋收益基准 +10%",
+      "category": "提升住宿收益",
+      "prerequisites": [
+        "SK_EVOLVE_COST",
+        "SK_BUILD_COST"
+      ],
+      "effectType": "MULTIPLIER",
+      "effectKey": "ROOM_PRICE_MULT",
+      "value": 0.1,
+      "costPoints": 1
+    }
+  ],
+  "achievements": [
+    {
+      "id": "ACH_ASSET_10",
+      "displayName": "总资产 10 万",
+      "category": "总资产达到N万",
+      "type": "TOTAL_ASSETS",
+      "target": 100000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 100000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_ASSET_100",
+      "displayName": "总资产 100 万",
+      "category": "总资产达到N万",
+      "type": "TOTAL_ASSETS",
+      "target": 1000000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 1000000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_ASSET_500",
+      "displayName": "总资产 500 万",
+      "category": "总资产达到N万",
+      "type": "TOTAL_ASSETS",
+      "target": 5000000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 5000000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_ASSET_1000",
+      "displayName": "总资产 1000 万",
+      "category": "总资产达到N万",
+      "type": "TOTAL_ASSETS",
+      "target": 10000000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 10000000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_ASSET_10000",
+      "displayName": "总资产 10000 万",
+      "category": "总资产达到N万",
+      "type": "TOTAL_ASSETS",
+      "target": 100000000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 100000000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_BUILDING_5",
+      "displayName": "已建建筑 5 座",
+      "category": "已建N个建筑",
+      "type": "BUILDING_COUNT",
+      "target": 5,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 5,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_BUILDING_10",
+      "displayName": "已建建筑 10 座",
+      "category": "已建N个建筑",
+      "type": "BUILDING_COUNT",
+      "target": 10,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 10,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_BUILDING_20",
+      "displayName": "已建建筑 20 座",
+      "category": "已建N个建筑",
+      "type": "BUILDING_COUNT",
+      "target": 20,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 20,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_BUILDING_50",
+      "displayName": "已建建筑 50 座",
+      "category": "已建N个建筑",
+      "type": "BUILDING_COUNT",
+      "target": 50,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 50,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_BUILDING_100",
+      "displayName": "已建建筑 100 座",
+      "category": "已建N个建筑",
+      "type": "BUILDING_COUNT",
+      "target": 100,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 100,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_GUEST_100",
+      "displayName": "累计接待 100 人",
+      "category": "累计接待N名顾客",
+      "type": "CUMULATIVE_GUESTS",
+      "target": 100,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 100,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_GUEST_1000",
+      "displayName": "累计接待 1000 人",
+      "category": "累计接待N名顾客",
+      "type": "CUMULATIVE_GUESTS",
+      "target": 1000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 1000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_GUEST_5000",
+      "displayName": "累计接待 5000 人",
+      "category": "累计接待N名顾客",
+      "type": "CUMULATIVE_GUESTS",
+      "target": 5000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 5000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_GUEST_10000",
+      "displayName": "累计接待 10000 人",
+      "category": "累计接待N名顾客",
+      "type": "CUMULATIVE_GUESTS",
+      "target": 10000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 10000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_GUEST_100000",
+      "displayName": "累计接待 100000 人",
+      "category": "累计接待N名顾客",
+      "type": "CUMULATIVE_GUESTS",
+      "target": 100000,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 100000,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_STAFF_5",
+      "displayName": "员工总数 5 人",
+      "category": "员工总数达到N个",
+      "type": "STAFF_COUNT",
+      "target": 5,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 5,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_STAFF_10",
+      "displayName": "员工总数 10 人",
+      "category": "员工总数达到N个",
+      "type": "STAFF_COUNT",
+      "target": 10,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 10,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_STAFF_20",
+      "displayName": "员工总数 20 人",
+      "category": "员工总数达到N个",
+      "type": "STAFF_COUNT",
+      "target": 20,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 20,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_STAFF_50",
+      "displayName": "员工总数 50 人",
+      "category": "员工总数达到N个",
+      "type": "STAFF_COUNT",
+      "target": 50,
+      "param": "",
+      "rewardSkillPoints": 1,
+      "targetValue": 50,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_STAFF_500",
+      "displayName": "员工总数 500 人",
+      "category": "员工总数达到N个",
+      "type": "STAFF_COUNT",
+      "target": 500,
+      "param": "",
+      "rewardSkillPoints": 2,
+      "targetValue": 500,
+      "targetEntity": "STANDARD_ROOM",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_CHEF_LV3",
+      "displayName": "拥有 1 名 3 级厨师",
+      "category": "拥有N名A等级的B岗位",
+      "type": "POSITION_LEVEL_COUNT",
+      "target": 1,
+      "param": "CHEF_3",
+      "rewardSkillPoints": 1,
+      "targetValue": 1,
+      "targetEntity": "CHEF",
+      "targetLevel": 3
+    },
+    {
+      "id": "ACH_MANAGER_LV3",
+      "displayName": "拥有 1 名 3 级店长",
+      "category": "拥有N名A等级的B岗位",
+      "type": "POSITION_LEVEL_COUNT",
+      "target": 1,
+      "param": "MANAGER_3",
+      "rewardSkillPoints": 1,
+      "targetValue": 1,
+      "targetEntity": "MANAGER",
+      "targetLevel": 3
+    },
+    {
+      "id": "ACH_FAMILY_SUITE",
+      "displayName": "建造 1 座亲子套房",
+      "category": "建造N个A等级B形态建筑",
+      "type": "FORM_LEVEL_COUNT",
+      "target": 1,
+      "param": "FAMILY_SUITE_1",
+      "rewardSkillPoints": 1,
+      "targetValue": 1,
+      "targetEntity": "FAMILY_SUITE",
+      "targetLevel": 1
+    },
+    {
+      "id": "ACH_BUSINESS_SUITE",
+      "displayName": "建造 1 座行政套房",
+      "category": "建造N个A等级B形态建筑",
+      "type": "FORM_LEVEL_COUNT",
+      "target": 1,
+      "param": "BUSINESS_SUITE_1",
+      "rewardSkillPoints": 1,
+      "targetValue": 1,
+      "targetEntity": "BUSINESS_SUITE",
+      "targetLevel": 1
+    }
+  ]
 }

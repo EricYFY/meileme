@@ -227,6 +227,10 @@ public class ConfigRegistry {
                     }
                 }
 
+                if (m.containsKey("story") && m.get("story") != null) {
+                    b.story(String.valueOf(m.get("story")));
+                }
+
                 formsById.put(id, b.build());
             }
         }
@@ -336,8 +340,10 @@ public class ConfigRegistry {
                 if (achIds == null) achIds = List.of();
                 boolean byDefault = Boolean.TRUE.equals(m.get("unlockedByDefault"));
 
+                String story = m.containsKey("story") && m.get("story") != null ? String.valueOf(m.get("story")) : "";
+
                 Plot p = new Plot(id, displayName, region, order, width, height, buildable,
-                        cost, allowedMothers, evolveTierCap, achIds, byDefault);
+                        cost, allowedMothers, evolveTierCap, achIds, byDefault, story);
                 plotsById.put(id, p);
 
                 plotMaps.put(id, MapGenerator.generate(p, (int) GameConfig.MAP_SEED + mapIndex * 31));
@@ -441,6 +447,8 @@ public class ConfigRegistry {
                 }
                 double compensationBase = m.containsKey("compensationBase") ? ((Number) m.get("compensationBase")).doubleValue() : 600.0;
 
+                String story = m.containsKey("story") && m.get("story") != null ? String.valueOf(m.get("story")) : "";
+
                 PositionConfig pc = PositionConfig.builder()
                         .id(id)
                         .displayName(displayName)
@@ -450,6 +458,7 @@ public class ConfigRegistry {
                         .trainDaysByLevel(trainDaysByLevel)
                         .trainCostByLevel(trainCostByLevel)
                         .compensationBase(compensationBase)
+                        .story(story)
                         .build();
                 positionsById.put(id, pc);
             }
@@ -488,6 +497,8 @@ public class ConfigRegistry {
                     upgradeDaysByLevel = list.stream().mapToInt(n -> ((Number) n).intValue()).toArray();
                 }
 
+                String story = m.containsKey("story") && m.get("story") != null ? String.valueOf(m.get("story")) : "";
+
                 InteriorConfig ic = InteriorConfig.builder()
                         .id(id)
                         .displayName(displayName)
@@ -498,6 +509,7 @@ public class ConfigRegistry {
                         .segmentAffinityPerLevel(segmentAffinity)
                         .upgradeCostByLevel(upgradeCostByLevel)
                         .upgradeDaysByLevel(upgradeDaysByLevel)
+                        .story(story)
                         .build();
                 interiorsById.put(id, ic);
             }

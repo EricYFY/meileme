@@ -23,11 +23,20 @@ const unlockedInteriorsSet = computed(() => new Set(codex.value.unlockedInterior
 const unlockedPlotsSet = computed(() => new Set(codex.value.unlockedPlots || []));
 const unlockedPositionsSet = computed(() => new Set(codex.value.unlockedPositions || []));
 
-// 1. 建筑形态图鉴
+// 内装类别英文枚举至中文映射字典
+const interiorCategoryMap = {
+    CARRY: '承载设施',
+    NORMAL: '普通设施',
+    COMFORT: '舒适设施',
+    ENTERTAINMENT: '娱乐设施',
+};
+
+// 1. 建筑形态图鉴：展示【类别】、【基础舒适度】
 const formItems = computed(() => {
     const list = store.config?.buildingForms || [];
     return list.map((f, idx) => {
         const isUnlocked = unlockedFormsSet.value.has(f.id);
+        const categoryName = f.category === 'ACCOMMODATION' ? '住宿类' : (f.category === 'SUPPORT' ? '配套类' : (f.category || '建筑形态'));
         return {
             category: 'FORM',
             categoryName: '建筑形态',
@@ -37,24 +46,23 @@ const formItems = computed(() => {
             name: f.displayName || f.name || f.id,
             isUnlocked,
             tier: f.tier,
-            buildingCategory: f.category === 'ACCOMMODATION' ? '住宿类' : '配套类',
-            capacityDesc: f.category === 'ACCOMMODATION' 
-                ? `容纳 ${f.capacityPerRoom} 人/间` 
-                : `服务容量 ${f.serviceCapacity} 人`,
-            priceDesc: f.category === 'ACCOMMODATION'
-                ? `房价: ${f.pricePerRoomByLevel ? f.pricePerRoomByLevel.join(' / ') : '--'}`
-                : `单价: ${f.unitPriceByLevel ? f.unitPriceByLevel.join(' / ') : '--'}`,
+            // 严格展示配置字段：类别、基础舒适度
+            propCategory: categoryName,
+            propDetail: `基础舒适度 ${f.baseComfort ?? 0}`,
             unlockTip: '首次完成该建筑形态的建造或分支/合并进化时解锁。',
+            story: f.story || '',
             detail: f,
         };
     });
 });
 
-// 2. 内装设施图鉴
+// 2. 内装设施图鉴：展示【类别】、【每级收益加成】
 const interiorItems = computed(() => {
     const list = store.config?.interiors || [];
     return list.map((it, idx) => {
         const isUnlocked = unlockedInteriorsSet.value.has(it.id);
+        const categoryName = it.categoryDisplayName || interiorCategoryMap[it.category] || it.category || '内装设施';
+        const revenuePct = it.revenueBonusPerLevel != null ? Number((it.revenueBonusPerLevel * 100).toFixed(1)) : 0;
         return {
             category: 'INTERIOR',
             categoryName: '内装设施',
@@ -63,21 +71,31 @@ const interiorItems = computed(() => {
             id: it.id,
             name: it.displayName || it.id,
             isUnlocked,
-            targetCategory: it.targetCategory === 'ACCOMMODATION' ? '适用于住宿类' : '适用于配套类',
-            comfortBonus: it.comfortBonusByLevel ? it.comfortBonusByLevel.join(' / ') : '--',
-            revenueBonus: it.revenueBonusByLevel ? it.revenueBonusByLevel.join(' / ') : '--',
+            // 严格展示配置字段：类别、每级收益加成
+            propCategory: categoryName,
+            propDetail: `每级收益 +${revenuePct}%`,
             unlockTip: '首次在建筑中完成该内装设施的新建或升级时解锁。',
+            story: it.story || '',
             detail: it,
         };
     });
 });
 
-// 3. 度假村地块图鉴
+// 3. 度假村地块图鉴：展示【区域名称】、【长宽】
 const plotItems = computed(() => {
     const list = store.config?.plots || [];
+    const regionNameMap = {};
+    if (store.config?.regions) {
+        for (const r of store.config.regions) {
+            if (r.id) regionNameMap[r.id] = r.displayName || r.name || r.id;
+        }
+    }
     return list.map((p, idx) => {
         const isUnlocked = unlockedPlotsSet.value.has(p.id);
         const regionCfg = store.config?.regionsById?.[p.region];
+        const regionName = regionCfg?.displayName || regionNameMap[p.region] || p.region || '度假村';
+        const width = p.width ?? p.gridWidth ?? 0;
+        const height = p.height ?? p.gridHeight ?? 0;
         return {
             category: 'PLOT',
             categoryName: '度假村地块',
@@ -86,21 +104,25 @@ const plotItems = computed(() => {
             id: p.id,
             name: p.displayName || p.id,
             isUnlocked,
-            regionName: regionCfg?.displayName || p.region || '度假区',
-            gridSize: `${p.gridWidth || 4} × ${p.gridHeight || 4} 单元格`,
-            costDesc: p.isUnlockedByDefault ? '初始领地' : `解锁资金: ${fmtMoney(p.unlockCost)}`,
+            // 严格展示配置字段：区域名称、长宽
+            propCategory: regionName,
+            propDetail: `长宽 ${width} × ${height}`,
             unlockTip: '首次购买并解锁该地块时解锁。',
+            story: p.story || '',
             detail: p,
         };
     });
 });
 
-// 4. 员工岗位图鉴
+// 4. 员工岗位图鉴：展示【招聘中介费】、【员工升级所需工作天数】
 const positionItems = computed(() => {
     const list = store.config?.positions || [];
     return list.map((pos, idx) => {
         const isUnlocked = unlockedPositionsSet.value.has(pos.id);
-        const abilityCfg = store.config?.abilitiesById?.[pos.abilityType];
+        const hireCostText = pos.hireCost != null ? `招聘费 ¥${pos.hireCost}` : '招聘费 --';
+        const upgradeDays = Array.isArray(pos.upgradeDaysByLevel) && pos.upgradeDaysByLevel.length
+            ? pos.upgradeDaysByLevel.join('/')
+            : (pos.upgradeDaysByLevel ?? '--');
         return {
             category: 'POSITION',
             categoryName: '员工岗位',
@@ -109,10 +131,11 @@ const positionItems = computed(() => {
             id: pos.id,
             name: pos.displayName || pos.id,
             isUnlocked,
-            abilityName: abilityCfg?.displayName || pos.abilityType || '专业服务',
-            abilityValues: pos.abilityValueByLevel ? pos.abilityValueByLevel.join(' / ') : '--',
-            salaries: pos.salaryByLevel ? pos.salaryByLevel.join(' / ') : '--',
+            // 严格展示配置字段：招聘中介费、员工升级所需工作天数
+            propCategory: hireCostText,
+            propDetail: `升级工作 ${upgradeDays} 天`,
             unlockTip: '首次在度假村中成功招聘该岗位的员工时解锁。',
+            story: pos.story || '',
             detail: pos,
         };
     });
@@ -313,24 +336,12 @@ const filteredItems = computed(() => {
                         <span v-else class="locked-text">？？？？</span>
                     </div>
 
-                    <!-- 属性指标摘要 -->
+                    <!-- 属性指标摘要：严格展示后管配置参数 -->
                     <div class="card-metrics">
                         <template v-if="item.isUnlocked">
-                            <div v-if="item.category === 'FORM'" class="metric-row">
-                                <span class="tag faint">{{ item.buildingCategory }}</span>
-                                <span class="desc dim">{{ item.capacityDesc }}</span>
-                            </div>
-                            <div v-if="item.category === 'INTERIOR'" class="metric-row">
-                                <span class="tag faint">{{ item.targetCategory }}</span>
-                                <span class="desc dim">舒适度加成: {{ item.comfortBonus }}</span>
-                            </div>
-                            <div v-if="item.category === 'PLOT'" class="metric-row">
-                                <span class="tag faint">{{ item.regionName }}</span>
-                                <span class="desc dim">{{ item.gridSize }}</span>
-                            </div>
-                            <div v-if="item.category === 'POSITION'" class="metric-row">
-                                <span class="tag faint">{{ item.abilityName }}</span>
-                                <span class="desc dim">能力值: {{ item.abilityValues }}</span>
+                            <div class="metric-row">
+                                <span class="tag faint">{{ item.propCategory }}</span>
+                                <span class="desc dim">{{ item.propDetail }}</span>
                             </div>
                         </template>
 
@@ -376,48 +387,20 @@ const filteredItems = computed(() => {
                     </div>
 
                     <div v-else class="detail-content">
-                        <!-- 建筑形态详情 -->
-                        <div v-if="selectedItem.category === 'FORM'" class="detail-section">
-                            <div class="section-title">🏰 建筑形态档案</div>
-                            <div class="kv-grid">
-                                <div class="kv-item"><span class="k">形态ID:</span><span class="v num">{{ selectedItem.id }}</span></div>
-                                <div class="kv-item"><span class="k">大类分类:</span><span class="v">{{ selectedItem.buildingCategory }}</span></div>
-                                <div class="kv-item"><span class="k">进化阶层:</span><span class="v">Tier {{ selectedItem.tier }}</span></div>
-                                <div class="kv-item"><span class="k">容量规格:</span><span class="v">{{ selectedItem.capacityDesc }}</span></div>
-                                <div class="kv-item full"><span class="k">收益配置:</span><span class="v">{{ selectedItem.priceDesc }}</span></div>
+                        <!-- 仅展示两个字段：名称 与 故事 -->
+                        <div class="story-archive-card">
+                            <div class="archive-row">
+                                <span class="archive-field-tag">名称</span>
+                                <h3 class="archive-name-val">{{ selectedItem.name }}</h3>
                             </div>
-                        </div>
-
-                        <!-- 内装设施详情 -->
-                        <div v-if="selectedItem.category === 'INTERIOR'" class="detail-section">
-                            <div class="section-title">🛋️ 内装设施档案</div>
-                            <div class="kv-grid">
-                                <div class="kv-item"><span class="k">内装ID:</span><span class="v num">{{ selectedItem.id }}</span></div>
-                                <div class="kv-item"><span class="k">适用大类:</span><span class="v">{{ selectedItem.targetCategory }}</span></div>
-                                <div class="kv-item full"><span class="k">各级舒适度:</span><span class="v num">{{ selectedItem.comfortBonus }}</span></div>
-                                <div class="kv-item full"><span class="k">各级收益加成:</span><span class="v num">{{ selectedItem.revenueBonus }}</span></div>
-                            </div>
-                        </div>
-
-                        <!-- 度假村地块详情 -->
-                        <div v-if="selectedItem.category === 'PLOT'" class="detail-section">
-                            <div class="section-title">🗺️ 度假村地块档案</div>
-                            <div class="kv-grid">
-                                <div class="kv-item"><span class="k">地块ID:</span><span class="v num">{{ selectedItem.id }}</span></div>
-                                <div class="kv-item"><span class="k">所属区域:</span><span class="v">{{ selectedItem.regionName }}</span></div>
-                                <div class="kv-item"><span class="k">领地网格:</span><span class="v">{{ selectedItem.gridSize }}</span></div>
-                                <div class="kv-item full"><span class="k">开拓说明:</span><span class="v">{{ selectedItem.costDesc }}</span></div>
-                            </div>
-                        </div>
-
-                        <!-- 员工岗位详情 -->
-                        <div v-if="selectedItem.category === 'POSITION'" class="detail-section">
-                            <div class="section-title">👔 员工岗位档案</div>
-                            <div class="kv-grid">
-                                <div class="kv-item"><span class="k">岗位ID:</span><span class="v num">{{ selectedItem.id }}</span></div>
-                                <div class="kv-item"><span class="k">负责能力:</span><span class="v">{{ selectedItem.abilityName }}</span></div>
-                                <div class="kv-item full"><span class="k">各级服务能力:</span><span class="v num">{{ selectedItem.abilityValues }}</span></div>
-                                <div class="kv-item full"><span class="k">每日薪资结构:</span><span class="v num">{{ selectedItem.salaries }}</span></div>
+                            <div class="archive-divider"></div>
+                            <div class="archive-row">
+                                <span class="archive-field-tag">故事</span>
+                                <div class="archive-story-content">
+                                    <span class="quote-mark">“</span>
+                                    <p class="story-paragraph">{{ selectedItem.story || '暂无更多典藏故事记载。' }}</p>
+                                    <span class="quote-mark end">”</span>
+                                </div>
                             </div>
                         </div>
 
@@ -749,14 +732,23 @@ const filteredItems = computed(() => {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 8px;
-    font-size: 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 11px;
 }
 
 .tag {
-    background: rgba(255, 255, 255, 0.06);
-    padding: 2px 6px;
+    background: rgba(90, 140, 255, 0.12);
+    border: 1px solid rgba(90, 140, 255, 0.25);
+    color: #a5c3ff;
+    padding: 2px 7px;
     border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.desc {
+    color: #e2e8f0;
     font-size: 11px;
 }
 
@@ -884,47 +876,82 @@ const filteredItems = computed(() => {
     line-height: 1.5;
 }
 
-.detail-section {
-    margin-bottom: 20px;
-}
-
-.section-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-dim);
-    margin-bottom: 12px;
-    border-bottom: 1px solid var(--border-soft);
-    padding-bottom: 6px;
-}
-
-.kv-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-}
-
-.kv-item {
+.story-archive-card {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    background: var(--panel-2);
-    padding: 8px 12px;
-    border-radius: 6px;
+    gap: 16px;
+    background: linear-gradient(145deg, rgba(25, 33, 52, 0.8) 0%, rgba(18, 24, 38, 0.95) 100%);
+    border: 1px solid rgba(220, 180, 110, 0.25);
+    border-radius: 10px;
+    padding: 20px 22px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
-.kv-item.full {
-    grid-column: 1 / -1;
+.archive-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.kv-item .k {
+.archive-field-tag {
+    align-self: flex-start;
     font-size: 11px;
-    color: var(--text-faint);
+    font-weight: 700;
+    color: #e5c17d;
+    background: rgba(229, 193, 125, 0.12);
+    border: 1px solid rgba(229, 193, 125, 0.3);
+    padding: 2px 10px;
+    border-radius: 4px;
+    letter-spacing: 1px;
 }
 
-.kv-item .v {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
+.archive-name-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    margin: 0;
+    padding-left: 2px;
+}
+
+.archive-divider {
+    height: 1px;
+    background: linear-gradient(90deg, rgba(229, 193, 125, 0.3) 0%, rgba(255, 255, 255, 0.05) 100%);
+    margin: 4px 0;
+}
+
+.archive-story-content {
+    position: relative;
+    background: rgba(10, 14, 24, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 16px 20px;
+}
+
+.quote-mark {
+    font-size: 24px;
+    line-height: 1;
+    font-family: Georgia, serif;
+    color: rgba(229, 193, 125, 0.45);
+    font-weight: bold;
+    display: inline-block;
+    user-select: none;
+}
+
+.quote-mark.end {
+    display: block;
+    text-align: right;
+    margin-top: 4px;
+}
+
+.story-paragraph {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #d1d7e0;
+    margin: 6px 0 0 0;
+    text-indent: 2em;
+    letter-spacing: 0.3px;
+    white-space: pre-line;
 }
 
 .stamp-box {

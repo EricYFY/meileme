@@ -519,6 +519,7 @@ function addBuildingForm() {
         maxInteriorLevel: [3, 3, 3],
         abilityDemands: initialDemands,
         availableInteriors: form.value.interiors?.slice(0, 3).map((it) => it.id) || [],
+        story: '',
     });
 }
 function removeBuildingForm(idx) {
@@ -607,6 +608,7 @@ function addInterior() {
         segmentAffinityPerLevel: segAffinities,
         upgradeCostByLevel: [1000, 2000, 4000],
         upgradeDaysByLevel: [1, 2, 3],
+        story: '',
     });
 }
 function removeInterior(idx) {
@@ -692,6 +694,7 @@ function addPlot() {
         allowedMothers: form.value.mothers?.filter((m) => m.isOpen)?.map((m) => m.id) || [],
         evolveTierCap: 2,
         unlockedByDefault: false,
+        story: '',
     });
 }
 function removePlot(idx) {
@@ -739,6 +742,7 @@ function addPosition() {
         trainDaysByLevel: [1, 2],
         trainCostByLevel: [300, 600],
         compensationBase: 700,
+        story: '',
     });
 }
 function removePosition(idx) {
@@ -1476,6 +1480,16 @@ function removeAchievement(idx) {
                                         </label>
                                     </div>
                                 </div>
+
+                                <div class="sub-section">
+                                    <div class="sub-label">📖 典藏故事 (图鉴介绍)：</div>
+                                    <textarea
+                                        v-model="f.story"
+                                        rows="2"
+                                        placeholder="填写该形态在图鉴中展示的背景故事..."
+                                        style="width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px;"
+                                    ></textarea>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1635,6 +1649,16 @@ function removeAchievement(idx) {
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="sub-section">
+                                    <div class="sub-label">📖 典藏故事 (图鉴介绍)：</div>
+                                    <textarea
+                                        v-model="it.story"
+                                        rows="2"
+                                        placeholder="填写该内装设施在图鉴中展示的背景故事..."
+                                        style="width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px;"
+                                    ></textarea>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1763,6 +1787,16 @@ function removeAchievement(idx) {
                                             {{ m.displayName }}
                                         </label>
                                     </div>
+                                </div>
+
+                                <div class="sub-section">
+                                    <div class="sub-label">📖 典藏故事 (图鉴介绍)：</div>
+                                    <textarea
+                                        v-model="p.story"
+                                        rows="2"
+                                        placeholder="填写该地块在图鉴中展示的地理风貌与背景故事..."
+                                        style="width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px;"
+                                    ></textarea>
                                 </div>
                             </div>
                         </div>
@@ -1925,6 +1959,16 @@ function removeAchievement(idx) {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="sub-section">
+                                    <div class="sub-label">📖 典藏故事 (图鉴介绍)：</div>
+                                    <textarea
+                                        v-model="pos.story"
+                                        rows="2"
+                                        placeholder="填写该岗位员工在图鉴中展示的背景事迹与职业故事..."
+                                        style="width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); color: #fff; font-size: 13px;"
+                                    ></textarea>
                                 </div>
                             </div>
                         </div>
