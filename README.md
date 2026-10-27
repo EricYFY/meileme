@@ -214,45 +214,30 @@ meileme/
 │           ├── region/                       # 大区地块切换与解锁进度
 │           └── log/                          # 经营日报与历史区间报表
 │
-├── frontendphaser/                       # 🎮 Phaser 3 等轴测(Isometric 2:1)玩家游戏前端 (端口 5174)
-│   ├── package.json
-│   ├── vite.config.js                        # 独立 Vite 配置 (端口 5174)
-│   ├── index.html
-│   └── src/
-│       ├── main.js                           # 游戏入口，集成 Phaser 与 UI Overlay
-│       ├── config/                           # 游戏参数与 assetConfig 等轴测贴图生成器(预留 Kenney/Tiled)
-│       ├── network/                          # 复用现有 WebSocket 客户端与 gameStore 状态管理
-│       ├── scenes/                           # BootScene (预加载)、MainScene (2:1等轴测地图、相机平移缩放、深度排序、粒子演出)
-│       ├── ui/                               # 拟态沉浸式全套玩家侧功能 UI (HUD, Dock 8大模块对齐)
-│       │   └── components/                   # OverviewModal, RegionModal, BuildingModal, StaffModal, SkillModal, AchievementModal, CodexModal, DailyLogModal
-│       └── utils/                            # isoUtils (等轴测 2:1 坐标变换与拾取)
-│
 ├── CONFIG_DICTIONARY.md                  # 📖 全系统配置全字段详查字典手册 (v2.0)
 └── README.md                            # 📘 系统整体架构、业务规则与快速启动说明书
 ```
 
 ---
 
-### 💡 双前端功能对齐矩阵 (Vue3 vs Phaser 3)
+### 💡 前端地图双视图与功能架构
 
-| 核心玩家功能模块 | Vue3 (`frontendweb`) | Phaser 3 (`frontendphaser`) | 对齐状态 |
-| :--- | :--- | :--- | :--- |
-| **状态栏 / HUD** | 顶部 StatusBar (资金/天数/倍速/启停) | 顶部拟态 HUD (资金/天数/倍速/启停/连接状态指示) | ✅ 100% 对齐 |
-| **总览 (Overview)** | 今日预计、客群洞察、人力供需、建筑清单 | OverviewModal (预计收益、客群转化、供需比对、建筑清单) | ✅ 100% 对齐 |
-| **区块 (Region)** | RegionPanel (大区客流、地块链式解锁、前置成就) | RegionModal (大区切换、链式解锁校验、费用支付、母本限制) | ✅ 100% 对齐 |
-| **地块地图 (Building)**| 2D 平面网格落格与脚手架 | 等轴测 2:1 (128×64) 立体大地图、拖拽平移缩放、深度排序 | ✅ 增强对齐 |
-| **建筑详情** | BuildingDetailModal (升星/分支/合并/内装) | BuildingModal (升星/分支/相邻合院融合/内装/相性评级) | ✅ 100% 对齐 |
-| **员工中心 (Staff)** | StaffPanel (人才市场招聘、出勤、晋升、解雇) | StaffModal (招聘签约、累计在岗、在职晋升培训、解雇违约金) | ✅ 100% 对齐 |
-| **经营科技 (Skill)** | SkillTreePanel (SVG 科技树、依赖拓扑) | SkillModal (10大方向技能树、前置校验、科技点解锁) | ✅ 100% 对齐 |
-| **成就挑战 (Ach)** | AchievementProgress (6大维度成就、技能点奖励) | AchievementModal (达成进度条、技能点即时派发) | ✅ 100% 对齐 |
-| **全岛图鉴 (Codex)** | CodexPanel (4大类配置参数卡片、纯故事详情) | CodexModal (完全对齐最新规范，卡片展示配置参数，仅展示名称与故事) | ✅ 100% 对齐 |
-| **结算日志 (Log)** | SettlementLogModal (每日结单、区间分析) | DailyLogModal (每日收益明细、历史累计净利润、均日收入分析) | ✅ 100% 对齐 |
-| **等轴测地块地图** | PlotMapPanel (平面网格) | 2:1 等轴测立体数字沙盘（高对比度颜色格子：城镇灰/湖区蓝/山地褐/平原绿/可建地基深黑） | ✅ 表现升级 |
-| **可建格与地貌交互** | 格子显示「+」号与地形字样 | 翠绿发光地基边框 + 金色「+」浮动地标，自然地貌独立色彩与中心地标徽章 | ✅ 精准对齐 |
-| **规划建造交互** | 点击空可建格弹窗选择母本落格建造 | 点击金色「+」空地落格即时弹出规划建造选单，实时资金校验与工期倒计时 | ✅ 交互对齐 |
-| **建筑形态与等级表现** | 纯文字/色块卡片 (显示 formLevel 星级) | 立体等轴测彩色积木（严格对齐后端 `formLevel` 字段，精准展示 Lv1~Lv3 及对应「★」星级）；资产库底层完整预留 | ✅ 精准对齐 |
-| **挂机爽点演出** | 顶部 Toast 提示 | 屏幕中央金色庆贺横幅 + 金色粒子喷发 + Toast | ✅ 增强对齐 |
-| **后管配置 (Admin)** | AdminConfigModal (13大模块可视化配置) | *遵循约束不予移植，继续保留在 Vue3 端专属运行* | ✅ 严格受控 |
+| 核心玩家功能模块 | 表现与实现方式 | 状态 |
+| :--- | :--- | :--- |
+| **状态栏 / HUD** | 顶部 StatusBar (资金/天数/倍速/启停/后管入口) | ✅ 100% 具备 |
+| **总览 (Overview)** | 今日预计、客群洞察、人力供需比对、建筑运行清单 | ✅ 100% 具备 |
+| **区块 (Region)** | RegionPanel (大区客流、地块链式解锁、前置成就校验) | ✅ 100% 具备 |
+| **建筑平面地图 (Building)**| 2D 平面网格落格、空地建造与施工脚手架 | ✅ 经典网格 |
+| **建筑3D地图 (建筑phaser)**| `PlotMapPhaserPanel.vue`：Phaser 3 驱动的 2:1 等轴测立体彩色沙盘（城镇灰/湖区蓝/山地褐/平原绿/可建地基深黑），支持平移拖拽、滚轮平滑缩放、地形徽章、悬浮气泡 | ✅ 3D 等轴测增强 |
+| **建造交互** | 点击空可建格即时呼出原生 `BuildModal` 选单建造，资金与工期实时核验 | ✅ 100% 联动 |
+| **建筑详情与演化** | 点击建筑呼出原生 `BuildingDetailModal`：支持同形态升星、形态分支进化、内装扩建与相性分析 | ✅ 100% 联动 |
+| **合院融合** | 3D 地图支持相邻建筑点选配对，实时核验合并配方并开启复合融合施工 | ✅ 100% 具备 |
+| **员工中心 (Staff)** | StaffPanel (人才市场招聘签约、累计在岗、在职晋升培训、解雇) | ✅ 100% 具备 |
+| **经营科技 (Skill)** | SkillTreePanel (SVG 科技树、依赖拓扑、前置校验、科技点解锁) | ✅ 100% 具备 |
+| **成就挑战 (Ach)** | AchievementProgress (6大维度成就、技能点奖励即时派发) | ✅ 100% 具备 |
+| **全岛图鉴 (Codex)** | CodexPanel (4大类配置参数卡片展示，典藏详情查阅) | ✅ 100% 具备 |
+| **结算日志 (Log)** | SettlementLogModal (每日结单、历史累计收益分析) | ✅ 100% 具备 |
+| **后管配置 (Admin)** | AdminConfigModal (13大模块可视化配置、热重载下发) | ✅ 100% 具备 |
 
 ---
 
@@ -268,21 +253,24 @@ mvn clean test
 mvn spring-boot:run
 ```
 
-### 2. 启动前端（支持双前端同时运行）
-- **启动 Phaser 3 等轴测游戏前端 (推荐体验)**：
-  ```bash
-  cd frontendphaser
-  npm install
-  npm run dev
-  # 浏览器访问: http://localhost:5174
-  ```
-- **启动 Vue 3 综合前端 (含可视化后管模式)**：
-  ```bash
-  cd frontendweb
-  npm install
-  npm run dev
-  # 浏览器访问: http://localhost:5173
-  ```
+### 2. 启动前端
+```bash
+cd frontendweb
+npm install
+npm run dev
+# 浏览器访问: http://localhost:5173
+```
+
+### 3. 推荐使用方式
+1. 打开浏览器访问 `http://localhost:5173`（Vue3 核心端）；
+2. 顶部导航栏提供「**建筑**」（经典 2D 网格）与「**建筑phaser**」（2:1 等轴测 3D 立体沙盘）双模式自由切换；
+3. 在「**建筑phaser**」页签中：
+   - 鼠标按住可平移拖拽，滚轮可缩放地图视角，右上方提供居中复位、缩放控制器与「显示舒适度」图层切换；
+   - 默认展示当前已解锁的最高阶区块地图，自然地貌展示独立色块与徽章，可建地基展示金色浮动「+」号；
+   - 点击可建空地，无缝唤起成熟完备的原生 `BuildModal` 规划施工；
+   - 点击已有建筑立体积木，展示精准等级与星级（如 `Lv3 ★★★`），点击唤起成熟完备的原生 `BuildingDetailModal` 详情、升星、内装扩建与分支进化；
+   - 点击「两两合并」按钮，在 3D 沙盘中点选相邻两栋合院建筑，实时核验合并配方并开启复合融合施工；
+4. 点击顶部「⚙️ 管理员模式」可随时修改配置，保存后地图与数值即时热重载。
 
 ### 3. 推荐调试链路
 1. 启动后端 `8080`，可同时在浏览器打开 `5174` (Phaser 游戏端) 与 `5173` (Vue3 后管端)；

@@ -10,6 +10,7 @@ import AbilityPanel from './components/overview/AbilityPanel.vue';
 import RegionPanel from './components/region/RegionPanel.vue';
 import AchievementProgress from './components/region/AchievementProgress.vue';
 import PlotMapPanel from './components/building/PlotMapPanel.vue';
+import PlotMapPhaserPanel from './components/building/PlotMapPhaserPanel.vue';
 import StaffPanel from './components/staff/StaffPanel.vue';
 import SkillTreePanel from './components/skill/SkillTreePanel.vue';
 import BuildModal from './components/building/BuildModal.vue';
@@ -25,6 +26,7 @@ const TABS = [
     { key: 'overview', label: '总览' },
     { key: 'region', label: '区块' },
     { key: 'building', label: '建筑' },
+    { key: 'buildingPhaser', label: '建筑phaser' },
     { key: 'staff', label: '员工' },
     { key: 'skill', label: '技能' },
     { key: 'achievement', label: '成就' },
@@ -82,6 +84,10 @@ function openBuilding(b) { detailBuildingId.value = b.id; }
 
                 <div v-else-if="activeTab === 'building'">
                     <PlotMapPanel @open-building="openBuilding" @open-build="openBuild" />
+                </div>
+
+                <div v-else-if="activeTab === 'buildingPhaser'">
+                    <PlotMapPhaserPanel @open-building="openBuilding" @open-build="openBuild" />
                 </div>
 
                 <div v-else-if="activeTab === 'staff'">
